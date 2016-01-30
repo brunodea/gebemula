@@ -9,7 +9,9 @@ enum GenReg8 {
     H, L,
 }
 enum GenReg16 {
-    AF, BC, DE, HL, SP, PC
+    AF, BC, 
+    DE, HL, 
+    SP, PC
 }
 
 #[derive(Debug)]
@@ -37,26 +39,45 @@ impl Cpu {
             &GenReg16::PC => 5,
         }
     }
+    fn is_reg8_left(reg_name: &GenReg8) -> bool {
+        match reg_name {
+            &GenReg8::A | 
+            &GenReg8::B | 
+            &GenReg8::D | 
+            &GenReg8::H => true,
+
+            &GenReg8::F | 
+            &GenReg8::C | 
+            &GenReg8::E | 
+            &GenReg8::L => false,
+        }
+    }
     fn reg8(&self, reg_name: GenReg8) -> u8 {
         let reg_value: u16 = self.gen_registers[Cpu::reg_index8(&reg_name)];
-        let left_byte: u8  = (reg_value >> 8) as u8;
-        let right_byte: u8 = reg_value as u8;
-
-        match reg_name {
-            GenReg8::A | 
-            GenReg8::B | 
-            GenReg8::D | 
-            GenReg8::H => left_byte,
-
-            GenReg8::F | 
-            GenReg8::C | 
-            GenReg8::E | 
-            GenReg8::L => right_byte,
+        if Cpu::is_reg8_left(&reg_name) {
+            (reg_value >> 8) as u8
+        } else {
+            reg_value as u8
         }
     }
 
     fn reg16(&self, reg_name: GenReg16) -> u16 {
         self.gen_registers[Cpu::reg_index16(&reg_name)]
+    }
+
+    fn set_reg8(&mut self, value: u8, reg_name: GenReg8) {
+        let reg_index = Cpu::reg_index8(&reg_name);
+        let reg_value: u16 = self.gen_registers[reg_index];
+
+        if Cpu::is_reg8_left(&reg_name) {
+            self.gen_registers[reg_index] = (reg_value & 0x00ff) | ((value as u16) << 8);
+        } else {
+            self.gen_registers[reg_index] = (reg_value & 0xff00) | value as u16;
+        }
+    }
+    fn set_reg16(&mut self, value: u16, reg_name: GenReg16) {
+        let reg_index = Cpu::reg_index16(&reg_name);
+        self.gen_registers[reg_index] = value;
     }
 }
 
@@ -75,7 +96,7 @@ fn main() {
         let mut data = Vec::new();
         boostrap_rom.read_to_end(&mut data).unwrap();
 
-        let cpu: Cpu = Cpu::default();
+        let mut cpu: Cpu = Cpu::default();
         cpu.reg8(GenReg8::A);
         cpu.reg16(GenReg16::AF);
         println!("{:?}", cpu);
