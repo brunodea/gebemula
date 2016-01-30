@@ -1,0 +1,6 @@
+[package]
+name = "gebemula"
+version = "0.1.0"
+authors = ["Bruno Romero de Azevedo <brunodea@inf.ufsm.br>"]
+
+[dependencies]
