@@ -55,8 +55,6 @@ impl Cpu {
         }
     }
 
-    //reg_name is the left register name, e.g., if it is A we know for sure the 16bit register is
-    //AF, the same if reg_name is F.
     fn reg16(&self, reg_name: GenReg16) -> u16 {
         self.gen_registers[Cpu::reg_index16(&reg_name)]
     }
