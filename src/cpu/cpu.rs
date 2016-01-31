@@ -1,3 +1,9 @@
+use cpu::opcode::OpcodeMap;
+use cpu::rom::Rom;
+
+//should *always* have at least 1 element.
+pub type Instruction = Vec<u8>;
+
 pub enum GenReg8 {
     A, F,
     B, C,
@@ -14,6 +20,7 @@ pub enum GenReg16 {
 pub struct Cpu {
     //AF,BC,DE,HL,SP,PC
     gen_registers: Vec<u16>,
+    opcode_map: OpcodeMap,
 }
 
 impl Cpu {
@@ -77,12 +84,22 @@ impl Cpu {
         let reg_index = Cpu::reg_index16(&reg_name);
         self.gen_registers[reg_index] = value;
     }
+
+    pub fn execute_instruction(&self, instruction: Instruction) {
+        //TODO
+        //get operands
+        //perform calculations
+        //store result
+        //update time
+        //let opcode_obj: Opcode = self.opcode_map.opcode(instruction[0]);
+    }
 }
 
 impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             gen_registers: vec![0; 6],
+            opcode_map: OpcodeMap::new(),
         }
     }
 }
