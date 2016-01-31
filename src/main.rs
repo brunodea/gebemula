@@ -71,28 +71,6 @@ impl Default for OpcodeMap {
     }
 }
 
-impl OpcodeMap {
-
-
-    fn left_4(byte: &u8) -> u8 {
-        byte >> 4
-    }
-    fn right_4(byte: &u8) -> u8 {
-        byte & 0x0F
-    }
-    fn is_ld_8(opcode: &u8) -> bool {
-        let l4: u8 = OpcodeMap::left_4(opcode);
-        let r4: u8 = OpcodeMap::right_4(opcode);
-
-        //0x76 = HALT
-        *opcode != 0x76 && (
-            (l4 >= 0x4 && l4 <= 0x7) ||
-            (l4 <= 0x3 && (r4 == 0x2 || r4 == 0x6 || r4 == 0xA || r4 == 0xE)) ||
-            ((l4 == 0xE || l4 == 0xF) && (r4 == 0x0 || r4 == 0x2 || r4 == 0xA))
-        )
-    }
-}
-
 fn main() {
     let args: Vec<_> = env::args().collect();
     if args.len() == 2 {
