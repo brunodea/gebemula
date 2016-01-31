@@ -1,19 +1,19 @@
 use std::collections::HashMap;
+use cpu::cpu::Instruction;
 
-struct Opcode {
+#[derive(Debug)]
+pub struct Opcode {
     pub opcode: u8,
     pub num_bytes: u8,
     pub cycles: u8,
-    pub flags: u8,
 }
 
 impl Opcode {
-    pub fn new(opcode: u8, num_bytes: u8, cycles: u8, flags: u8) -> Opcode {
+    pub fn new(opcode: u8, num_bytes: u8, cycles: u8) -> Opcode {
         Opcode {
             opcode: opcode,
             num_bytes: num_bytes,
             cycles: cycles,
-            flags: flags,
         }
     }
 }
@@ -70,7 +70,7 @@ impl OpcodeMap {
         }
     }
 
-    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<Vec<u8>> {
+    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<Instruction> {
         let mut data_iter = bytes.iter();
         let mut all_instructions = Vec::new();
         loop {
@@ -84,7 +84,7 @@ impl OpcodeMap {
                         nbytes = self.opcode(opcode_byte).num_bytes;
                     }
 
-                    let mut instruction: Vec<u8> = Vec::new();
+                    let mut instruction: Instruction = Instruction::new();
                     instruction.push(*opcode_byte);
 
                     //starts from 1 because the first byte was already added.
