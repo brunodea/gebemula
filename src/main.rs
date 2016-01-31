@@ -94,12 +94,12 @@ fn main() {
                     let mut nbytes: u8 = *num_bytes;
                     //bit operation
                     if *opcode == 0xCB {
-                        nbytes = bitop_bytes; //-1 because 1 of the bytes is the opcode, added before the loop.
+                        nbytes = bitop_bytes;
                     }
 
-                    nbytes = nbytes - 1;
                     word.push(opcode);
-                    for n in 0..nbytes {
+                    //starts from 1 because the first byte was already added.
+                    for n in 1..nbytes {
                         word.push(data_iter.next().unwrap());
                     }
 
