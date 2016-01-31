@@ -1,5 +1,3 @@
-use cpu::opcode::OpcodeMap;
-
 pub struct Rom {
     pub rom_bytes: Vec<u8>,
 }

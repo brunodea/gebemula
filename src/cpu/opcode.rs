@@ -30,7 +30,7 @@ impl OpcodeMap {
         let mut is_cb: bool = false;
         for opcode in 0x0..0xFF {
             let num_bytes = OpcodeMap::opcode_num_bytes(&opcode);
-            let mut cycles = OpcodeMap::opcode_cycles(&opcode, is_cb);
+            let cycles = OpcodeMap::opcode_cycles(&opcode, is_cb);
             is_cb = opcode == 0xCB;
 
             let opcode_obj: Opcode = Opcode::new(opcode, num_bytes, cycles);
@@ -146,19 +146,13 @@ impl OpcodeMap {
         loop {
             match data_iter.next() {
                 Some(opcode_byte) => {
-                    let mut nbytes: u8 = 0x0;
-                    //0xCB is the prefix for bit operations
-                    if *opcode_byte == 0xCB {
-                        nbytes = 0x2; //bit operation always require 2 bytes.
-                    } else {
-                        nbytes = self.opcode(opcode_byte).num_bytes;
-                    }
+                    let nbytes = self.opcode(opcode_byte).num_bytes;
 
                     let mut instruction: Instruction = Instruction::new();
                     instruction.push(*opcode_byte);
 
                     //starts from 1 because the first byte was already added.
-                    for n in 1..nbytes {
+                    for _ in 1..nbytes {
                         match data_iter.next() {
                             Some(byte) => {
                                 instruction.push(*byte);

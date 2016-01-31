@@ -4,7 +4,7 @@ use std::env;
 use std::io::Read;
 use std::fs::File;
 
-use cpu::cpu::{Cpu, GenReg8, GenReg16};
+use cpu::cpu::Cpu;
 use cpu::rom::Rom;
 use cpu::opcode::OpcodeMap;
 
@@ -15,11 +15,11 @@ fn main() {
         let mut data: Vec<u8> = Vec::new();
         boostrap_rom.read_to_end(&mut data).unwrap();
 
-        let mut cpu: Cpu = Cpu::default();
-        println!("{:?}", cpu);
+        let cpu: Cpu = Cpu::default();
+        println!("{:#?}", cpu);
 
         let opcode_map = OpcodeMap::new();
-        let mut rom: Rom = Rom::new(data);
+        let rom: Rom = Rom::new(data);
 
         for instruction in opcode_map.fetch_instructions(&rom.rom_bytes) {
             for w in instruction {
