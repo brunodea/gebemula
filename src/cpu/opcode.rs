@@ -19,6 +19,7 @@ impl Opcode {
 }
 
 //TODO: use tuple struct with one element instead.
+#[derive(Debug)]
 pub struct OpcodeMap {
     map: HashMap<u8, Opcode>,
 }
@@ -26,40 +27,109 @@ pub struct OpcodeMap {
 impl OpcodeMap {
     pub fn new() -> OpcodeMap {
         let mut op_map: HashMap<u8, Opcode> = HashMap::new();
+        let mut is_cb: bool = false;
         for opcode in 0x0..0xFF {
-            let mut num_bytes = 0x1;
-            let mut cycles = 0x4;
-            
-            let l4: u8 = opcode >> 4;
-            let r4: u8 = opcode & 0x0F;
+            let num_bytes = OpcodeMap::opcode_num_bytes(&opcode);
+            let mut cycles = OpcodeMap::opcode_cycles(&opcode, is_cb);
+            is_cb = opcode == 0xCB;
 
-            //all cases for 2 byte long op.
-            if (r4 == 0x0 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
-               (r4 == 0x6 && (l4 <= 0x3 || l4 >= 0xC)) ||
-               (r4 == 0x8 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
-               (r4 == 0xE && (l4 <= 0x4 || l4 >= 0xC)) {
-
-               num_bytes = 0x2;
-            } else 
-
-            //all cases for 3 byte long op.
-            if (r4 == 0x1 && l4 <= 0x3) ||
-               (r4 == 0x2 && (l4 == 0xC || l4 == 0xD)) ||
-               (r4 == 0x3 && l4 == 0xC) ||
-               (r4 == 0x4 && (l4 == 0xC || l4 == 0xD)) ||
-               (r4 == 0x8 && l4 == 0x0) ||
-               (r4 == 0xA && l4 >= 0xC) ||
-               (r4 == 0xC && (l4 == 0xC || l4 == 0xD)) ||
-               (r4 == 0xD && l4 == 0xC) {
-
-               num_bytes = 0x3;
-            } 
-               
-            let opcode_obj: Opcode = Opcode::new(opcode, num_bytes, cycles, 0x0);
+            let opcode_obj: Opcode = Opcode::new(opcode, num_bytes, cycles);
             op_map.insert(opcode, opcode_obj);
         }
         OpcodeMap {
             map: op_map,
+        }
+    }
+
+    //*CAREFUL* -> some values from http://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
+    //are different than in the gameboy manual. Preference to the manual.
+    fn opcode_cycles(opcode: &u8, is_bit_op: bool) -> u8 {
+        let l4: u8 = opcode >> 4;
+        let r4: u8 = opcode & 0x0F;
+
+        if is_bit_op {
+            if r4 == 0x6 || r4 == 0xE {
+                return 16 as u8
+            } else {
+                return 8 as u8 
+            }
+        }
+
+        //all cases for cycle 8
+        if (r4 == 0x0 && (l4 == 0x3 || l4 == 0x2 || l4 == 0x7 || l4 == 0xC || l4 == 0xD)) ||
+           (r4 == 0x1 && l4 == 0x7) ||
+           (r4 == 0x2 && (l4 <= 0x3 || l4 == 0x7 || l4 >= 0xE)) ||
+           (r4 == 0x3 && (l4 <= 0x3 || l4 == 0x7)) ||
+           (r4 == 0x4 && l4 == 0x7) ||
+           (r4 == 0x5 && l4 == 0x7) ||
+           (r4 == 0x6 && l4 != 0x3 && l4 != 0x7) ||
+           (r4 == 0x7 && l4 == 0x7) ||
+           (r4 == 0x8 && (l4 == 0x2 || l4 == 0x3 || l4 == 0xC || l4 == 0xD || l4 == 0x1)) ||
+           (r4 == 0x9 && (l4 <= 0x3 || l4 == 0xF || l4 == 0xC || l4 == 0xD)) ||
+           (r4 == 0xA && l4 <= 0x3) ||
+           (r4 == 0xB && l4 <= 0x3) ||
+           (r4 == 0xE) {
+           
+           8 as u8
+        }
+        //all cases for cycle 12
+        else if *opcode == 0xE0 || *opcode == 0xF0 ||
+            (r4 == 0x1 && (l4 <= 0x3 || l4 >= 0xC)) ||
+            *opcode == 0xC2 || *opcode == 0xD2 ||
+            *opcode == 0xC4 || *opcode == 0xD4 ||
+            *opcode == 0xF8 ||
+            *opcode == 0xCA || *opcode == 0xDA ||
+            *opcode == 0xCC || *opcode == 0xDC ||
+            *opcode == 0xCD {
+
+            12 as u8
+        }
+        //all cases for cycle 16
+        else if *opcode == 0xC3  ||
+            (r4 == 0x5 && l4 >= 0xC) ||
+            *opcode == 0xE8 || 
+            *opcode == 0xFA || *opcode == 0xEA {
+            
+            16 as u8
+        } else if *opcode == 0x08 {
+
+            20 as u8
+        } else if (r4 == 0x7 && l4 >= 0xC) ||
+            (r4 == 0xF && l4 >= 0xC) {
+
+            32 as u8
+        } else {
+
+            4 as u8
+        }
+    }
+    
+    fn opcode_num_bytes(opcode: &u8) -> u8 {
+        let l4: u8 = opcode >> 4;
+        let r4: u8 = opcode & 0x0F;
+
+        //all cases for 2 byte long op.
+        if (r4 == 0x0 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
+           (r4 == 0x6 && (l4 <= 0x3 || l4 >= 0xC)) ||
+           (r4 == 0x8 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
+           (r4 == 0xE && (l4 <= 0x4 || l4 >= 0xC)) ||
+           (r4 == 0xB && l4 == 0xC) {
+
+           2 as u8
+        }
+        //all cases for 3 byte long op.
+        else if (r4 == 0x1 && l4 <= 0x3) ||
+            (r4 == 0x2 && (l4 == 0xC || l4 == 0xD)) ||
+            (r4 == 0x3 && l4 == 0xC) ||
+            (r4 == 0x4 && (l4 == 0xC || l4 == 0xD)) ||
+            (r4 == 0x8 && l4 == 0x0) ||
+            (r4 == 0xA && l4 >= 0xC) ||
+            (r4 == 0xC && (l4 == 0xC || l4 == 0xD)) ||
+            (r4 == 0xD && l4 == 0xC) {
+
+            3 as u8
+        } else {
+            1 as u8
         }
     }
 
