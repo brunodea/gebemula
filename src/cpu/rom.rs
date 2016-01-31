@@ -6,7 +6,7 @@ pub struct Rom {
     opcode_map: OpcodeMap,
 }
 
-//iterate over the words in a Rom.
+//iterate over the instructions in a Rom.
 impl Iterator for Rom {
     type Item = Vec<u8>;
 
@@ -20,8 +20,8 @@ impl Iterator for Rom {
                 nbytes = 0x2; //bit operation always require 2 bytes.
             }
 
-            let mut word: Vec<u8> = Vec::new();
-            word.push(*opcode);
+            let mut instruction: Vec<u8> = Vec::new();
+            instruction.push(*opcode);
 
             self.curr_byte_position += 1;
             //starts from 1 because the first byte was already added.
@@ -30,11 +30,11 @@ impl Iterator for Rom {
                     //TODO better message.
                     panic!("Invalid rom instruction.");
                 }
-                word.push(self.rom_bytes[self.curr_byte_position]);
+                instruction.push(self.rom_bytes[self.curr_byte_position]);
                 self.curr_byte_position += 1;
             }
 
-            Some(word)
+            Some(instruction)
         } else {
             None
         }

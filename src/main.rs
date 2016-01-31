@@ -23,8 +23,8 @@ fn main() {
 
         loop {
             match rom.next() {
-                Some(word) => {
-                    for w in &word {
+                Some(instruction) => {
+                    for w in &instruction {
                         print!("{}", format!("{:01$x}", w, 2));
                     }
                     println!("");
