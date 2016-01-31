@@ -41,7 +41,6 @@ impl Default for OpcodeMap {
 
             //all cases for 2 byte long op.
             if (r4 == 0x0 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
-               (r4 == 0x2 && (l4 == 0xE || l4 == 0xF)) ||
                (r4 == 0x6 && (l4 <= 0x3 || l4 >= 0xC)) ||
                (r4 == 0x8 && ((l4 >= 0x1 && l4 <= 0x3) || (l4 == 0xE || l4 == 0xF))) ||
                (r4 == 0xE && (l4 <= 0x4 || l4 >= 0xC)) {
