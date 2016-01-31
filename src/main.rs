@@ -18,19 +18,14 @@ fn main() {
         let mut cpu: Cpu = Cpu::default();
         println!("{:?}", cpu);
 
-        let op_map: OpcodeMap = OpcodeMap::new();
-        let mut rom: Rom = Rom::new(data, op_map);
+        let opcode_map = OpcodeMap::new();
+        let mut rom: Rom = Rom::new(data);
 
-        loop {
-            match rom.next() {
-                Some(instruction) => {
-                    for w in &instruction {
-                        print!("{}", format!("{:01$x}", w, 2));
-                    }
-                    println!("");
-                },
-                None => { break },
+        for instruction in opcode_map.fetch_instructions(&rom.rom_bytes) {
+            for w in instruction {
+                print!("{}", format!("{:01$x}", w, 2));
             }
+            println!("");
         }
     } else {
         println!("Invalid number of arguments.");

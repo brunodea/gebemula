@@ -69,6 +69,41 @@ impl OpcodeMap {
             None => panic!("Non existing opcode: {}", opcode),
         }
     }
+
+    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<Vec<u8>> {
+        let mut data_iter = bytes.iter();
+        let mut all_instructions = Vec::new();
+        loop {
+            match data_iter.next() {
+                Some(opcode_byte) => {
+                    let mut nbytes: u8 = 0x0;
+                    //0xCB is the prefix for bit operations
+                    if *opcode_byte == 0xCB {
+                        nbytes = 0x2; //bit operation always require 2 bytes.
+                    } else {
+                        nbytes = self.opcode(opcode_byte).num_bytes;
+                    }
+
+                    let mut instruction: Vec<u8> = Vec::new();
+                    instruction.push(*opcode_byte);
+
+                    //starts from 1 because the first byte was already added.
+                    for n in 1..nbytes {
+                        match data_iter.next() {
+                            Some(byte) => {
+                                instruction.push(*byte);
+                            },
+                            None => panic!("Invalid opcode instruction size."),
+                        }
+                    }
+
+                    all_instructions.push(instruction);
+                },
+                None => break,
+            }
+        }
+        all_instructions
+    }
 }
 
 
