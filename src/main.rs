@@ -1,11 +1,12 @@
 mod cpu;
+mod mem;
 
 use std::env;
 use std::io::Read;
 use std::fs::File;
 
 use cpu::cpu::Cpu;
-use cpu::rom::Rom;
+use mem::rom::Rom;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
