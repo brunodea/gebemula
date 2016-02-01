@@ -1,5 +1,4 @@
-use cpu::opcode::{OpcodeMap,Opcode};
-use cpu::rom::Rom;
+use cpu::opcode::OpcodeMap;
 
 //should *always* have at least 1 element.
 pub type Instruction = Vec<u8>;
