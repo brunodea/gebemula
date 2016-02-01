@@ -176,7 +176,7 @@ impl Cpu {
             }
             self.set_reg8(res, GenReg8::A);
         } else {
-            panic!("Can't execute instruction with opcode: {:x}", opcode);
+            panic!("Can't execute instruction with opcode: 0x{:x}", opcode);
         }
     }
 
