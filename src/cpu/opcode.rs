@@ -27,11 +27,9 @@ pub struct OpcodeMap {
 impl OpcodeMap {
     pub fn new() -> OpcodeMap {
         let mut op_map: HashMap<u8, Opcode> = HashMap::new();
-        let mut is_cb: bool = false;
         for opcode in 0x0..0xFF {
-            let num_bytes = OpcodeMap::opcode_num_bytes(&opcode);
-            let cycles = OpcodeMap::opcode_cycles(&opcode, is_cb);
-            is_cb = opcode == 0xCB;
+            let num_bytes: u8 = OpcodeMap::opcode_num_bytes(opcode);
+            let cycles: u8 = OpcodeMap::opcode_cycles(opcode, false);
 
             let opcode_obj: Opcode = Opcode::new(opcode, num_bytes, cycles);
             op_map.insert(opcode, opcode_obj);
@@ -41,9 +39,17 @@ impl OpcodeMap {
         }
     }
 
+    pub fn prefix_cb_num_bytes() -> u8 {
+        0x2 as u8
+    }
+
+    pub fn prefix_cb_cycles(opcode: u8) -> u8 {
+        OpcodeMap::opcode_cycles(opcode, true)
+    }
+
     //*CAREFUL* -> some values from http://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
     //are different than in the gameboy manual. Preference to the manual.
-    fn opcode_cycles(opcode: &u8, is_bit_op: bool) -> u8 {
+    fn opcode_cycles(opcode: u8, is_bit_op: bool) -> u8 {
         let l4: u8 = opcode >> 4;
         let r4: u8 = opcode & 0x0F;
 
@@ -73,25 +79,25 @@ impl OpcodeMap {
            8 as u8
         }
         //all cases for cycle 12
-        else if *opcode == 0xE0 || *opcode == 0xF0 ||
+        else if opcode == 0xE0 || opcode == 0xF0 ||
             (r4 == 0x1 && (l4 <= 0x3 || l4 >= 0xC)) ||
-            *opcode == 0xC2 || *opcode == 0xD2 ||
-            *opcode == 0xC4 || *opcode == 0xD4 ||
-            *opcode == 0xF8 ||
-            *opcode == 0xCA || *opcode == 0xDA ||
-            *opcode == 0xCC || *opcode == 0xDC ||
-            *opcode == 0xCD {
+            opcode == 0xC2 || opcode == 0xD2 ||
+            opcode == 0xC4 || opcode == 0xD4 ||
+            opcode == 0xF8 ||
+            opcode == 0xCA || opcode == 0xDA ||
+            opcode == 0xCC || opcode == 0xDC ||
+            opcode == 0xCD {
 
             12 as u8
         }
         //all cases for cycle 16
-        else if *opcode == 0xC3  ||
+        else if opcode == 0xC3  ||
             (r4 == 0x5 && l4 >= 0xC) ||
-            *opcode == 0xE8 || 
-            *opcode == 0xFA || *opcode == 0xEA {
+            opcode == 0xE8 || 
+            opcode == 0xFA || opcode == 0xEA {
             
             16 as u8
-        } else if *opcode == 0x08 {
+        } else if opcode == 0x08 {
 
             20 as u8
         } else if (r4 == 0x7 && l4 >= 0xC) ||
@@ -104,7 +110,7 @@ impl OpcodeMap {
         }
     }
     
-    fn opcode_num_bytes(opcode: &u8) -> u8 {
+    fn opcode_num_bytes(opcode: u8) -> u8 {
         let l4: u8 = opcode >> 4;
         let r4: u8 = opcode & 0x0F;
 
@@ -133,8 +139,8 @@ impl OpcodeMap {
         }
     }
 
-    pub fn opcode(&self, opcode: &u8) -> &Opcode {
-        match self.map.get(opcode) {
+    pub fn opcode(&self, opcode: u8) -> &Opcode {
+        match self.map.get(&opcode) {
             Some(opcode_obj) => opcode_obj,
             None => panic!("Non existing opcode: {}", opcode),
         }
@@ -146,7 +152,7 @@ impl OpcodeMap {
         loop {
             match data_iter.next() {
                 Some(opcode_byte) => {
-                    let nbytes = self.opcode(opcode_byte).num_bytes;
+                    let nbytes = self.opcode(*opcode_byte).num_bytes;
 
                     let mut instruction: Instruction = vec![0; nbytes as usize];
                     instruction[0] = *opcode_byte;
