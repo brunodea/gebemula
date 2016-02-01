@@ -4,16 +4,36 @@ use cpu::rom::Rom;
 //should *always* have at least 1 element.
 pub type Instruction = Vec<u8>;
 
-pub enum GenReg8 {
+enum Flag {
+    Z, N, H, C,
+}
+
+enum GenReg8 {
     A, F,
     B, C,
     D, E,
     H, L,
 }
-pub enum GenReg16 {
+enum GenReg16 {
     AF, BC, 
     DE, HL, 
     SP, PC
+}
+
+impl GenReg8 {
+    //only the 3bits on the right are evaluated.
+    fn pair_from_ddd(byte: u8) -> GenReg8 {
+        match byte {
+            0x00 => GenReg8::B,
+            0x01 => GenReg8::C,
+            0x02 => GenReg8::D,
+            0x03 => GenReg8::E,
+            0x04 => GenReg8::H,
+            0x05 => GenReg8::L,
+            0x07 => GenReg8::A,
+            _ => panic!("Invalid value for GenReg8 conversion."),
+        }
+    }
 }
 
 impl GenReg16 {
@@ -24,7 +44,7 @@ impl GenReg16 {
             0x01 => GenReg16::DE,
             0x02 => GenReg16::HL,
             0x03 => GenReg16::SP,
-            _ => panic!("Invalid value for GenReg16 convertion."),
+            _ => panic!("Invalid value for GenReg16 conversion."),
         }
     }
 }
@@ -33,10 +53,32 @@ impl GenReg16 {
 pub struct Cpu {
     //AF,BC,DE,HL,SP,PC
     gen_registers: Vec<u16>,
+    flags: u8,
     opcode_map: OpcodeMap,
 }
 
 impl Cpu {
+    fn flag_mask(flag: &Flag) -> u8 {
+        match flag {
+            &Flag::Z => 0b1000,
+            &Flag::N => 0b0100,
+            &Flag::H => 0b0010,
+            &Flag::C => 0b0001,
+        }
+    }
+
+    fn flag_set(&mut self, set: bool, flag: &Flag) {
+        if set {
+            self.flags |= Cpu::flag_mask(flag);
+        } else {
+            self.flags &= !Cpu::flag_mask(flag);
+        }
+    }
+
+    fn flag_is_set(&self, flag: &Flag) -> bool {
+        (Cpu::flag_mask(flag) & self.flags) == Cpu::flag_mask(flag)
+    }
+
     fn reg_index8(reg_name: &GenReg8) -> usize {
         match reg_name {
             &GenReg8::A | &GenReg8::F => 0,
@@ -109,12 +151,24 @@ impl Cpu {
         //store result
         //update time
         let opcode: u8 = instruction[0];
-        if is_instruction_ld_16(opcode) {
+        let l4: u8 = opcode >> 4;
+        let r4: u8 = opcode & 0x0F;
+        
+        if is_instruction_ld_16(l4, r4) {
             let rhs: u8 = instruction[1];
             let lhs: u8 = instruction[2];
             let val: u16 = ((lhs as u16) << 8) | rhs as u16;
             let reg16 = GenReg16::pair_from_dd(opcode >> 4);
             self.set_reg16(val, reg16);
+        } else if is_instruction_xor(l4, r4) {
+            let reg8 = GenReg8::pair_from_ddd(opcode & 0b0111);
+            let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
+            self.flags &= 0b1000;
+            if res == 0x0 {
+                self.flag_set(true, &Flag::Z);
+            }
+            self.set_reg8(res, GenReg8::A);
+
         } else {
             panic!("Can't execute instruction with opcode: {:x}", opcode);
         }
@@ -122,17 +176,16 @@ impl Cpu {
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) {
         let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
-        println!("CPU registers, before execution of rom: {:#?}", self.gen_registers);
         for instruction in instructions { 
             self.execute_instruction(&instruction);
             print!("CPU registers (0x");
             for i in instruction.iter() {
                 print!("{:01$x}", i, 2);
             }
-            print!("): ");
+            print!(") [{:01$b} ZNHC]: ", self.flags, 4);
             let mut i = 0;
             for r in self.gen_registers.iter() {
-                print!("0x{}({}),", format!("{:01$x}", r, 2), regs[i]);
+                print!("0x{}({}), ", format!("{:01$x}", r, 2), regs[i]);
                 i += 1;
             }
             println!("");
@@ -144,16 +197,17 @@ impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             gen_registers: vec![0; 6],
+            flags: 0b0000,
             opcode_map: OpcodeMap::new(),
         }
     }
 }
 
 
-fn is_instruction_ld_16(opcode: u8) -> bool {
-   let l4: u8 = opcode >> 4;
-   let r4: u8 = opcode & 0x0F;
-
+fn is_instruction_ld_16(l4: u8, r4: u8) -> bool {
    r4 == 0x1 && l4 <= 0x3
 }
 
+fn is_instruction_xor(l4: u8, r4: u8) -> bool {
+   (l4 == 0xA && r4 >= 0x8) || (l4 == 0xE && r4 == 0xE) 
+}
