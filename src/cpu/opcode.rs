@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use cpu::cpu::Instruction;
+use cpu::cpu::instruction::Instruction;
 
 #[derive(Debug)]
 pub struct Opcode {

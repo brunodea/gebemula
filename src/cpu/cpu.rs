@@ -1,8 +1,5 @@
 use cpu::opcode::OpcodeMap;
 
-//should *always* have at least 1 element.
-pub type Instruction = Vec<u8>;
-
 enum Flag {
     Z, N, H, C,
 }
@@ -200,10 +197,15 @@ impl Cpu {
     }
 }
 
-fn is_instruction_ld_16(l4: u8, r4: u8) -> bool {
-   r4 == 0x1 && l4 <= 0x3
-}
+pub mod instruction {
+    //should *always* have at least 1 element.
+    pub type Instruction = Vec<u8>;
 
-fn is_instruction_xor(l4: u8, r4: u8) -> bool {
-   (l4 == 0xA && r4 >= 0x8) || (l4 == 0xE && r4 == 0xE) 
+    pub fn is_ld_16(l4: u8, r4: u8) -> bool {
+       r4 == 0x1 && l4 <= 0x3
+    }
+
+    pub fn is_xor(l4: u8, r4: u8) -> bool {
+       (l4 == 0xA && r4 >= 0x8) || (l4 == 0xE && r4 == 0xE) 
+    }
 }
