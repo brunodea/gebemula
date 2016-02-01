@@ -148,14 +148,14 @@ impl OpcodeMap {
                 Some(opcode_byte) => {
                     let nbytes = self.opcode(opcode_byte).num_bytes;
 
-                    let mut instruction: Instruction = Instruction::new();
-                    instruction.push(*opcode_byte);
+                    let mut instruction: Instruction = vec![0; nbytes as usize];
+                    instruction[0] = *opcode_byte;
 
                     //starts from 1 because the first byte was already added.
-                    for _ in 1..nbytes {
+                    for n in 1..nbytes {
                         match data_iter.next() {
                             Some(byte) => {
-                                instruction.push(*byte);
+                                instruction[n as usize] = *byte;
                             },
                             None => panic!("Invalid opcode instruction size."),
                         }
