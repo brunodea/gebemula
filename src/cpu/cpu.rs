@@ -23,13 +23,13 @@ impl GenReg8 {
     //only the 3bits on the right are evaluated.
     fn pair_from_ddd(byte: u8) -> GenReg8 {
         match byte {
-            0x00 => GenReg8::B,
-            0x01 => GenReg8::C,
-            0x02 => GenReg8::D,
-            0x03 => GenReg8::E,
-            0x04 => GenReg8::H,
-            0x05 => GenReg8::L,
-            0x07 => GenReg8::A,
+            0b000 => GenReg8::B,
+            0b001 => GenReg8::C,
+            0b010 => GenReg8::D,
+            0b011 => GenReg8::E,
+            0b100 => GenReg8::H,
+            0b101 => GenReg8::L,
+            0b111 => GenReg8::A,
             _ => panic!("Invalid value for GenReg8 conversion."),
         }
     }
@@ -39,10 +39,10 @@ impl GenReg16 {
     //only the 2bits on the right are evaluated.
     fn pair_from_dd(byte: u8) -> GenReg16 {
         match byte {
-            0x00 => GenReg16::BC,
-            0x01 => GenReg16::DE,
-            0x02 => GenReg16::HL,
-            0x03 => GenReg16::SP,
+            0b00 => GenReg16::BC,
+            0b01 => GenReg16::DE,
+            0b10 => GenReg16::HL,
+            0b11 => GenReg16::SP,
             _ => panic!("Invalid value for GenReg16 conversion."),
         }
     }
