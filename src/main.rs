@@ -14,7 +14,7 @@ fn main() {
         let mut data: Vec<u8> = Vec::new();
         boostrap_rom.read_to_end(&mut data).unwrap();
 
-        let mut cpu: Cpu = Cpu::default();
+        let mut cpu: Cpu = Cpu::new();
         let rom: Rom = Rom::new(data);
         let instructions = &cpu.fetch_instructions(&rom.rom_bytes);
         cpu.execute_instructions(instructions);

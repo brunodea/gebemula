@@ -57,6 +57,14 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    pub fn new() -> Cpu {
+        Cpu {
+            gen_registers: vec![0; 6],
+            flags: 0b0000,
+            opcode_map: OpcodeMap::new(),
+        }
+    }
+
     fn flag_mask(flag: &Flag) -> u8 {
         match flag {
             &Flag::Z => 0b1000,
@@ -191,17 +199,6 @@ impl Cpu {
         }
     }
 }
-
-impl Default for Cpu {
-    fn default() -> Self {
-        Cpu {
-            gen_registers: vec![0; 6],
-            flags: 0b0000,
-            opcode_map: OpcodeMap::new(),
-        }
-    }
-}
-
 
 fn is_instruction_ld_16(l4: u8, r4: u8) -> bool {
    r4 == 0x1 && l4 <= 0x3
