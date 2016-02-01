@@ -70,19 +70,7 @@ impl Cpu {
             &Flag::C => 0b0001,
         }
     }
-
-    fn flag_set(&mut self, set: bool, flag: &Flag) {
-        if set {
-            self.flags |= Cpu::flag_mask(flag);
-        } else {
-            self.flags &= !Cpu::flag_mask(flag);
-        }
-    }
-
-    fn flag_is_set(&self, flag: &Flag) -> bool {
-        (Cpu::flag_mask(flag) & self.flags) == Cpu::flag_mask(flag)
-    }
-
+    
     fn reg_index8(reg_name: &GenReg8) -> usize {
         match reg_name {
             &GenReg8::A | &GenReg8::F => 0,
@@ -91,6 +79,7 @@ impl Cpu {
             &GenReg8::H | &GenReg8::L => 3,
         }
     }
+
     fn reg_index16(reg_name: &GenReg16) -> usize {
         match reg_name {
             &GenReg16::AF => 0,
@@ -101,6 +90,7 @@ impl Cpu {
             &GenReg16::PC => 5,
         }
     }
+
     fn is_reg8_left(reg_name: &GenReg8) -> bool {
         match reg_name {
             &GenReg8::A | 
@@ -115,6 +105,19 @@ impl Cpu {
         }
     }
 
+    fn flag_set(&mut self, set: bool, flag: &Flag) {
+        if set {
+            self.flags |= Cpu::flag_mask(flag);
+        } else {
+            self.flags &= !Cpu::flag_mask(flag);
+        }
+    }
+
+    fn flag_is_set(&self, flag: &Flag) -> bool {
+        (Cpu::flag_mask(flag) & self.flags) == Cpu::flag_mask(flag)
+    }
+
+    
     pub fn reg8(&self, reg_name: GenReg8) -> u8 {
         let reg_value: u16 = self.gen_registers[Cpu::reg_index8(&reg_name)];
         if Cpu::is_reg8_left(&reg_name) {
@@ -144,11 +147,11 @@ impl Cpu {
         self.gen_registers[reg_index] = value;
     }
 
-    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<Instruction> {
+    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<instruction::Instruction> {
         self.opcode_map.fetch_instructions(bytes)
     }
 
-    pub fn execute_instruction(&mut self, instruction: &Instruction) {
+    pub fn execute_instruction(&mut self, instruction: &instruction::Instruction) {
         //TODO
         //get operands
         //perform calculations
@@ -158,27 +161,26 @@ impl Cpu {
         let l4: u8 = opcode >> 4;
         let r4: u8 = opcode & 0x0F;
         
-        if is_instruction_ld_16(l4, r4) {
+        if instruction::is_ld_16(l4, r4) {
             let rhs: u8 = instruction[1];
             let lhs: u8 = instruction[2];
             let val: u16 = ((lhs as u16) << 8) | rhs as u16;
             let reg16 = GenReg16::pair_from_dd(opcode >> 4);
             self.set_reg16(val, reg16);
-        } else if is_instruction_xor(l4, r4) {
-            let reg8 = GenReg8::pair_from_ddd(opcode & 0b0111);
+        } else if instruction::is_xor(l4, r4) {
+            let reg8 = GenReg8::pair_from_ddd(opcode & 0b111);
             let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
             self.flags &= 0b1000;
             if res == 0x0 {
                 self.flag_set(true, &Flag::Z);
             }
             self.set_reg8(res, GenReg8::A);
-
         } else {
             panic!("Can't execute instruction with opcode: {:x}", opcode);
         }
     }
 
-    pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) {
+    pub fn execute_instructions(&mut self, instructions: &Vec<instruction::Instruction>) {
         let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
         for instruction in instructions { 
             self.execute_instruction(&instruction);
