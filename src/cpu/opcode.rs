@@ -1,21 +1,33 @@
-use std::collections::HashMap;
-use cpu::cpu::instruction::Instruction;
+use std::fmt;
 
-//TODO verify if all opcodes are in the correct AddressingMode.
-
-#[derive(Debug)]
 pub struct Opcode {
+    pub prefix: u8,
     pub opcode: u8,
+    pub params: Vec<u8>,
     pub cycles: u8,
-    pub num_bytes: u8,
+}
+
+impl fmt::Display for Opcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut prefix: String = "".to_string();
+        if self.prefix != 0x0 {
+            prefix = format!("{:01$x}", self.prefix, 2);
+        }
+        let mut params: String = "".to_string();
+        for p in self.params.iter() {
+            params = params + &format!("{:01$x}", p, 2);
+        }
+        write!(f, "0x{}{}{}",prefix,format!("{:01$x}",self.opcode, 2), params)
+    }
 }
 
 impl Opcode {
-    pub fn new(opcode: u8, cycles: u8, num_bytes: u8) -> Opcode {
+    pub fn new(prefix: u8, opcode: u8, cycles: u8, num_params: usize) -> Opcode {
         Opcode {
+            prefix: prefix,
             opcode: opcode,
+            params: vec![0; num_params],
             cycles: cycles,
-            num_bytes: num_bytes,
         }
     }
 
@@ -191,75 +203,41 @@ impl Opcode {
         Opcode::is_jp_cc_nn(opcode)  ||  Opcode::is_call_nn(opcode)   ||  Opcode::is_call_cc_nn(opcode)  ||
         Opcode::is_ld_nn_sp(opcode)
     }
-}
 
-//TODO: use tuple struct with one element instead.
-#[derive(Debug)]
-pub struct OpcodeMap {
-    map: HashMap<u16, Opcode>,
-}
-
-impl OpcodeMap {
-    pub fn new() -> OpcodeMap {
-        let mut op_map: HashMap<u16, Opcode> = HashMap::new();
-        for opcode in 0x0..0xFF {
-            let mut num_bytes: u8 = 2;
-            if opcode != 0xCB {
-                num_bytes = 1;
-                if Opcode::is_2bytes_long(opcode) {
-                    num_bytes = 2;
-                } else if Opcode::is_3bytes_long(opcode) {
-                    num_bytes = 3;
-                }
-            } else {
-                num_bytes = 0;
-            }
-            let opcode_obj: Opcode = Opcode::new(opcode, 0, num_bytes);
-            op_map.insert(opcode as u16, opcode_obj);
-        }
-        OpcodeMap {
-            map: op_map,
-        }
-    }
-
-    pub fn opcode(&self, opcode: u8) -> &Opcode {
-        match self.map.get(&(opcode as u16)) {
-            Some(opcode_obj) => opcode_obj,
-            None => panic!("Non existing opcode: {}", opcode),
-        }
-    }
-
-    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<Instruction> {
+    pub fn fetch_instructions(bytes: &Vec<u8>) -> Vec<Opcode> {
         let mut data_iter = bytes.iter();
         let mut all_instructions = Vec::new();
         loop {
             match data_iter.next() {
                 Some(opcode_byte) => {
-                    let opcode_obj: &Opcode = self.opcode(*opcode_byte);
-                    let mut nbytes = opcode_obj.num_bytes;
-                    if *opcode_byte == 0xCB {
-                        nbytes = 2; //1 for supporting the CB prefix + 1 for the CB-prefixed instruction.
+                    let mut opcode_b = *opcode_byte;
+                    let mut n_params: u8 = 0;
+                    let mut prefix = 0;
+                    if opcode_b != 0xCB {
+                        if Opcode::is_2bytes_long(opcode_b) {
+                            n_params = 1;
+                        } else if Opcode::is_3bytes_long(opcode_b) {
+                            n_params = 2;
+                        }
+                    } else {
+                        prefix = 0xCB;
+                        opcode_b = *data_iter.next().unwrap();
                     }
 
-                    let mut instruction: Instruction = vec![0; nbytes as usize];
-                    instruction[0] = *opcode_byte;
+                    let mut opcode_obj: Opcode = Opcode::new(prefix, opcode_b, 0, n_params as usize);
 
                     //starts from 1 because the first byte was already added.
-                    for n in 1..nbytes {
+                    for n in 0..n_params {
                         match data_iter.next() {
                             Some(byte) => {
-                                instruction[n as usize] = *byte;
+                                opcode_obj.params[n as usize] = *byte;
                             },
                             None => panic!("Invalid opcode instruction size."),
                         }
                     }
 
-                    print!("0x");
-                    for i in instruction.iter() {
-                        print!("{:01$x}", i, 2);
-                    }
-                    println!("");
-                    all_instructions.push(instruction);
+                    println!("{}", opcode_obj);
+                    all_instructions.push(opcode_obj);
                 },
                 None => break,
             }

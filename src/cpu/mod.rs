@@ -1,2 +1,2 @@
 pub mod cpu;
-mod opcode;
+pub mod opcode;

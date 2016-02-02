@@ -6,6 +6,7 @@ use std::io::Read;
 use std::fs::File;
 
 use cpu::cpu::Cpu;
+use cpu::opcode::Opcode;
 use mem::rom::Rom;
 
 fn main() {
@@ -17,8 +18,8 @@ fn main() {
 
         let mut cpu: Cpu = Cpu::new();
         let rom: Rom = Rom::new(data);
-        let instructions = &cpu.fetch_instructions(&rom.rom_bytes);
-        cpu.execute_instructions(instructions);
+        let instructions = Opcode::fetch_instructions(&rom.rom_bytes);
+        cpu.execute_instructions(&instructions);
     } else {
         println!("Invalid number of arguments.");
     }

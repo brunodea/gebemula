@@ -1,4 +1,4 @@
-use cpu::opcode::{Opcode,OpcodeMap};
+use cpu::opcode;
 
 enum Flag {
     Z, N, H, C,
@@ -50,7 +50,6 @@ pub struct Cpu {
     //AF,BC,DE,HL,SP,PC
     gen_registers: Vec<u16>,
     flags: u8,
-    opcode_map: OpcodeMap,
 }
 
 impl Cpu {
@@ -58,7 +57,6 @@ impl Cpu {
         Cpu {
             gen_registers: vec![0; 6],
             flags: 0b0000,
-            opcode_map: OpcodeMap::new(),
         }
     }
 
@@ -147,26 +145,22 @@ impl Cpu {
         self.gen_registers[reg_index] = value;
     }
 
-    pub fn fetch_instructions(&self, bytes: &Vec<u8>) -> Vec<instruction::Instruction> {
-        self.opcode_map.fetch_instructions(bytes)
-    }
-
-    pub fn execute_instruction(&mut self, instruction: &instruction::Instruction) {
+    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode) {
         //TODO
         //get operands
         //perform calculations
         //store result
         //update time
-        let opcode: u8 = instruction[0];
+        let opcode_b: u8 = opcode.opcode;
 
-        if Opcode::is_ld_dd_nn(opcode) {
-            let rhs: u8 = instruction[1];
-            let lhs: u8 = instruction[2];
+        if opcode::Opcode::is_ld_dd_nn(opcode.opcode) {
+            let rhs: u8 = opcode.params[0];
+            let lhs: u8 = opcode.params[1];
             let val: u16 = ((lhs as u16) << 8) | rhs as u16;
-            let reg16 = GenReg16::pair_from_dd(opcode >> 4);
+            let reg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
             self.set_reg16(val, reg16);
-        } else if Opcode::is_xor_r(opcode) {
-            let reg8 = GenReg8::pair_from_ddd(opcode & 0b111);
+        } else if opcode::Opcode::is_xor_r(opcode.opcode) {
+            let reg8 = GenReg8::pair_from_ddd(opcode.opcode & 0b111);
             let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
             self.flags &= 0b1000;
             if res == 0x0 {
@@ -174,19 +168,16 @@ impl Cpu {
             }
             self.set_reg8(res, GenReg8::A);
         } else {
-            panic!("Can't execute instruction with opcode: 0x{:x}", opcode);
+            panic!("Can't execute instruction with opcode: {}", opcode);
         }
     }
 
-    pub fn execute_instructions(&mut self, instructions: &Vec<instruction::Instruction>) {
+    pub fn execute_instructions(&mut self, opcodes: &Vec<opcode::Opcode>) {
         let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
-        for instruction in instructions { 
-            self.execute_instruction(&instruction);
-            print!("CPU registers (0x");
-            for i in instruction.iter() {
-                print!("{:01$x}", i, 2);
-            }
-            print!(") [{:01$b} ZNHC]: ", self.flags, 4);
+        for instruction in opcodes.iter() { 
+            self.execute_instruction(instruction);
+            print!("CPU registers ({})", instruction);
+            print!("[{:01$b} ZNHC]: ", self.flags, 4);
             let mut i = 0;
             for r in self.gen_registers.iter() {
                 print!("0x{}({}), ", format!("{:01$x}", r, 2), regs[i]);
@@ -195,9 +186,4 @@ impl Cpu {
             println!("");
         }
     }
-}
-
-pub mod instruction {
-    //should *always* have at least 1 element.
-    pub type Instruction = Vec<u8>;
 }
