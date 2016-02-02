@@ -160,7 +160,7 @@ impl Cpu {
         let opcode: u8 = instruction[0];
         let l4: u8 = opcode >> 4;
         let r4: u8 = opcode & 0x0F;
-        
+
         if instruction::is_ld_16(l4, r4) {
             let rhs: u8 = instruction[1];
             let lhs: u8 = instruction[2];
