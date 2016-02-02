@@ -283,12 +283,13 @@ impl OpcodeMap {
         loop {
             match data_iter.next() {
                 Some(opcode_byte) => {
-                    let mut nbytes = self.opcode(*opcode_byte).num_bytes;
-                    if nbytes == 0 {
-                        continue;
-                    }
+                    let opcode_obj: &Opcode = self.opcode(*opcode_byte);
+                    let mut nbytes = opcode_obj.num_bytes;
                     if *opcode_byte == 0xCB {
-                        nbytes += 1; //1 for supporting the CB prefix.
+                        nbytes = 2; //1 for supporting the CB prefix + 1 for the CB-prefixed instruction.
+                    } else if nbytes == 0 {
+                        println!("While fetching instructions, found invalid with 0 bytes: {:01$x}", *opcode_byte, 2);
+                        continue;
                     }
 
                     let mut instruction: Instruction = vec![0; nbytes as usize];
@@ -304,6 +305,11 @@ impl OpcodeMap {
                         }
                     }
 
+                    print!("0x");
+                    for i in instruction.iter() {
+                        print!("{:01$x}", i, 2);
+                    }
+                    println!("");
                     all_instructions.push(instruction);
                 },
                 None => break,
