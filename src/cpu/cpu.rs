@@ -1,4 +1,4 @@
-use cpu::opcode::OpcodeMap;
+use cpu::opcode::{Opcode,OpcodeMap};
 
 enum Flag {
     Z, N, H, C,
@@ -158,16 +158,14 @@ impl Cpu {
         //store result
         //update time
         let opcode: u8 = instruction[0];
-        let l4: u8 = opcode >> 4;
-        let r4: u8 = opcode & 0x0F;
 
-        if instruction::is_ld_16(l4, r4) {
+        if Opcode::is_ld_dd_nn(opcode) {
             let rhs: u8 = instruction[1];
             let lhs: u8 = instruction[2];
             let val: u16 = ((lhs as u16) << 8) | rhs as u16;
             let reg16 = GenReg16::pair_from_dd(opcode >> 4);
             self.set_reg16(val, reg16);
-        } else if instruction::is_xor(l4, r4) {
+        } else if Opcode::is_xor_r(opcode) {
             let reg8 = GenReg8::pair_from_ddd(opcode & 0b111);
             let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
             self.flags &= 0b1000;
@@ -202,12 +200,4 @@ impl Cpu {
 pub mod instruction {
     //should *always* have at least 1 element.
     pub type Instruction = Vec<u8>;
-
-    pub fn is_ld_16(l4: u8, r4: u8) -> bool {
-       r4 == 0x1 && l4 <= 0x3
-    }
-
-    pub fn is_xor(l4: u8, r4: u8) -> bool {
-       (l4 == 0xA && r4 >= 0x8) || (l4 == 0xE && r4 == 0xE) 
-    }
 }
