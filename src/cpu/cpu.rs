@@ -1,3 +1,4 @@
+use std::fmt;
 use cpu::opcode;
 use super::super::mem::mem;
 
@@ -51,6 +52,19 @@ pub struct Cpu {
     //AF,BC,DE,HL,SP,PC
     gen_registers: Vec<u16>,
     flags: u8,
+} impl fmt::Display for Cpu {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let regs_names: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
+        let pc: u16 = self.reg16(GenReg16::PC);
+        let flags = format!("[{:01$b} ZNHC]", self.flags, 4);
+        let mut regs: String = "".to_string();
+        let mut i = 0;
+        for r in self.gen_registers.iter() {
+            regs = regs + &format!("0x{}({}), ", format!("{:01$x}", r, 2), regs_names[i]);
+            i += 1;
+        }
+        write!(f, "CPU Registers: {} {}", flags, regs)
+    }
 }
 
 impl Cpu {
