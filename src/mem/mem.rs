@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
+//TODO: should be Box<T>?
 #[derive(Debug)]
 pub struct Memory<A: Hash + Eq, T> { //A: address type, T: data type.
     map: HashMap<A, T>,

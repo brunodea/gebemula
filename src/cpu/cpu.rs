@@ -176,49 +176,23 @@ impl Cpu {
         //store result
         //update time
         let mut no_instr: bool = false;
+        let mut handle_pc: bool = false;
 
         if opcode.prefix == 0xCB {
             if opcode::Opcode::is_cb_bit_s(opcode.opcode) {
-                let bit: u8 = (opcode.opcode >> 3) & 0b111;
-                let reg: u8 = self.reg8(GenReg8::pair_from_ddd(opcode.opcode));
-                
-                self.flag_set((reg >> bit) & 0b1 == 0b0, &Flag::Z);
-                self.flag_set(false, &Flag::N);
-                self.flag_set(true, &Flag::H);
+                self.exec_cb_bit_s(opcode);
             } else {
                 no_instr = true;
             }
         } else {
             if opcode::Opcode::is_ld_dd_nn(opcode.opcode) {
-                let rhs: u8 = opcode.params[0];
-                let lhs: u8 = opcode.params[1];
-                let val: u16 = ((lhs as u16) << 8) | rhs as u16;
-                let reg16: GenReg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
-                self.set_reg16(val, reg16);
+                self.exec_ld_dd_nn(opcode);
             } else if opcode::Opcode::is_xor_r(opcode.opcode) {
-                let reg8: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
-                let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
-                self.flags &= Cpu::flag_mask(&Flag::Z);
-                if res == 0x0 {
-                    self.flag_set(true, &Flag::Z);
-                }
-                self.set_reg8(res, GenReg8::A);
+                self.exec_xor_r(opcode);
             } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
-                let val_a = self.reg8(GenReg8::A);
-                let val_hl = self.reg16(GenReg16::HL);
-
-                memory.write(val_hl, Box::new(val_a));
-                self.set_reg16(val_hl-1, GenReg16::HL); 
+                self.exec_ldd_hl_a(opcode, memory);
             } else if opcode::Opcode::is_jr_nz_e(opcode.opcode) {
-                if self.flag_is_set(&Flag::Z) == false {
-                    //Two's complement
-                    let mut displacement: i8 = opcode.params[0] as i8;
-                    if displacement < 0 {
-                        displacement = -(!displacement - 1);
-                    }
-                    self.increment_pc(displacement as i16);
-                    return true
-                }
+                handle_pc = self.exec_jr_nz_e(opcode);
             } else {
                 no_instr = true;
             }
@@ -227,7 +201,7 @@ impl Cpu {
             panic!("Can't execute instruction with opcode: {}", opcode);
         }
 
-        false
+        handle_pc
     }
 
     pub fn execute_instructions(&mut self, opcodes: &mem::Memory<u16, opcode::Opcode>, starting_point: u16,
@@ -245,5 +219,50 @@ impl Cpu {
                 None => panic!("No opcode at address 0x{:01$x}", pc, 4),
             }
         }
+    }
+
+    /*Instructions execution codes*/
+    fn exec_cb_bit_s(&mut self, opcode: &opcode::Opcode) {
+        let bit: u8 = (opcode.opcode >> 3) & 0b111;
+        let reg: u8 = self.reg8(GenReg8::pair_from_ddd(opcode.opcode));
+        
+        self.flag_set((reg >> bit) & 0b1 == 0b0, &Flag::Z);
+        self.flag_set(false, &Flag::N);
+        self.flag_set(true, &Flag::H);
+    }
+    fn exec_ld_dd_nn(&mut self, opcode: &opcode::Opcode) {
+        let rhs: u8 = opcode.params[0];
+        let lhs: u8 = opcode.params[1];
+        let val: u16 = ((lhs as u16) << 8) | rhs as u16;
+        let reg16: GenReg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
+        self.set_reg16(val, reg16);
+    }
+    fn exec_xor_r(&mut self, opcode: &opcode::Opcode) {
+        let reg8: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
+        let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
+        self.flags &= Cpu::flag_mask(&Flag::Z);
+        if res == 0x0 {
+            self.flag_set(true, &Flag::Z);
+        }
+        self.set_reg8(res, GenReg8::A);
+    }
+    fn exec_ldd_hl_a(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+        let val_a = self.reg8(GenReg8::A);
+        let val_hl = self.reg16(GenReg16::HL);
+
+        memory.write(val_hl, Box::new(val_a));
+        self.set_reg16(val_hl-1, GenReg16::HL); 
+    }
+    fn exec_jr_nz_e(&mut self, opcode: &opcode::Opcode) -> bool {
+        if self.flag_is_set(&Flag::Z) == false {
+            //Two's complement
+            let mut displacement: i8 = opcode.params[0] as i8;
+            if displacement < 0 {
+                displacement = -(!displacement - 1);
+            }
+            self.increment_pc(displacement as i16);
+            return true
+        }
+        false
     }
 }
