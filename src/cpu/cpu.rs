@@ -218,7 +218,7 @@ impl Cpu {
                     }
                     println!("0x{} {}", format!("{:01$x}", pc, 4), self);
                 },
-                None => panic!("No opcode at address 0x{:01$x}", pc, 4),
+                None => panic!("No opcode at address 0x{:01$X}", pc, 4),
             }
         }
     }
