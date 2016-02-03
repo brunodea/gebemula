@@ -29,7 +29,7 @@ impl GenReg8 {
             0b100 => GenReg8::H,
             0b101 => GenReg8::L,
             0b111 => GenReg8::A,
-            _ => panic!("Invalid value for GenReg8 conversion. Value: 0b{:01$b}", byte, 4),
+            _ => panic!("Invalid value for GenReg8 conversion. Value: {:#01$b}", byte, 4),
         }
     }
 }
@@ -56,11 +56,11 @@ pub struct Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
         let pc: u16 = self.reg16(GenReg16::PC);
-        let flags = format!("[{:01$b} ZNHC]", self.flags, 4);
+        let flags = format!("[{:#01$b} ZNHC]", self.flags, 4);
         let mut regs: String = "".to_string();
         let mut i = 0;
         for r in self.gen_registers.iter() {
-            regs = regs + &format!("0x{}({}), ", format!("{:01$x}", r, 4), regs_names[i]);
+            regs = regs + &format!("{}({}), ", format!("{:#01$x}", r, 4), regs_names[i]);
             i += 1;
         }
         write!(f, "CPU Registers: {} {}", flags, regs)
@@ -218,9 +218,9 @@ impl Cpu {
                     if !self.execute_instruction(&opcode, memory) {
                         self.increment_pc(opcode.len() as i16);
                     }
-                    println!("0x{} {}", format!("{:01$x}", pc, 4), self);
+                    println!("{} {}", format!("{:#01$x}", pc, 4), self);
                 },
-                None => panic!("No opcode at address 0x{:01$X}", pc, 4),
+                None => panic!("No opcode at address {:#01$X}", pc, 4),
             }
         }
     }
