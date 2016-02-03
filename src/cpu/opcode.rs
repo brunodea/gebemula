@@ -201,7 +201,7 @@ impl Opcode {
         Opcode::is_and_n(opcode)      ||  Opcode::is_or_n(opcode)     ||  Opcode::is_xor_n(opcode)    ||
         Opcode::is_cp_n(opcode)       ||  Opcode::is_jr_e(opcode)     ||  Opcode::is_jr_c_e(opcode)   ||
         Opcode::is_jr_nc_e(opcode)    ||  Opcode::is_jr_z_e(opcode)   ||  Opcode::is_jr_nz_e(opcode)  ||
-        Opcode::is_add_sp_n(opcode)   ||
+        Opcode::is_add_sp_n(opcode)   ||  Opcode::is_ldh_n_a(opcode)  ||  Opcode::is_ldh_a_n(opcode)  ||
         Opcode::is_ldhl_sp_n(opcode)  ||  Opcode::is_stop(opcode)
     }
     fn is_3bytes_long(opcode: u8) -> bool {
