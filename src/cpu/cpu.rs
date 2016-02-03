@@ -55,7 +55,6 @@ pub struct Cpu {
 } impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
-        let pc: u16 = self.reg16(GenReg16::PC);
         let flags = format!("[{:#01$b} ZNHC]", self.flags, 4);
         let mut regs: String = "".to_string();
         let mut i = 0;
@@ -192,15 +191,23 @@ impl Cpu {
             } else if opcode::Opcode::is_xor_r(opcode.opcode) {
                 self.exec_xor_r(opcode);
             } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
-                self.exec_ldd_hl_a(opcode, memory);
+                self.exec_ldd_hl_a(memory);
             } else if opcode::Opcode::is_jr_nz_e(opcode.opcode) {
                 handle_pc = self.exec_jr_nz_e(opcode);
             } else if opcode::Opcode::is_ld_f000c_a(opcode.opcode) {
-                self.exec_ld_f000c_a(opcode, memory);
+                self.exec_ld_f000c_a(memory);
             } else if opcode::Opcode::is_ld_a_f000c(opcode.opcode) {
-                self.exec_ld_a_f000c(opcode, memory);
+                self.exec_ld_a_f000c(memory);
             } else if opcode::Opcode::is_di(opcode.opcode) {
                 self.exec_di(); 
+            } else if opcode::Opcode::is_ld_hl_r(opcode.opcode) {
+                self.exec_ld_hl_r(opcode, memory);
+            } else if opcode::Opcode::is_ld_r_hl(opcode.opcode) {
+                self.exec_ld_r_hl(opcode, memory);
+            } else if opcode::Opcode::is_ldh_n_a(opcode.opcode) {
+                self.exec_ldh_n_a(opcode, memory);
+            } else if opcode::Opcode::is_ldh_a_n(opcode.opcode) {
+                self.exec_ldh_a_n(opcode, memory);
             } else {
                 no_instr = true;
             }
@@ -254,7 +261,7 @@ impl Cpu {
         }
         self.set_reg8(res, GenReg8::A);
     }
-    fn exec_ldd_hl_a(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ldd_hl_a(&mut self, memory: &mut mem::Memory<u16, u8>) {
         let val_a = self.reg8(GenReg8::A);
         let val_hl = self.reg16(GenReg16::HL);
 
@@ -278,12 +285,12 @@ impl Cpu {
         let n: u8 = opcode.params[0];
         self.set_reg8(n, r);
     }
-    fn exec_ld_f000c_a(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ld_f000c_a(&mut self, memory: &mut mem::Memory<u16, u8>) {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
-        let regA: u8 = self.reg8(GenReg8::A);
-        memory.write(addr, Box::new(regA));
+        let reg: u8 = self.reg8(GenReg8::A);
+        memory.write(addr, Box::new(reg));
     }
-    fn exec_ld_a_f000c(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ld_a_f000c(&mut self, memory: &mem::Memory<u16, u8>) {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
         match memory.read(addr) {
             Some(value) => self.set_reg8(*value, GenReg8::A),
@@ -293,5 +300,31 @@ impl Cpu {
     fn exec_di(&mut self) {
         //TODO: disables interrupts but not emmediately. Interrupts are disabled after instruction
         //after DI is executed.
+    }
+    fn exec_ld_hl_r(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+        let r: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
+        let val_hl: u16 = self.reg16(GenReg16::HL);
+        let val_r: u8 = self.reg8(r);
+        memory.write(val_hl, Box::new(val_r));
+    }
+    fn exec_ld_r_hl(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory<u16, u8>) {
+        let addr: u16 = self.reg16(GenReg16::HL);
+        let reg: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode >> 3); 
+        match memory.read(addr) {
+            Some(value) => self.set_reg8(*value, reg),
+            None => self.set_reg8(0, reg),
+        }
+    }
+    fn exec_ldh_n_a(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+        let val_a: u8 = self.reg8(GenReg8::A);
+        let addr: u16 = 0xFF00 + opcode.params[0] as u16;
+        memory.write(addr, Box::new(val_a));
+    }
+    fn exec_ldh_a_n(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory<u16, u8>) {
+        let addr: u16 = 0xFF00 + opcode.params[0] as u16;
+        match memory.read(addr) {
+            Some(value) => self.set_reg8(*value, GenReg8::A),
+            None => self.set_reg8(0, GenReg8::A),
+        }
     }
 }
