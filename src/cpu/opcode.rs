@@ -3,6 +3,7 @@ use std::fmt;
 pub struct Opcode {
     pub prefix: u8,
     pub opcode: u8,
+    pub addr: u16,
     pub params: Vec<u8>,
     pub cycles: u8,
 }
@@ -22,13 +23,20 @@ impl fmt::Display for Opcode {
 }
 
 impl Opcode {
-    pub fn new(prefix: u8, opcode: u8, cycles: u8, num_params: usize) -> Opcode {
+    pub fn new(prefix: u8, opcode: u8, addr: u16, cycles: u8, num_params: usize) -> Opcode {
         Opcode {
             prefix: prefix,
             opcode: opcode,
+            addr: addr,
             params: vec![0; num_params],
             cycles: cycles,
         }
+    }
+    pub fn len(&self) -> usize {
+        let n: u8 = if self.prefix != 0x00 { 1 } else { 0 };
+
+        //1 from opcode
+        1+self.params.len() + n as usize
     }
 
     // TODO: Verify if these functions can be forced to be inlined with Rust.
@@ -207,6 +215,7 @@ impl Opcode {
     pub fn fetch_instructions(bytes: &Vec<u8>) -> Vec<Opcode> {
         let mut data_iter = bytes.iter();
         let mut all_instructions = Vec::new();
+        let mut addr: u16 = 0x0;
         loop {
             match data_iter.next() {
                 Some(opcode_byte) => {
@@ -224,7 +233,7 @@ impl Opcode {
                         opcode_b = *data_iter.next().unwrap();
                     }
 
-                    let mut opcode_obj: Opcode = Opcode::new(prefix, opcode_b, 0, n_params as usize);
+                    let mut opcode_obj: Opcode = Opcode::new(prefix, opcode_b, addr, 0, n_params as usize);
 
                     //starts from 1 because the first byte was already added.
                     for n in 0..n_params {
@@ -236,6 +245,7 @@ impl Opcode {
                         }
                     }
 
+                    addr += opcode_obj.len() as u16;
                     println!("{}", opcode_obj);
                     all_instructions.push(opcode_obj);
                 },

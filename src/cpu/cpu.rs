@@ -146,7 +146,16 @@ impl Cpu {
         self.gen_registers[reg_index] = value;
     }
 
-    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) {
+    //PC+value; returns PC's new value.
+    pub fn increment_pc(&mut self, value: i16) -> u16 {
+        let pc: u16 = self.reg16(GenReg16::PC);
+        self.set_reg16(((pc as i32)+(value as i32)) as u16, GenReg16::PC);
+        self.reg16(GenReg16::PC)
+    }
+
+    //false if this function didn't handle PC. It handles PC when an instruction sets its
+    //value (e.g. via jumps).
+    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) -> bool {
         //TODO
         //get operands
         //perform calculations
@@ -186,6 +195,16 @@ impl Cpu {
 
                 memory.write(val_hl as usize, val_a);
                 self.set_reg16(val_hl-1, GenReg16::HL); 
+            } else if opcode::Opcode::is_jr_nz_e(opcode.opcode) {
+                if self.flag_is_set(&Flag::Z) == false {
+                    //Two's complement
+                    let mut displacement: i8 = opcode.params[0] as i8;
+                    if displacement < 0 {
+                        displacement = -(!displacement - 1);
+                    }
+                    self.increment_pc(displacement as i16);
+                    return true
+                }
             } else {
                 no_instr = true;
             }
@@ -193,13 +212,28 @@ impl Cpu {
         if no_instr {
             panic!("Can't execute instruction with opcode: {}", opcode);
         }
+
+        false
     }
 
     pub fn execute_instructions(&mut self, opcodes: &Vec<opcode::Opcode>, memory: &mut mem::Memory) {
         let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
-        for instruction in opcodes.iter() { 
-            self.execute_instruction(instruction, memory);
-            print!("CPU registers ({})", instruction);
+         
+        let mut instruction: &opcode::Opcode = &opcodes[0];
+        loop { //TODO: finish point
+            let pc: u16 = self.reg16(GenReg16::PC);
+            for op in opcodes.iter() {
+               if op.addr == pc {
+                   instruction = op;
+                   break;
+               } else if op.addr > pc {
+                   panic!("No opcode starting at addr pointed by PC: 0x{:01$x}", pc, 2);
+               }
+            }
+            if !self.execute_instruction(instruction, memory) {
+                self.increment_pc(instruction.len() as i16);
+            }
+            print!("0x{} CPU registers ({})", format!("{:01$x}", instruction.addr, 2), instruction);
             print!("[{:01$b} ZNHC]: ", self.flags, 4);
             let mut i = 0;
             for r in self.gen_registers.iter() {
