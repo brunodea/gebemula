@@ -222,7 +222,7 @@ impl Cpu {
                     if !self.execute_instruction(&opcode, memory) {
                         self.increment_pc(opcode.len() as i16);
                     }
-                    println!("{} {}", format!("{:#01$x}", pc, 4), self);
+                    println!("{} {}", opcode, self);
                 },
                 None => panic!("No opcode at address {:#01$X}", pc, 4),
             }
