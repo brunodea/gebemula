@@ -12,13 +12,13 @@ impl fmt::Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut prefix: String = "".to_string();
         if self.prefix != 0x0 {
-            prefix = format!("{:#01$X}", self.prefix, 2);
+            prefix = format!("{:01$X}", self.prefix, 2);
         }
         let mut params: String = "".to_string();
         for p in self.params.iter() {
-            params = params + &format!("{:#01$X}", p, 2);
+            params = params + &format!("{:01$X}", p, 2);
         }
-        write!(f, "{}{}{}",prefix,format!("{:#01$X}",self.opcode, 2), params)
+        write!(f, "0x{}{}{}",prefix,format!("{:01$X}",self.opcode, 2), params)
     }
 }
 
