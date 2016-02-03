@@ -197,6 +197,10 @@ impl Cpu {
                 handle_pc = self.exec_jr_nz_e(opcode);
             } else if opcode::Opcode::is_ld_f000c_a(opcode.opcode) {
                 self.exec_ld_f000c_a(opcode, memory);
+            } else if opcode::Opcode::is_ld_a_f000c(opcode.opcode) {
+                self.exec_ld_a_f000c(opcode, memory);
+            } else if opcode::Opcode::is_di(opcode.opcode) {
+                self.exec_di(); 
             } else {
                 no_instr = true;
             }
@@ -278,5 +282,16 @@ impl Cpu {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
         let regA: u8 = self.reg8(GenReg8::A);
         memory.write(addr, Box::new(regA));
+    }
+    fn exec_ld_a_f000c(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+        let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
+        match memory.read(addr) {
+            Some(value) => self.set_reg8(*value, GenReg8::A),
+            None => self.set_reg8(0, GenReg8::A),
+        }
+    }
+    fn exec_di(&mut self) {
+        //TODO: disables interrupts but not emmediately. Interrupts are disabled after instruction
+        //after DI is executed.
     }
 }
