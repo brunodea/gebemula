@@ -1,4 +1,5 @@
 use cpu::opcode;
+use super::super::mem::mem;
 
 enum Flag {
     Z, N, H, C,
@@ -145,7 +146,7 @@ impl Cpu {
         self.gen_registers[reg_index] = value;
     }
 
-    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode) {
+    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) {
         //TODO
         //get operands
         //perform calculations
@@ -157,25 +158,31 @@ impl Cpu {
             let rhs: u8 = opcode.params[0];
             let lhs: u8 = opcode.params[1];
             let val: u16 = ((lhs as u16) << 8) | rhs as u16;
-            let reg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
+            let reg16: GenReg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
             self.set_reg16(val, reg16);
         } else if opcode::Opcode::is_xor_r(opcode.opcode) {
-            let reg8 = GenReg8::pair_from_ddd(opcode.opcode & 0b111);
+            let reg8: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode & 0b111);
             let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
             self.flags &= 0b1000;
             if res == 0x0 {
                 self.flag_set(true, &Flag::Z);
             }
             self.set_reg8(res, GenReg8::A);
+        } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
+            let val_a = self.reg8(GenReg8::A);
+            let val_hl = self.reg16(GenReg16::HL);
+
+            memory.write(val_hl as usize, val_a);
+            self.set_reg16(val_hl-1, GenReg16::HL); 
         } else {
             panic!("Can't execute instruction with opcode: {}", opcode);
         }
     }
 
-    pub fn execute_instructions(&mut self, opcodes: &Vec<opcode::Opcode>) {
+    pub fn execute_instructions(&mut self, opcodes: &Vec<opcode::Opcode>, memory: &mut mem::Memory) {
         let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
         for instruction in opcodes.iter() { 
-            self.execute_instruction(instruction);
+            self.execute_instruction(instruction, memory);
             print!("CPU registers ({})", instruction);
             print!("[{:01$b} ZNHC]: ", self.flags, 4);
             let mut i = 0;
