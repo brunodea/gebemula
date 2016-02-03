@@ -179,6 +179,8 @@ impl Opcode {
     pub fn is_ld_nn_sp(opcode: u8) -> bool { opcode == 0x08 }
     pub fn is_stop(opcode: u8) -> bool { opcode == 0x10 }
     pub fn is_swap_n(opcode: u8) -> bool { opcode >> 3 == 0b00110 }
+    pub fn is_ld_f000c_a(opcode: u8) -> bool { opcode == 0xE2 }
+    pub fn is_ld_a_f000c(opcode: u8) -> bool { opcode == 0xF2 }
 
     /* CB-Prefixed */
     pub fn is_cb_rlc_s(opcode: u8) -> bool { opcode >> 3 == 0b00000 }

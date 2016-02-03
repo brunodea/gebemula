@@ -195,8 +195,8 @@ impl Cpu {
                 self.exec_ldd_hl_a(opcode, memory);
             } else if opcode::Opcode::is_jr_nz_e(opcode.opcode) {
                 handle_pc = self.exec_jr_nz_e(opcode);
-            } else if opcode::Opcode::is_ldh_n_a(opcode.opcode) {
-                self.exec_ldh_n_a(opcode, memory);
+            } else if opcode::Opcode::is_ld_f000c_a(opcode.opcode) {
+                self.exec_ld_f000c_a(opcode, memory);
             } else {
                 no_instr = true;
             }
@@ -274,7 +274,7 @@ impl Cpu {
         let n: u8 = opcode.params[0];
         self.set_reg8(n, r);
     }
-    fn exec_ldh_n_a(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ld_f000c_a(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
         let regA: u8 = self.reg8(GenReg8::A);
         memory.write(addr, Box::new(regA));
