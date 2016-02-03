@@ -1,19 +1,22 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 #[derive(Debug)]
-pub struct Memory {
-    pub data: Vec<u8>,
+pub struct Memory<A: Hash + Eq, T> { //A: address type, T: data type.
+    map: HashMap<A, T>,
 }
 
-impl Memory {
-    pub fn new(size: usize) -> Memory {
+impl<A: Hash + Eq, T> Memory<A, T> {
+    pub fn new() -> Memory<A, T> {
         Memory {
-            data: vec![0; size],
+            map: HashMap::new(),
         }
     }
 
-    pub fn write(&mut self, position: usize, value: u8) {
-        self.data[position] = value;
+    pub fn write(&mut self, addr: A, value: Box<T>) {
+        self.map.insert(addr, *value);
     }
-    pub fn read(&mut self, position: usize) -> u8 {
-        self.data[position]
+    pub fn read(&self, addr: A) -> Option<&T> {
+        self.map.get(&addr)
     }
 }

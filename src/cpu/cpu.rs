@@ -169,7 +169,7 @@ impl Cpu {
 
     //false if this function didn't handle PC. It handles PC when an instruction sets its
     //value (e.g. via jumps).
-    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) -> bool {
+    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) -> bool {
         //TODO
         //get operands
         //perform calculations
@@ -207,7 +207,7 @@ impl Cpu {
                 let val_a = self.reg8(GenReg8::A);
                 let val_hl = self.reg16(GenReg16::HL);
 
-                memory.write(val_hl as usize, val_a);
+                memory.write(val_hl, Box::new(val_a));
                 self.set_reg16(val_hl-1, GenReg16::HL); 
             } else if opcode::Opcode::is_jr_nz_e(opcode.opcode) {
                 if self.flag_is_set(&Flag::Z) == false {
@@ -230,31 +230,20 @@ impl Cpu {
         false
     }
 
-    pub fn execute_instructions(&mut self, opcodes: &Vec<opcode::Opcode>, memory: &mut mem::Memory) {
-        let regs: Vec<&str> = vec!["AF", "BC", "DE", "HL", "SP", "PC"];
-         
-        let mut instruction: &opcode::Opcode = &opcodes[0];
+    pub fn execute_instructions(&mut self, opcodes: &mem::Memory<u16, opcode::Opcode>, starting_point: u16,
+                                memory: &mut mem::Memory<u16, u8>) {
+        self.set_reg16(starting_point, GenReg16::PC);
         loop { //TODO: finish point
             let pc: u16 = self.reg16(GenReg16::PC);
-            for op in opcodes.iter() {
-               if op.addr == pc {
-                   instruction = op;
-                   break;
-               } else if op.addr > pc {
-                   panic!("No opcode starting at addr pointed by PC: 0x{:01$x}", pc, 2);
-               }
+            match opcodes.read(pc) {
+                Some(opcode) => {
+                    if !self.execute_instruction(&opcode, memory) {
+                        self.increment_pc(opcode.len() as i16);
+                    }
+                    println!("0x{} {}", format!("{:01$x}", pc, 4), self);
+                },
+                None => panic!("No opcode at address 0x{:01$x}", pc, 4),
             }
-            if !self.execute_instruction(instruction, memory) {
-                self.increment_pc(instruction.len() as i16);
-            }
-            print!("0x{} CPU registers ({})", format!("{:01$x}", instruction.addr, 2), instruction);
-            print!("[{:01$b} ZNHC]: ", self.flags, 4);
-            let mut i = 0;
-            for r in self.gen_registers.iter() {
-                print!("0x{}({}), ", format!("{:01$x}", r, 2), regs[i]);
-                i += 1;
-            }
-            println!("");
         }
     }
 }

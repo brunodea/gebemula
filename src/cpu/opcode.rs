@@ -1,9 +1,9 @@
 use std::fmt;
+use super::super::mem::mem;
 
 pub struct Opcode {
     pub prefix: u8,
     pub opcode: u8,
-    pub addr: u16,
     pub params: Vec<u8>,
     pub cycles: u8,
 }
@@ -23,11 +23,10 @@ impl fmt::Display for Opcode {
 }
 
 impl Opcode {
-    pub fn new(prefix: u8, opcode: u8, addr: u16, cycles: u8, num_params: usize) -> Opcode {
+    pub fn new(prefix: u8, opcode: u8, cycles: u8, num_params: usize) -> Opcode {
         Opcode {
             prefix: prefix,
             opcode: opcode,
-            addr: addr,
             params: vec![0; num_params],
             cycles: cycles,
         }
@@ -212,9 +211,9 @@ impl Opcode {
         Opcode::is_ld_nn_sp(opcode)
     }
 
-    pub fn fetch_instructions(bytes: &Vec<u8>) -> Vec<Opcode> {
+    pub fn fetch_instructions(bytes: &Vec<u8>) -> mem::Memory<u16, Opcode> {
+        let mut memory: mem::Memory<u16, Opcode> = mem::Memory::new();
         let mut data_iter = bytes.iter();
-        let mut all_instructions = Vec::new();
         let mut addr: u16 = 0x0;
         loop {
             match data_iter.next() {
@@ -233,7 +232,7 @@ impl Opcode {
                         opcode_b = *data_iter.next().unwrap();
                     }
 
-                    let mut opcode_obj: Opcode = Opcode::new(prefix, opcode_b, addr, 0, n_params as usize);
+                    let mut opcode_obj = Box::new(Opcode::new(prefix, opcode_b, 0, n_params as usize));
 
                     //starts from 1 because the first byte was already added.
                     for n in 0..n_params {
@@ -245,14 +244,14 @@ impl Opcode {
                         }
                     }
 
-                    addr += opcode_obj.len() as u16;
-                    println!("{}", opcode_obj);
-                    all_instructions.push(opcode_obj);
+                    let oplen = opcode_obj.len();
+                    memory.write(addr, opcode_obj);
+                    addr += oplen as u16;
                 },
                 None => break,
             }
         }
-        all_instructions
+        memory
     }
 }
 
