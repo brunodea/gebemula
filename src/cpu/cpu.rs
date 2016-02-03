@@ -20,7 +20,7 @@ enum GenReg16 {
 impl GenReg8 {
     //only the 3bits on the right are evaluated.
     fn pair_from_ddd(byte: u8) -> GenReg8 {
-        match byte {
+        match byte & 0b111 {
             0b000 => GenReg8::B,
             0b001 => GenReg8::C,
             0b010 => GenReg8::D,
@@ -36,7 +36,7 @@ impl GenReg8 {
 impl GenReg16 {
     //only the 2bits on the right are evaluated.
     fn pair_from_dd(byte: u8) -> GenReg16 {
-        match byte {
+        match byte & 0b11 {
             0b00 => GenReg16::BC,
             0b01 => GenReg16::DE,
             0b10 => GenReg16::HL,
@@ -152,29 +152,45 @@ impl Cpu {
         //perform calculations
         //store result
         //update time
-        let opcode_b: u8 = opcode.opcode;
+        let mut no_instr: bool = false;
 
-        if opcode::Opcode::is_ld_dd_nn(opcode.opcode) {
-            let rhs: u8 = opcode.params[0];
-            let lhs: u8 = opcode.params[1];
-            let val: u16 = ((lhs as u16) << 8) | rhs as u16;
-            let reg16: GenReg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
-            self.set_reg16(val, reg16);
-        } else if opcode::Opcode::is_xor_r(opcode.opcode) {
-            let reg8: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode & 0b111);
-            let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
-            self.flags &= 0b1000;
-            if res == 0x0 {
-                self.flag_set(true, &Flag::Z);
+        if opcode.prefix == 0xCB {
+            if opcode::Opcode::is_cb_bit_s(opcode.opcode) {
+                let bit: u8 = (opcode.opcode >> 3) & 0b111;
+                let reg: u8 = self.reg8(GenReg8::pair_from_ddd(opcode.opcode));
+                
+                self.flag_set((reg >> bit) & 0b1 == 0b0, &Flag::Z);
+                self.flag_set(false, &Flag::N);
+                self.flag_set(true, &Flag::H);
+            } else {
+                no_instr = true;
             }
-            self.set_reg8(res, GenReg8::A);
-        } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
-            let val_a = self.reg8(GenReg8::A);
-            let val_hl = self.reg16(GenReg16::HL);
-
-            memory.write(val_hl as usize, val_a);
-            self.set_reg16(val_hl-1, GenReg16::HL); 
         } else {
+            if opcode::Opcode::is_ld_dd_nn(opcode.opcode) {
+                let rhs: u8 = opcode.params[0];
+                let lhs: u8 = opcode.params[1];
+                let val: u16 = ((lhs as u16) << 8) | rhs as u16;
+                let reg16: GenReg16 = GenReg16::pair_from_dd(opcode.opcode >> 4);
+                self.set_reg16(val, reg16);
+            } else if opcode::Opcode::is_xor_r(opcode.opcode) {
+                let reg8: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
+                let res: u8 = self.reg8(GenReg8::A)^self.reg8(reg8);
+                self.flags &= Cpu::flag_mask(&Flag::Z);
+                if res == 0x0 {
+                    self.flag_set(true, &Flag::Z);
+                }
+                self.set_reg8(res, GenReg8::A);
+            } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
+                let val_a = self.reg8(GenReg8::A);
+                let val_hl = self.reg16(GenReg16::HL);
+
+                memory.write(val_hl as usize, val_a);
+                self.set_reg16(val_hl-1, GenReg16::HL); 
+            } else {
+                no_instr = true;
+            }
+        }
+        if no_instr {
             panic!("Can't execute instruction with opcode: {}", opcode);
         }
     }
