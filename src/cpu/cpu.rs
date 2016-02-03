@@ -187,6 +187,8 @@ impl Cpu {
         } else {
             if opcode::Opcode::is_ld_dd_nn(opcode.opcode) {
                 self.exec_ld_dd_nn(opcode);
+            } else if opcode::Opcode::is_ld_r_n(opcode.opcode) {
+                self.exec_ld_r_n(opcode);
             } else if opcode::Opcode::is_xor_r(opcode.opcode) {
                 self.exec_xor_r(opcode);
             } else if opcode::Opcode::is_ldd_hl_a(opcode.opcode) {
@@ -264,5 +266,10 @@ impl Cpu {
             return true
         }
         false
+    }
+    fn exec_ld_r_n(&mut self, opcode: &opcode::Opcode) {
+        let r: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode >> 3);
+        let n: u8 = opcode.params[0];
+        self.set_reg8(n, r);
     }
 }
