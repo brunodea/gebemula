@@ -51,7 +51,7 @@ impl Memory {
         self.mem[address as usize]
     }
 
-    pub fn read_bootstrap_rom(&mut self, rom: Vec<u8>) {
+    pub fn read_bootstrap_rom(&mut self, rom: &Vec<u8>) {
         for byte in 0x000..rom.len() as usize {
             self.mem[byte] = rom[byte];
         }

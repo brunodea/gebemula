@@ -168,7 +168,7 @@ impl Cpu {
 
     //false if this function didn't handle PC. It handles PC when an instruction sets its
     //value (e.g. via jumps).
-    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) -> bool {
+    pub fn execute_instruction(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) -> bool {
         //TODO
         //get operands
         //perform calculations
@@ -227,20 +227,35 @@ impl Cpu {
         handle_pc
     }
 
-    pub fn execute_instructions(&mut self, opcodes: &mem::Memory<u16, opcode::Opcode>, starting_point: u16,
-                                memory: &mut mem::Memory<u16, u8>) {
+    pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
         self.set_reg16(starting_point, GenReg16::PC);
+        let mut opcode: opcode::Opcode::new(0,0,0,0);
         loop { //TODO: finish point
-            let pc: u16 = self.reg16(GenReg16::PC);
-            match opcodes.read(pc) {
-                Some(opcode) => {
-                    if !self.execute_instruction(&opcode, memory) {
-                        self.increment_pc(opcode.len() as i16);
-                    }
-                    println!("{} {}", opcode, self);
-                },
-                None => panic!("No opcode at address {:#01$X}", pc, 4),
+            let mut pc: u16 = self.reg16(GenReg16::PC);
+            let mut byte: u8 = memory.read_byte(pc);
+            let mut n_params: u8 = 0x0;
+            let mut prefix: u8 = 0x0;
+            if opcode::Opcode::is_prefix(byte) {
+                opcode.prefix = byte;
+                prefix = byte;
+                self.increment_pc(1);
+                pc = self.reg16(GenReg16::PC);
+                byte = memory.read_byte(pc);
+            } else {
+                n_params = opcode::Opcode::num_params(byte);
             }
+            let mut opcode = Box::new(opcode::Opcode::new(prefix, byte, 0, n_params as usize));
+
+            for n in 0..n_params {
+                self.increment_pc(1);
+                let addr = self.reg16(GenReg16::PC);
+                opcode.params[n as usize] = memory.read_byte(addr);
+            }
+
+            if !self.execute_instruction(&opcode, memory) {
+                self.increment_pc(1);
+            }
+            println!("{} {}", opcode, self);
         }
     }
 
@@ -269,11 +284,11 @@ impl Cpu {
         }
         self.set_reg8(res, GenReg8::A);
     }
-    fn exec_ldd_hl_a(&mut self, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ldd_hl_a(&mut self, memory: &mut mem::Memory) {
         let val_a = self.reg8(GenReg8::A);
         let val_hl = self.reg16(GenReg16::HL);
 
-        memory.write(val_hl, Box::new(val_a));
+        memory.write_byte(val_hl, val_a);
         self.set_reg16(val_hl-1, GenReg16::HL); 
     }
     fn exec_jr_nz_e(&mut self, opcode: &opcode::Opcode) -> bool {
@@ -293,68 +308,60 @@ impl Cpu {
         let n: u8 = opcode.params[0];
         self.set_reg8(n, r);
     }
-    fn exec_ld_f000c_a(&mut self, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ld_f000c_a(&mut self, memory: &mut mem::Memory) {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
         let reg: u8 = self.reg8(GenReg8::A);
-        memory.write(addr, Box::new(reg));
+        memory.write_byte(addr, reg);
     }
-    fn exec_ld_a_f000c(&mut self, memory: &mem::Memory<u16, u8>) {
+    fn exec_ld_a_f000c(&mut self, memory: &mem::Memory) {
         let addr: u16 = 0xFF00 + self.reg8(GenReg8::C) as u16;
-        match memory.read(addr) {
-            Some(value) => self.set_reg8(*value, GenReg8::A),
-            None => self.set_reg8(0, GenReg8::A),
-        }
+        let value = memory.read_byte(addr);
+        self.set_reg8(value, GenReg8::A);
     }
     fn exec_di(&mut self) {
         //TODO: disables interrupts but not emmediately. Interrupts are disabled after instruction
         //after DI is executed.
     }
-    fn exec_ld_hl_r(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ld_hl_r(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory) {
         let r: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
         let val_hl: u16 = self.reg16(GenReg16::HL);
         let val_r: u8 = self.reg8(r);
-        memory.write(val_hl, Box::new(val_r));
+        memory.write_byte(val_hl, val_r);
     }
-    fn exec_ld_r_hl(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory<u16, u8>) {
+    fn exec_ld_r_hl(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory) {
         let addr: u16 = self.reg16(GenReg16::HL);
         let reg: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode >> 3); 
-        match memory.read(addr) {
-            Some(value) => self.set_reg8(*value, reg),
-            None => self.set_reg8(0, reg),
-        }
+        let value: u8 = memory.read_byte(addr);
+        self.set_reg8(value, reg);
     }
-    fn exec_ldh_n_a(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) {
+    fn exec_ldh_n_a(&self, opcode: &opcode::Opcode, memory: &mut mem::Memory) {
         let val_a: u8 = self.reg8(GenReg8::A);
         let addr: u16 = 0xFF00 + opcode.params[0] as u16;
-        memory.write(addr, Box::new(val_a));
+        memory.write_byte(addr, val_a);
     }
-    fn exec_ldh_a_n(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory<u16, u8>) {
+    fn exec_ldh_a_n(&mut self, opcode: &opcode::Opcode, memory: &mem::Memory) {
         let addr: u16 = 0xFF00 + opcode.params[0] as u16;
-        match memory.read(addr) {
-            Some(value) => self.set_reg8(*value, GenReg8::A),
-            None => self.set_reg8(0, GenReg8::A),
-        }
+        let value: u8 = memory.read_byte(addr);
+        self.set_reg8(value, GenReg8::A);
     }
-    fn exec_ld_a_de(&mut self, memory: &mem::Memory<u16, u8>) {
+    fn exec_ld_a_de(&mut self, memory: &mem::Memory) {
         let addr: u16 = self.reg16(GenReg16::DE);
-        match memory.read(addr) {
-            Some(value) => self.set_reg8(*value, GenReg8::A),
-            None => self.set_reg8(0, GenReg8::A),
-        }
+        let value: u8 = memory.read_byte(addr);
+        self.set_reg8(value, GenReg8::A);
     }
-    fn exec_ld_de_a(&self, memory: &mut mem::Memory<u16, u8>){
+    fn exec_ld_de_a(&self, memory: &mut mem::Memory){
         let addr: u16 = self.reg16(GenReg16::DE);
         let value: u8 = self.reg8(GenReg8::A);
-        memory.write(addr, Box::new(value));
+        memory.write_byte(addr, value);
     }
-    fn exec_call_nn(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) -> bool {
+    fn exec_call_nn(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory) -> bool {
         let next_addr: u16 = self.reg16(GenReg16::PC) + opcode.len() as u16;
         let mut sp: u16 = self.reg16(GenReg16::SP)-1;
         //From the GB CPU Manual:
         //"The Stack Pointer automatically decrements before it puts something onto the stack."
-        memory.write(sp, Box::new(next_addr as u8));
+        memory.write_byte(sp, next_addr as u8);
         sp -= 1;
-        memory.write(sp, Box::new((next_addr >> 8) as u8));
+        memory.write_byte(sp, (next_addr >> 8) as u8);
         self.set_reg16(sp, GenReg16::SP);
 
         let jump_to_addr: u16 = (opcode.params[1] as u16) << 8 | opcode.params[0] as u16;

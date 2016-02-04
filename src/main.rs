@@ -15,10 +15,12 @@ fn main() {
         let mut data: Vec<u8> = Vec::new();
         File::open(&args[1]).unwrap().read_to_end(&mut data).unwrap();
 
-        let mut gb_ram: Memory<u16, u8> = Memory::new();
+        let mut mem: Memory = Memory::new();
         let mut cpu: Cpu = Cpu::new();
 
-        cpu.execute_instructions(&Opcode::fetch_instructions(&data), 0x0, &mut gb_ram);
+        mem.read_bootstrap_rom(&data);
+        //starting point = bootstrap rom's initial position
+        cpu.execute_instructions(0x0, &mut mem);
     } else {
         println!("Invalid number of arguments.");
     }
