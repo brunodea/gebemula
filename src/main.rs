@@ -3,6 +3,7 @@
 
 mod cpu;
 mod mem;
+mod util;
 
 use std::env;
 use std::io::Read;

@@ -1,5 +1,6 @@
 use std::fmt;
 use super::super::mem::mem;
+use super::super::util::util;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Flag {
@@ -183,89 +184,115 @@ impl Cpu {
         loop { //TODO: ending point
             let byte: u8 = self.mem_next(memory);
 
-            match byte {
-                0x00 ... 0x3F => {
-                    //select column in table
-                    match byte % 0o10 {
-                        0o2 => {
-                            //LD (nn), A; LD A, (nn)
-                            self.exec_ld_nn_a(byte, memory);
-                        },
-                        0o6 => {
-                            //LD r,n; LD n,r
-                            self.exec_ld_r_n(byte, memory);
-                        },
-                        _ => panic!("No instruction for opcode {:#01$x}", byte, 2),
-                    }
-                }
-                0x40 ... 0x7F => {
-                    if byte == 0x76 {
-                        //TODO: HALT instruction
-                    } else {
-                        //LD r,r'
-                        self.exec_ld_r_r(byte, memory);
-                    }
+            //instr, instruction type
+            match ((byte >> 3) as u8, byte % 0o10) {
+                (0 ... 7, 2) => {
+                    //LD (nn), A; LD A, (nn)
+                    self.exec_ld_nn_a(byte, memory);
                 },
-                0x80 ... 0xBF => {
-                    //bit arithmetic
-                    self.exec_bit_basic(byte, memory);
+                (0 ... 7, 6) => {
+                    //LD r,n; LD n,r
+                    self.exec_ld_r_n(byte, memory);
                 },
-                0xC0 ... 0xFF => {
-                    panic!("No instruction for opcode {:#01$x}", byte, 2);
+                (16, 6) => {
+                    //TODO HALT instruction
+                    },
+                (10 ... 17,_) => {
+                    self.exec_ld_r_r(byte, memory);
+                },
+                (0 ... 3, 4 ... 5) |
+                (20 ... 27,_)     |
+                (30 ... 37, 6) => {
+                    self.exec_bit_alu8(byte, memory);
                 },
                 _ => panic!("No opcode defined for {:#01$X}", byte, 2),
             }
         }
     }
 
+
     /*Instructions execution codes*/
 
-    fn exec_bit_basic(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
         //TODO Flag stuff
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
-        let mut reg_val: u8 = self.reg8(reg);
-        if reg == Reg::HL {
-            reg_val = self.mem_at_reg(reg, memory);
+        let mut value: u8 = 0;
+        
+        if opcode > 0xBF {
+            value = self.mem_next(memory);
+        } else if reg == Reg::HL {
+            value = self.mem_at_reg(reg, memory);
+        } else {
+            value = self.reg8(reg);
         }
         let mut result = 0;
         let mut unchange_a: bool = false;
 
-        match opcode {
-            0x80 ... 0x87 => {
+        self.flag_set(result == 0, Flag::Z);
+        match ((opcode >> 3) as u8, opcode % 0o10) {
+            (20, 0 ... 7) | (30, 6) => {
                 //ADD
-                result = reg_a_val + reg_val;
-                self.flag_set(result == 0, Flag::Z);
+                result = reg_a_val + value;
+                self.flag_set(false, Flag::N);
+                self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
+                self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
-            0x88 ... 0x8F => {
+            (21, 0 ... 7) | (31, 6) => {
                 //ADC
-                result = reg_a_val + reg_val;
+                result = reg_a_val + value;
+                if self.flag_is_set(Flag::C) { 
+                    result |= 0b1;
+                }
+                self.flag_set(false, Flag::N);
+                self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
+                self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
-            0x90 ... 0x97 => {
+            (22, 0 ... 7) | (32, 6) => {
                 //SUB
-                result = reg_a_val - reg_val;
+                result = reg_a_val - value;
+                self.flag_set(true, Flag::N);
+                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
+                self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
-            0x98 ... 0x9F => {
+            (23, 0 ... 7) | (33, 6) => {
                 //SBC
-                result = reg_a_val - reg_val;
+                result = reg_a_val - value;
+                self.flag_set(true, Flag::N);
+                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
+                self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
-            0xA0 ... 0xA7 => {
+            (24, 0 ... 7) | (34, 6) => {
                 //AND
-                result = reg_a_val & reg_val;
+                result = reg_a_val & value;
+                self.flag_set(false, Flag::N);
+                self.flag_set(true, Flag::H);
+                self.flag_set(false, Flag::C);
             },
-            0xA8 ... 0xAF => {
+            (25, 0 ... 7) | (35, 6) => {
                 //XOR
-                result = reg_a_val^reg_val;
+                result = reg_a_val^value;
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(false, Flag::C);
             },
-            0xB0 ... 0xB7 => {
+            (26, 0 ... 7) | (36, 6)  => {
                 //OR
-                result = reg_a_val | reg_val;
+                result = reg_a_val | value;
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(false, Flag::C);
             },
-            0xB8 ... 0xBF => {
+            (27, 0 ... 7) | (37, 6) => {
                 //CP
-                self.flag_set(reg_a_val == reg_val, Flag::Z);
+                self.flag_set(opcode == 0xFE && reg_a_val == value, Flag::Z);
+                self.flag_set(true, Flag::N);
+                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
+                let c: bool = opcode == 0xFE && reg_a_val < value;
+                self.flag_set(c | !util::has_borrow_on_any(reg_a_val, value), Flag::C);
                 unchange_a = true;
             },
+
             _ => unreachable!(),
         }
         if !unchange_a {
