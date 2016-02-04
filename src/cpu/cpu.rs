@@ -130,7 +130,7 @@ impl Cpu {
     }
 
     
-    pub fn reg8(&self, reg_name: GenReg8) -> u8 {
+    fn reg8(&self, reg_name: GenReg8) -> u8 {
         let reg_value: u16 = self.gen_registers[Cpu::reg_index8(&reg_name)];
         if Cpu::is_reg8_left(&reg_name) {
             (reg_value >> 8) as u8
@@ -139,11 +139,11 @@ impl Cpu {
         }
     }
 
-    pub fn reg16(&self, reg_name: GenReg16) -> u16 {
+    fn reg16(&self, reg_name: GenReg16) -> u16 {
         self.gen_registers[Cpu::reg_index16(&reg_name)]
     }
 
-    pub fn set_reg8(&mut self, value: u8, reg_name: GenReg8) {
+    fn set_reg8(&mut self, value: u8, reg_name: GenReg8) {
         let reg_index = Cpu::reg_index8(&reg_name);
         let reg_value: u16 = self.gen_registers[reg_index];
 
@@ -154,13 +154,13 @@ impl Cpu {
         }
     }
     
-    pub fn set_reg16(&mut self, value: u16, reg_name: GenReg16) {
+    fn set_reg16(&mut self, value: u16, reg_name: GenReg16) {
         let reg_index = Cpu::reg_index16(&reg_name);
         self.gen_registers[reg_index] = value;
     }
 
     //PC+value; returns PC's new value.
-    pub fn increment_pc(&mut self, value: i16) -> u16 {
+    fn increment_pc(&mut self, value: i16) -> u16 {
         let pc: u16 = self.reg16(GenReg16::PC);
         self.set_reg16(((pc as i32)+(value as i32)) as u16, GenReg16::PC);
         self.reg16(GenReg16::PC)
