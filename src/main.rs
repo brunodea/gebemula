@@ -6,7 +6,6 @@ use std::io::Read;
 use std::fs::File;
 
 use cpu::cpu::Cpu;
-use cpu::opcode::Opcode;
 use mem::mem::Memory;
 
 fn main() {
