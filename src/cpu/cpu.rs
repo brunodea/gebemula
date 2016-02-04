@@ -52,16 +52,16 @@ impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["A", "F", "B", "C", "D", "E", "H", "L", "SP", "PC"];
         let flags = format!("[{:#01$b} ZNHC]", self.flags(), 4);
-        let mut regs: String = "".to_string();
-        for mut i in 0..regs_names.len() {
-            let reg = regs_names[i];
+        let mut regs: String = "".to_owned();
+        for (i, reg) in regs_names.iter().enumerate() {
             match i {
                 8 | 10 => {
-                    let lhs = format!("{:#01$X}", self.regs[i], 4);
-                    let rhs = format!("{:01$X}", self.regs[i+1], 4);
-                    regs = regs + &format!("{}_{}({})", lhs, rhs, reg);
-                    i += 1;
+                    regs = regs + &format!("{:#01$X}", self.regs[i], 4);
                 },
+                9 | 11 => {
+                    let rhs = format!("{:01$X}", self.regs[i], 4);
+                    regs = regs + &format!("{}({}), ", rhs, reg);
+                }
                 _ => {
                     regs = regs + &format!("{}({}), ", format!("{:#01$x}", self.regs[i], 4), reg);
                 },
@@ -229,7 +229,7 @@ impl Cpu {
             reg_val = self.mem_at_reg(reg, memory);
         }
         let mut result = 0;
-        let mut unchange_A: bool = false;
+        let mut unchange_a: bool = false;
 
         match opcode {
             0x80 ... 0x87 => {
@@ -264,11 +264,11 @@ impl Cpu {
             0xB8 ... 0xBF => {
                 //CP
                 self.flag_set(reg_a_val == reg_val, Flag::Z);
-                unchange_A = true;
+                unchange_a = true;
             },
             _ => unreachable!(),
         }
-        if !unchange_A {
+        if !unchange_a {
             self.reg_set8(Reg::A, result);
         }
     }
