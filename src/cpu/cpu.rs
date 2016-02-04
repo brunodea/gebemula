@@ -208,6 +208,14 @@ impl Cpu {
                 self.exec_ldh_n_a(opcode, memory);
             } else if opcode::Opcode::is_ldh_a_n(opcode.opcode) {
                 self.exec_ldh_a_n(opcode, memory);
+            } else if opcode::Opcode::is_ld_a_de(opcode.opcode) {
+                self.exec_ld_a_de(memory);
+            } else if opcode::Opcode::is_ld_de_a(opcode.opcode) {
+                self.exec_ld_de_a(memory);
+            } else if opcode::Opcode::is_call_nn(opcode.opcode) {
+                handle_pc = self.exec_call_nn(opcode, memory);
+            } else if opcode::Opcode::is_ld_r_r(opcode.opcode) {
+                self.exec_ld_r_r(opcode);
             } else {
                 no_instr = true;
             }
@@ -326,5 +334,38 @@ impl Cpu {
             Some(value) => self.set_reg8(*value, GenReg8::A),
             None => self.set_reg8(0, GenReg8::A),
         }
+    }
+    fn exec_ld_a_de(&mut self, memory: &mem::Memory<u16, u8>) {
+        let addr: u16 = self.reg16(GenReg16::DE);
+        match memory.read(addr) {
+            Some(value) => self.set_reg8(*value, GenReg8::A),
+            None => self.set_reg8(0, GenReg8::A),
+        }
+    }
+    fn exec_ld_de_a(&self, memory: &mut mem::Memory<u16, u8>){
+        let addr: u16 = self.reg16(GenReg16::DE);
+        let value: u8 = self.reg8(GenReg8::A);
+        memory.write(addr, Box::new(value));
+    }
+    fn exec_call_nn(&mut self, opcode: &opcode::Opcode, memory: &mut mem::Memory<u16, u8>) -> bool {
+        let next_addr: u16 = self.reg16(GenReg16::PC) + opcode.len() as u16;
+        let mut sp: u16 = self.reg16(GenReg16::SP)-1;
+        //From the GB CPU Manual:
+        //"The Stack Pointer automatically decrements before it puts something onto the stack."
+        memory.write(sp, Box::new(next_addr as u8));
+        sp -= 1;
+        memory.write(sp, Box::new((next_addr >> 8) as u8));
+        self.set_reg16(sp, GenReg16::SP);
+
+        let jump_to_addr: u16 = (opcode.params[1] as u16) << 8 | opcode.params[0] as u16;
+        self.set_reg16(jump_to_addr, GenReg16::PC);
+
+        true
+    }
+    fn exec_ld_r_r(&mut self, opcode: &opcode::Opcode) {
+        let reg_from: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode);
+        let reg_to: GenReg8 = GenReg8::pair_from_ddd(opcode.opcode >> 3);
+        let value: u8 = self.reg8(reg_from);
+        self.set_reg8(value, reg_to);
     }
 }
