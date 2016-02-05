@@ -244,6 +244,10 @@ impl Cpu {
                     //LD r,n; LD n,r
                     self.exec_ld_r_n(byte, memory);
                 },
+                (0o0 ... 0o3, 0o7) => {
+                    //RLCA, RRCA, RLA, RRA
+                    self.exec_rotates_shifts(byte);
+                }
                 (0o16, 0o6) => {
                     //TODO HALT instruction
                 },
@@ -287,6 +291,44 @@ impl Cpu {
     }
 
     /*Instructions execution codes*/
+    
+    fn exec_rotates_shifts(&mut self, opcode: u8) {
+        let mut value: u8 = self.reg8(Reg::A);
+
+        let bit_7: u8 = (value >> 7) & 0b1;
+        let bit_0: u8 = value & 0b1;
+        let mut bit: u8 = bit_7;
+        match opcode {
+            0x07 => {
+                //RLCA
+                value = value << 1 | bit_7;
+                bit = bit_7;
+            },
+            0x0F => {
+                //RRCA
+                value = value >> 1 | (bit_0 << 7);
+                bit = bit_0;
+            },
+            0x17 => {
+                //RLA
+                value = value << 1 | self.flag_bit(Flag::C);
+                bit = bit_7;
+            },
+            0x1F => {
+                //RRA
+                value = value >> 1 | (self.flag_bit(Flag::C) << 7);
+                bit = bit_0
+            },
+            _ => unreachable!(),
+        }
+
+        self.reg_set8(Reg::A, value);
+
+        self.flag_set(bit == 1, Flag::C);
+        self.flag_set(value == 0, Flag::Z);
+        self.flag_set(false, Flag::N);
+        self.flag_set(false, Flag::H);
+    }
 
     fn exec_push_pop(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
