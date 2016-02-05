@@ -190,17 +190,20 @@ impl Cpu {
                     //LD (nn), A; LD A, (nn)
                     self.exec_ld_nn_a(byte, memory);
                 },
+                (0 ... 7, 4 ... 5) => {
+                    //INC; DEC
+                    exec_inc_dec(byte, memory);
+                },
                 (0 ... 7, 6) => {
                     //LD r,n; LD n,r
                     self.exec_ld_r_n(byte, memory);
                 },
                 (16, 6) => {
                     //TODO HALT instruction
-                    },
+                },
                 (10 ... 17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
-                (0 ... 3, 4 ... 5) |
                 (20 ... 27,_)     |
                 (30 ... 37, 6) => {
                     self.exec_bit_alu8(byte, memory);
@@ -210,6 +213,33 @@ impl Cpu {
         }
     }
 
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) {
+        let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
+        let reg_val: u8 = self.reg8(reg);
+        let mut result: u8 = 0;
+        if reg == Reg::HL {
+            result = self.mem_at_reg(Reg::HL, memory) + 1;
+            memory.write_byte(self.reg16(Reg::HL), result);
+        } else {
+            match ((opcode >> 3) as u8, opcode % 0o10) {
+                (0 ... 7, 4) => {
+                    //INC
+                    result = reg_val+1;
+                    self.flag_set(false, Flag::N);
+                    //TODO: set H if carry from bit 3: ????
+                    //self.flag_set(util::has_carry_on_bit(3, 
+                },
+                (0 ... 7, 5) => {
+                    //DEC
+                    result = reg_val-1;    
+                    self.flag_set(true, Flag::N);
+                    //TODO: set H if no borrow from bit 4
+                },
+                _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
+            }
+        }
+        self.flag_set(result == 0, Flag::Z);
+    }
 
     /*Instructions execution codes*/
 
