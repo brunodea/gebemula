@@ -6,10 +6,16 @@ pub fn has_carry_on_bit(bit: u8, byte_1: u8, byte_2: u8) -> bool {
     byte_1 & mask == byte_2 & mask
 }
 
+pub fn has_carry_on_bit16(bit: u8, lhs: u16, rhs: u16) -> bool {
+    let mask: u16 = 1 << bit as u16;
+    lhs & mask == rhs & mask
+}
+
 pub fn has_borrow_on_bit(bit: u8, byte_1: u8, byte_2: u8) -> bool {
     let mask: u8 = 1 << bit;
     byte_1 & mask == 0b0 && byte_2 & mask == 0b1
 }
+
 
 pub fn has_borrow_on_any(byte_1: u8, byte_2: u8) -> bool {
     let mut has = false;

@@ -603,6 +603,10 @@ impl Cpu {
 
         let hl: u16 = self.reg16(Reg::HL);
         self.reg_set16(Reg::HL, hl + value);
+
+        self.flag_set(false, Flag::N);
+        self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H); 
+        self.flag_set(util::has_carry_on_bit16(15, hl, value), Flag::C);
     }
 
     fn exec_inc_dec16(&mut self, opcode: u8) {
