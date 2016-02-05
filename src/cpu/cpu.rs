@@ -162,6 +162,18 @@ impl Cpu {
         self.reg8(Reg::F)
     }
 
+    fn push_sp8(&mut self, value: u8, memory: &mut mem::Memory) {
+        let sp: u16 = self.reg16(Reg::SP) - 1; //sp auto-decrements when pushing (it goes down in the memory)
+        memory.write_byte(sp, value);
+        self.reg_set16(Reg::SP, sp);
+    }
+
+    //TODO: make sure the order is right
+    fn push_sp16(&mut self, value: u16, memory: &mut mem::Memory) {
+        self.push_sp8(value as u8, memory);
+        self.push_sp8((value >> 8) as u8, memory);
+    }
+
     fn increment_pc(&mut self) {
         let pc: u16 = self.reg16(Reg::PC);
         self.reg_set16(Reg::PC, pc+1);
@@ -192,7 +204,7 @@ impl Cpu {
                 },
                 (0 ... 7, 4 ... 5) => {
                     //INC; DEC
-                    exec_inc_dec(byte, memory);
+                    self.exec_inc_dec(byte, memory);
                 },
                 (0 ... 7, 6) => {
                     //LD r,n; LD n,r
@@ -206,10 +218,89 @@ impl Cpu {
                 },
                 (20 ... 27,_)     |
                 (30 ... 37, 6) => {
+                    //AND,ADC,SUB,SBC,OR,XOR,CP
                     self.exec_bit_alu8(byte, memory);
+                },
+                (0,1)|(1,1)|(2,1)|(3,1)|
+                (34 ... 37, 2) |
+                (34, 0) | (36, 0) |
+                (37, 0 ... 1) => {
+                    //LD (ff00+c), A; LD A, (ff00+c); LDH (a8),A; LDH A,(a8),
+                    //LD HL, SP+r8; LD SP, HL; LD (a16),A; LD A,(a16)
+                    self.exec_ld_others(byte, memory);
                 },
                 _ => panic!("No opcode defined for {:#01$X}", byte, 2),
             }
+        }
+    }
+
+    /*Instructions execution codes*/
+    
+    fn exec_ld_others(&mut self, opcode: u8, memory: &mut mem::Memory) {
+        let addr: u16 = 0xFF00;
+        let a_val: u8 = self.reg8(Reg::A);
+        match opcode {
+            0x01 | 0x11 | 0x21 | 0x31 => {
+                //TODO: make sure byte order is correct
+                let imm1: u8 = self.mem_next(memory);
+                let imm2: u8 = self.mem_next(memory);
+                let value: u16 = (imm2 as u16) << 8 | imm1 as u16;
+                let reg: Reg = Reg::pair_from_dd(opcode >> 4);
+                self.reg_set16(reg, value);
+            },
+            0xE0 => {
+                //LDH (a8), A
+                let immediate: u16 = self.mem_next(memory) as u16;
+
+                memory.write_byte(addr+immediate, a_val);
+            },
+            0xE2 => {
+                //LD (C), A
+                memory.write_byte(addr+self.reg8(Reg::C) as u16, a_val);
+            },
+            0xEA => {
+                //LD (a16),A
+                //TODO: make sure byte order is correct
+                let imm1: u8 = self.mem_next(memory);
+                let imm2: u8 = self.mem_next(memory);
+                let addr: u16 = (imm2 as u16) << 8 | imm1 as u16;
+
+                memory.write_byte(addr, a_val);
+            },
+            0xF0 => {
+                //LDH A, (a8)
+                let immediate: u16 = self.mem_next(memory) as u16;
+                let value: u8 = memory.read_byte(addr+immediate);
+                self.reg_set8(Reg::A, value);
+            },
+            0xF2 => {
+                //LD A,(C)
+                let value: u8 = memory.read_byte(self.reg16(Reg::C));
+                self.reg_set8(Reg::A, value);
+            },
+            0xF8 => {
+                //LD HL,SP+r8
+                let immediate: u16 = self.mem_next(memory) as u16;
+                let sp: u16 = self.reg16(Reg::SP);
+                self.reg_set16(Reg::HL, immediate+sp);
+            },
+            0xF9 => {
+                //LD SP,HL
+                let hl: u16 = self.reg16(Reg::HL);
+                self.push_sp16(hl, memory);
+                self.flag_set(false, Flag::Z);
+                self.flag_set(false, Flag::N);
+                //TODO: H and C: "set or reset according to operation"
+            },
+            0xFA => {
+                //LD A, (a16)
+                let imm1: u8 = self.mem_next(memory);
+                let imm2: u8 = self.mem_next(memory);
+                let addr: u16 = (imm2 as u16) << 8 | imm1 as u16;
+
+                self.reg_set8(Reg::A, memory.read_byte(addr));
+            },
+            _ => panic!("Invalid opcode for ld others: {:#X}", opcode),
         }
     }
 
@@ -240,8 +331,6 @@ impl Cpu {
         }
         self.flag_set(result == 0, Flag::Z);
     }
-
-    /*Instructions execution codes*/
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
         //TODO Flag stuff
