@@ -601,7 +601,8 @@ impl Cpu {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let mut value: u16 = self.reg16(reg);
 
-        self.reg_set16(Reg::HL, self.reg16(Reg::HL) + value);
+        let hl: u16 = self.reg16(Reg::HL);
+        self.reg_set16(Reg::HL, hl + value);
     }
 
     fn exec_inc_dec16(&mut self, opcode: u8) {
