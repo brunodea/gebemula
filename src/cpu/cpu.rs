@@ -262,6 +262,10 @@ impl Cpu {
                 (0o10 ... 0o17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
+                (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
+                    //RET; RET NZ; RET Z; RET NC; RET C; RETI
+                    self.exec_ret(byte, memory);
+                },
                 (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
                 (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
                     //PUSH pp, POP pp
@@ -299,6 +303,43 @@ impl Cpu {
     }
 
     /*Instructions execution codes*/
+
+    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) {
+        let mut should_return: bool = false; 
+        match opcode {
+            0xC0 => {
+                //RET NZ
+                should_return = !self.flag_is_set(Flag::Z);
+            },
+            0xC8 => {
+                //RET Z
+                should_return = self.flag_is_set(Flag::Z);
+            },
+            0xC9 => {
+                //RET
+                should_return = true;
+            },
+            0xD0 => {
+                //RET NC
+                should_return = !self.flag_is_set(Flag::C);
+            },
+            0xD8 => {
+                //RET C
+                should_return = self.flag_is_set(Flag::C);
+            },
+            0xD9 => {
+                //TODO: enable interrupts
+                //RETI
+                should_return = true;
+            },
+            _ => unreachable!(),
+        }
+
+        if should_return {
+            let addr: u16 = self.pop_sp16(memory);
+            self.reg_set16(Reg::PC, addr);
+        }
+    }
     
     fn exec_rotates_shifts(&mut self, opcode: u8) {
         let mut value: u8 = self.reg8(Reg::A);
