@@ -196,52 +196,74 @@ impl Cpu {
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
-                (3 ... 7, 0) => {
+                (0o3 ... 0o7, 0o0) => {
                     //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
                     self.exec_jump(byte, memory);
                 },
-                (0 ... 7, 2) => {
+                (0o0 ... 0o7, 0o2) => {
                     //LD (nn), A; LD A, (nn)
                     self.exec_ld_nn_a(byte, memory);
                 },
-                (0 ... 7, 4 ... 5) => {
+                (0o0 ... 0o7, 0o4 ... 0o5) => {
                     //INC; DEC
                     self.exec_inc_dec(byte, memory);
                 },
-                (0 ... 7, 6) => {
+                (0o0 ... 0o7, 0o6) => {
                     //LD r,n; LD n,r
                     self.exec_ld_r_n(byte, memory);
                 },
-                (16, 6) => {
+                (0o16, 0o6) => {
                     //TODO HALT instruction
                 },
-                (10 ... 17,_) => {
+                (0o10 ... 0o17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
-                (31, 3) => {
-                    //CB-Prefixed
-                    panic!("0xCB-prefixed not implemented yet!");
-                },
-                (20 ... 27,_)     |
-                (30 ... 37, 6) => {
+                (0o20 ... 0o27, _) |
+                (0o30 ... 0o37, 0o6) => {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
                     self.exec_bit_alu8(byte, memory);
                 },
-                (0,1)|(2,1)|(4,1)|(6,1)|
-                (34 ... 37, 2) |
-                (34, 0) | (36, 0) |
-                (37, 0 ... 1) => {
-                    //LD (ff00+c), A; LD A, (ff00+c); LDH (a8),A; LDH A,(a8),
-                    //LD HL, SP+r8; LD SP, HL; LD (a16),A; LD A,(a16)
+                (0o31, 0o3) => {
+                    //CB-Prefixed
+                    self.exec_cb_prefixed(memory);
+                },
+                (0o0,0o1)|(0o2,0o1)|(0o4,0o1)|(0o6,0o1) |
+                (0o34 ... 0o37, 0o2) |
+                (0o34, 0o0) | (0o36, 0o0) |
+                (0o37, 0o0 ... 0o1) => {
+                    //LD BC,d16; LD DE,d16; LD HL,d16; LD SP,d16
+                    //LD (ff00+c), A; LD A, (ff00+c); 
+                    //LD (a16),A; LD A,(a16)
+                    //LDH (a8),A; LDH A,(a8),
+                    //LD HL, SP+r8; LD SP, HL;
                     self.exec_ld_others(byte, memory);
                 },
-                _ => panic!("No opcode defined for {:#01$X}", byte, 2),
+                _ => panic!("No opcode defined for {:#01$x}", byte, 2),
             }
-            println!("{} - {}", format!("{:#01$X}", byte, 4), self);
+            println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
         }
     }
 
     /*Instructions execution codes*/
+
+    fn exec_cb_prefixed(&mut self, memory: &mem::Memory) {
+        let opcode = self.mem_next(memory);
+        let reg: Reg = Reg::pair_from_ddd(opcode);
+        let mut value: u8 = self.reg8(reg);
+        if reg == Reg::HL {
+            value = memory.read_byte(self.reg16(Reg::HL));
+        }
+        let bit: u8 = opcode >> 3 & 0b111;
+        match ((opcode >> 3) as u8, opcode % 0o10) {
+            (0o10 ... 0o17, 0o0 ... 0o7) => {
+                //BIT b,r; BIT b,(HL)
+                self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(true, Flag::H);
+            },
+            _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
+        }
+    }
 
     fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let mut should_jump: bool = false;
@@ -251,15 +273,19 @@ impl Cpu {
                 should_jump = true;
             },
             0x20 => {
+                //JR NZ,r8
                 should_jump = !self.flag_is_set(Flag::Z);
             },
             0x28 => {
+                //JR Z,r8
                 should_jump = self.flag_is_set(Flag::Z);
             },
             0x30 => {
+                //JR NC,r8
                 should_jump = !self.flag_is_set(Flag::C);
             },
             0x38 => {
+                //JR C,r8
                 should_jump = self.flag_is_set(Flag::C);
             },
             _ => panic!("Invalid opcode for jump: {:#X}", opcode),
@@ -267,10 +293,10 @@ impl Cpu {
 
         if should_jump {
             //TODO mem next increments PC by one; make sure it is correct
-            let curr_addr: i16 = self.reg16(Reg::PC) as i16;
-            let displacement: i16 = util::twos_complement(self.mem_next(memory));
-            
-            self.reg_set16(Reg::PC, (curr_addr + displacement) as u16);
+            let curr_addr: u16 = self.reg16(Reg::PC) - 1; //-1 because of mem_next that always adds 1 to PC making it point to the next instruction
+            let imm: u8 = self.mem_next(memory) as u8;
+
+            self.reg_set16(Reg::PC, util::twos_complement(imm, curr_addr));
         }
     }
     
@@ -351,14 +377,14 @@ impl Cpu {
             memory.write_byte(self.reg16(Reg::HL), result);
         } else {
             match ((opcode >> 3) as u8, opcode % 0o10) {
-                (0 ... 7, 4) => {
+                (0o0 ... 0o7, 0o4) => {
                     //INC
                     result = reg_val+1;
                     self.flag_set(false, Flag::N);
                     //TODO: set H if carry from bit 3: ????
                     //self.flag_set(util::has_carry_on_bit(3, 
                 },
-                (0 ... 7, 5) => {
+                (0o0 ... 0o7, 0o5) => {
                     //DEC
                     result = reg_val-1;    
                     self.flag_set(true, Flag::N);
@@ -388,14 +414,14 @@ impl Cpu {
 
         self.flag_set(result == 0, Flag::Z);
         match ((opcode >> 3) as u8, opcode % 0o10) {
-            (20, 0 ... 7) | (30, 6) => {
+            (0o20, 0o0 ... 0o7) | (0o30, 0o6) => {
                 //ADD
                 result = reg_a_val + value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
-            (21, 0 ... 7) | (31, 6) => {
+            (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
                 result = reg_a_val + value;
                 if self.flag_is_set(Flag::C) { 
@@ -405,42 +431,42 @@ impl Cpu {
                 self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
-            (22, 0 ... 7) | (32, 6) => {
+            (0o22, 0o0 ... 0o7) | (0o32, 0o6) => {
                 //SUB
                 result = reg_a_val - value;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
-            (23, 0 ... 7) | (33, 6) => {
+            (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
                 //SBC
                 result = reg_a_val - value;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
-            (24, 0 ... 7) | (34, 6) => {
+            (0o24, 0o0 ... 0o7) | (0o34, 0o6) => {
                 //AND
                 result = reg_a_val & value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (25, 0 ... 7) | (35, 6) => {
+            (0o25, 0o0 ... 0o7) | (0o35, 0o6) => {
                 //XOR
                 result = reg_a_val^value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (26, 0 ... 7) | (36, 6)  => {
+            (0o26, 0o0 ... 0o7) | (0o36, 0o6)  => {
                 //OR
                 result = reg_a_val | value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (27, 0 ... 7) | (37, 6) => {
+            (0o27, 0o0 ... 0o7) | (0o37, 0o6) => {
                 //CP
                 self.flag_set(opcode == 0xFE && reg_a_val == value, Flag::Z);
                 self.flag_set(true, Flag::N);
