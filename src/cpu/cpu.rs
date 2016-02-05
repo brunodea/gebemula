@@ -201,7 +201,7 @@ impl Cpu {
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
         let lo: u8 = self.pop_sp8(memory);
         let hi: u8 = self.pop_sp8(memory);
-        (hi as u16) << 8 | lo as u16
+        ((hi as u16) << 8) | lo as u16
     }
 
     fn increment_pc(&mut self) {
@@ -335,7 +335,8 @@ impl Cpu {
         match opcode & 0b1111 {
             0x1 => {
                 //POP
-                self.pop_sp16(memory);
+                let sp_val: u16 = self.pop_sp16(memory);
+                self.reg_set16(reg, sp_val);
             },
             0x5 => {
                 //PUSH
