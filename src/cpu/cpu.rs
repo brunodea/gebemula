@@ -172,6 +172,19 @@ impl Cpu {
         self.push_sp8((value >> 8) as u8, memory);
     }
 
+    fn pop_sp8(&mut self, memory: &mem::Memory) -> u8 {
+        let sp: u16 = self.reg16(Reg::SP);
+        let value: u8 = memory.read_byte(sp);
+        self.reg_set16(Reg::SP, sp + 1);
+        value
+    }
+
+    fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
+        let lo: u8 = self.pop_sp8(memory);
+        let hi: u8 = self.pop_sp8(memory);
+        (hi as u16) << 8 | lo as u16
+    }
+
     fn increment_pc(&mut self) {
         let pc: u16 = self.reg16(Reg::PC);
         self.reg_set16(Reg::PC, pc+1);
@@ -218,6 +231,11 @@ impl Cpu {
                 (0o10 ... 0o17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
+                (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
+                (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
+                    //PUSH pp, POP pp
+                    self.exec_push_pop(byte, memory);
+                },
                 (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
                 (0o32 ... 0o33, 0o4) => {
                     //CALL 
@@ -250,6 +268,23 @@ impl Cpu {
     }
 
     /*Instructions execution codes*/
+
+    fn exec_push_pop(&mut self, opcode: u8, memory: &mut mem::Memory) {
+        let reg: Reg = Reg::pair_from_dd(opcode >> 4);
+        match opcode & 0b1111 {
+            0x1 => {
+                //POP
+                self.pop_sp16(memory);
+            },
+            0x5 => {
+                //PUSH
+                let val = self.reg16(reg);
+                self.push_sp16(val, memory);
+            },
+            _ => unreachable!(),
+        }
+    }
+
     fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) {
         //push next instruction onto stack
         let imm1: u8 = self.mem_next(memory);
@@ -287,7 +322,7 @@ impl Cpu {
         }
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mem::Memory) {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) {
         let opcode = self.mem_next(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let mut value: u8 = self.reg8(reg);
@@ -301,6 +336,24 @@ impl Cpu {
                 self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
+            },
+            (0o20 ... 0o27, 0o0 ... 0o7) => {
+                //RES b,r; RES b,(HL)
+                value = value & !(1 << bit);
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o30 ... 0o37, 0o0 ... 0o7) => {
+                //SET b,r; SET b,(HL)
+                value = value | 1 << bit;
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
             },
             _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
         }
