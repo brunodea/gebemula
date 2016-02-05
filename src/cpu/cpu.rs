@@ -218,6 +218,11 @@ impl Cpu {
                 (0o10 ... 0o17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
+                (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
+                (0o32 ... 0o33, 0o4) => {
+                    //CALL 
+                    self.exec_call(byte, memory);
+                },
                 (0o20 ... 0o27, _) |
                 (0o30 ... 0o37, 0o6) => {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
@@ -245,6 +250,42 @@ impl Cpu {
     }
 
     /*Instructions execution codes*/
+    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) {
+        //push next instruction onto stack
+        let imm1: u8 = self.mem_next(memory);
+        let imm2: u8 = self.mem_next(memory);
+        let immediate: u16 = ((imm2 as u16) << 8) | imm1 as u16;
+        let mut should_jump = false;
+        match opcode {
+            0xC4 => {
+                //CALL NZ,a16
+                should_jump = !self.flag_is_set(Flag::Z);
+            },
+            0xCC => {
+                //CALL Z,a16
+                should_jump = self.flag_is_set(Flag::Z);
+            },
+            0xCD => {
+                //CALL a16
+                should_jump = true;
+            },
+            0xD4 => {
+                //CALL NC,a16
+                should_jump = !self.flag_is_set(Flag::C);
+            },
+            0xDC => {
+                //CALL C,a16
+                should_jump = self.flag_is_set(Flag::C);
+            },
+            _ => unreachable!(),
+        }
+    
+        if should_jump {
+            let pc: u16 = self.reg16(Reg::PC);
+            self.push_sp16(pc, memory);
+            self.reg_set16(Reg::PC, immediate);
+        }
+    }
 
     fn exec_cb_prefixed(&mut self, memory: &mem::Memory) {
         let opcode = self.mem_next(memory);
