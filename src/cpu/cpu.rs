@@ -295,8 +295,10 @@ impl Cpu {
             //TODO mem next increments PC by one; make sure it is correct
             let curr_addr: u16 = self.reg16(Reg::PC) - 1; //-1 because of mem_next that always adds 1 to PC making it point to the next instruction
             let imm: u8 = self.mem_next(memory) as u8;
-
+        
             self.reg_set16(Reg::PC, util::twos_complement(imm, curr_addr));
+        } else {
+            self.increment_pc();
         }
     }
     
@@ -502,16 +504,18 @@ impl Cpu {
             },
             _ => unreachable!(),
         }
-        match opcode {
-            0o42 | 0o52 => {
-                //HL+
-                self.reg_set16(Reg::HL, reg_val + 1);
-            },
-            0o62 | 0o72 => {
-                //HL-
-                self.reg_set16(Reg::HL, reg_val - 1);
-            },
-            _ => unreachable!(),
+        if reg == Reg::HL {
+            match opcode {
+                0o42 | 0o52 => {
+                    //HL+
+                    self.reg_set16(Reg::HL, reg_val + 1);
+                },
+                0o62 | 0o72 => {
+                    //HL-
+                    self.reg_set16(Reg::HL, reg_val - 1);
+                },
+                _ => unreachable!(),
+            }
         }
     }
 
