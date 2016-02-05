@@ -331,6 +331,32 @@ impl Cpu {
         }
         let bit: u8 = opcode >> 3 & 0b111;
         match ((opcode >> 3) as u8, opcode % 0o10) {
+            (0o0, 0o0 ... 0o7) => {
+                //RLC b
+                value = value << 1 | value >> 7;
+
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(value & 0b1 == 1, Flag::C);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                }
+            },
+            (0o1, 0o0 ... 0o7) => {
+                //RRC m
+                value = value >> 1 | value << 7;
+                
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(value & 0b1000_0000 == 1, Flag::C);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                }
+            },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
                 self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
