@@ -156,6 +156,25 @@ impl Cpu {
         mask & flags == mask
     }
 
+    fn flag_bit(&self, flag: Flag) -> u8 {
+        let mut m: u8 = 0;
+        match flag {
+            Flag::Z =>  {
+                m = 3;
+            },
+            Flag::N => {
+                m = 2;
+            },
+            Flag::H => {
+                m = 1;
+            },
+            Flag::C => {
+                m = 0;
+            },
+        }
+        (self.flags() >> m) & 0b1
+    }
+
     fn flags(&self) -> u8 {
         self.reg8(Reg::F)
     }
@@ -342,6 +361,8 @@ impl Cpu {
 
                 if reg == Reg::HL {
                     memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
                 }
             },
             (0o1, 0o0 ... 0o7) => {
@@ -351,10 +372,110 @@ impl Cpu {
                 self.flag_set(value == 0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
-                self.flag_set(value & 0b1000_0000 == 1, Flag::C);
+                self.flag_set((value >> 7) & 0b1 == 1, Flag::C);
 
                 if reg == Reg::HL {
                     memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o2, 0o0 ... 0o7) => {
+                //RL m
+                let bit_c: u8 = self.flag_bit(Flag::C);
+                let bit_7: u8 = value >> 7 & 0b1;
+                self.flag_set(bit_7 == 1, Flag::C);
+                value = value << 1 | bit_c;
+
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o3, 0o0 ... 0o7) => {
+                //RR m
+                let bit_c: u8 = self.flag_bit(Flag::C);
+                let bit_0: u8 = value & 0b1;
+                self.flag_set(bit_0 == 1, Flag::C);
+                value = value >> 1 | (bit_c << 7);
+
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o4, 0o0 ... 0o7) => {
+                //SLA n
+                let bit_7: u8 = (value >> 7) & 0b1;
+                value = value << 1;
+
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(bit_7 == 1, Flag::C);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o5, 0o0 ... 0o7) => {
+                //SRA n
+                let bit_7: u8 = (value >> 7) & 0b1;
+                let bit_0: u8 = value & 0b1;
+                value = value >> 1 | (bit_7 << 7);
+
+                self.flag_set(bit_0 == 1, Flag::C);
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o6, 0o0 ... 0o7) => {
+                //SWAP n
+                value = value << 4 | value >> 4;
+
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(false, Flag::C);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
+                }
+            },
+            (0o7, 0o0 ... 0o7) => {
+                //SRL n
+                let bit_0: u8 = value & 0b1;
+                value = value >> 1;
+
+                self.flag_set(value == 1, Flag::C);
+                self.flag_set(value == 0, Flag::Z);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+
+                if reg == Reg::HL {
+                    memory.write_byte(self.reg16(Reg::HL), value);
+                } else {
+                    self.reg_set8(reg, value);
                 }
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
