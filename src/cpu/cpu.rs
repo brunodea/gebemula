@@ -52,7 +52,7 @@ pub struct Cpu {
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["A", "F", "B", "C", "D", "E", "H", "L", "SP", "PC"];
-        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 2);
+        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 6);
         let mut regs: String = "".to_owned();
         for (i, reg) in regs_names.iter().enumerate() {
             match i {
@@ -62,7 +62,7 @@ impl fmt::Display for Cpu {
                     regs = regs + &format!("{}{}({}), ", lhs, rhs, reg);
                 },
                 _ => {
-                    regs = regs + &format!("{}({}), ", format!("{:#01$x}", self.regs[i], 2), reg);
+                    regs = regs + &format!("{}({}), ", format!("{:#01$x}", self.regs[i], 4), reg);
                 },
             }
         }
@@ -258,6 +258,7 @@ impl Cpu {
                 }
                 (0o16, 0o6) => {
                     //TODO HALT instruction
+                    panic!("HALT!");
                 },
                 (0o10 ... 0o17,_) => {
                     self.exec_ld_r_r(byte, memory);
@@ -622,9 +623,6 @@ impl Cpu {
                 //LD SP,HL
                 let hl: u16 = self.reg16(Reg::HL);
                 self.push_sp16(hl, memory);
-                self.flag_set(false, Flag::Z);
-                self.flag_set(false, Flag::N);
-                //TODO: H and C: "set or reset according to operation"
             },
             0xFA => {
                 //LD A, (a16)
