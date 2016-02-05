@@ -667,30 +667,35 @@ impl Cpu {
 
     fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
-        let reg_val: u8 = self.reg8(reg);
+        let mut reg_val: u8 = self.reg8(reg);
         let mut result: u8 = 0;
         if reg == Reg::HL {
-            result = self.mem_at_reg(Reg::HL, memory) + 1;
-            memory.write_byte(self.reg16(Reg::HL), result);
-        } else {
-            match ((opcode >> 3) as u8, opcode % 0o10) {
-                (0o0 ... 0o7, 0o4) => {
-                    //INC
-                    result = reg_val+1;
-                    self.flag_set(false, Flag::N);
-                    //TODO: set H if carry from bit 3: ????
-                    //self.flag_set(util::has_carry_on_bit(3, 
-                },
-                (0o0 ... 0o7, 0o5) => {
-                    //DEC
-                    result = reg_val-1;    
-                    self.flag_set(true, Flag::N);
-                    //TODO: set H if no borrow from bit 4
-                },
-                _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
-            }
+            reg_val = self.mem_at_reg(Reg::HL, memory);
+        }
+        //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3? 
+        match ((opcode >> 3) as u8, opcode % 0o10) {
+            (0o0 ... 0o7, 0o4) => {
+                //INC
+                result = reg_val+1;
+                self.flag_set(false, Flag::N);
+                self.flag_set(util::has_carry_on_bit(3, reg_val, 1), Flag::H);
+            },
+            (0o0 ... 0o7, 0o5) => {
+                //DEC
+                result = reg_val-1;    
+                self.flag_set(true, Flag::N);
+                let minus_one: i8 = -1;
+                self.flag_set(!util::has_borrow_on_bit(4, reg_val, minus_one as u8), Flag::H);
+            },
+            _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
         }
         self.flag_set(result == 0, Flag::Z);
+        
+        if reg == Reg::HL {
+            memory.write_byte(self.reg16(Reg::HL), result);
+        } else {
+            self.reg_set8(reg, result);
+        }
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
