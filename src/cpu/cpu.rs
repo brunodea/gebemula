@@ -221,7 +221,7 @@ impl Cpu {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
                     self.exec_bit_alu8(byte, memory);
                 },
-                (0,1)|(1,1)|(2,1)|(3,1)|
+                (0,1)|(2,1)|(4,1)|(6,1)|
                 (34 ... 37, 2) |
                 (34, 0) | (36, 0) |
                 (37, 0 ... 1) => {
@@ -231,6 +231,7 @@ impl Cpu {
                 },
                 _ => panic!("No opcode defined for {:#01$X}", byte, 2),
             }
+            println!("{} - {}", format!("{:#01$X}", byte, 4), self);
         }
     }
 
