@@ -9,7 +9,7 @@ use std::env;
 use std::io::Read;
 use std::fs::File;
 
-use cpu::cpu::Cpu;
+use cpu::Cpu;
 use mem::mem::Memory;
 
 fn main() {

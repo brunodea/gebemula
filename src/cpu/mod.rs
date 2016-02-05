@@ -1,1 +1,2 @@
-pub mod cpu;
+mod cpu;
+pub use self::cpu::Cpu;
