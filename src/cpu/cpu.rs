@@ -199,8 +199,8 @@ impl Cpu {
     }
 
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
-        let lo: u8 = self.pop_sp8(memory);
         let hi: u8 = self.pop_sp8(memory);
+        let lo: u8 = self.pop_sp8(memory);
         ((hi as u16) << 8) | lo as u16
     }
 
