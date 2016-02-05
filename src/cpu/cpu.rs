@@ -52,19 +52,17 @@ pub struct Cpu {
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["A", "F", "B", "C", "D", "E", "H", "L", "SP", "PC"];
-        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 4);
+        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 2);
         let mut regs: String = "".to_owned();
         for (i, reg) in regs_names.iter().enumerate() {
             match i {
-                8 | 10 => {
-                    regs = regs + &format!("{:#01$X}", self.regs[i], 4);
+                8 | 9 => {
+                    let lhs = format!("{:#01$x}", self.regs[i+(i%2)], 2);
+                    let rhs = format!("{:01$x}", self.regs[i+1+(i%2)], 2);
+                    regs = regs + &format!("{}{}({}), ", lhs, rhs, reg);
                 },
-                9 | 11 => {
-                    let rhs = format!("{:01$X}", self.regs[i], 4);
-                    regs = regs + &format!("{}({}), ", rhs, reg);
-                }
                 _ => {
-                    regs = regs + &format!("{}({}), ", format!("{:#01$x}", self.regs[i], 4), reg);
+                    regs = regs + &format!("{}({}), ", format!("{:#01$x}", self.regs[i], 2), reg);
                 },
             }
         }
