@@ -349,86 +349,43 @@ impl Cpu {
             value = memory.read_byte(self.reg16(Reg::HL));
         }
         let bit: u8 = opcode >> 3 & 0b111;
+        let mut should_change_reg: bool = true;
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0, 0o0 ... 0o7) => {
                 //RLC b
+                let bit_7: u8 = value >> 7 & 0b1;
+
                 value = value << 1 | value >> 7;
-
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-                self.flag_set(value & 0b1 == 1, Flag::C);
-
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
+                self.flag_set(bit_7 == 1, Flag::C);
             },
             (0o1, 0o0 ... 0o7) => {
                 //RRC m
-                value = value >> 1 | value << 7;
-                
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-                self.flag_set((value >> 7) & 0b1 == 1, Flag::C);
+                let bit_0: u8 = value & 0b1;
 
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
+                value = value >> 1 | value << 7;
+                self.flag_set(bit_0 == 1, Flag::C);
             },
             (0o2, 0o0 ... 0o7) => {
                 //RL m
-                let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_7: u8 = value >> 7 & 0b1;
-                self.flag_set(bit_7 == 1, Flag::C);
-                value = value << 1 | bit_c;
 
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-                
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
+                value = value << 1 | self.flag_bit(Flag::C);
+                self.flag_set(bit_7 == 1, Flag::C);
             },
             (0o3, 0o0 ... 0o7) => {
                 //RR m
                 let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_0: u8 = value & 0b1;
-                self.flag_set(bit_0 == 1, Flag::C);
-                value = value >> 1 | (bit_c << 7);
 
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-                
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
+                value = value >> 1 | (bit_c << 7);
+                self.flag_set(bit_0 == 1, Flag::C);
             },
             (0o4, 0o0 ... 0o7) => {
                 //SLA n
                 let bit_7: u8 = (value >> 7) & 0b1;
                 value = value << 1;
 
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
                 self.flag_set(bit_7 == 1, Flag::C);
-
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             (0o5, 0o0 ... 0o7) => {
                 //SRA n
@@ -437,30 +394,11 @@ impl Cpu {
                 value = value >> 1 | (bit_7 << 7);
 
                 self.flag_set(bit_0 == 1, Flag::C);
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             (0o6, 0o0 ... 0o7) => {
                 //SWAP n
                 value = value << 4 | value >> 4;
-
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
-
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             (0o7, 0o0 ... 0o7) => {
                 //SRL n
@@ -468,41 +406,38 @@ impl Cpu {
                 value = value >> 1;
 
                 self.flag_set(value == 1, Flag::C);
-                self.flag_set(value == 0, Flag::Z);
-                self.flag_set(false, Flag::N);
-                self.flag_set(false, Flag::H);
-
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
                 self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
+
+                should_change_reg = false;
             },
             (0o20 ... 0o27, 0o0 ... 0o7) => {
                 //RES b,r; RES b,(HL)
                 value = value & !(1 << bit);
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             (0o30 ... 0o37, 0o0 ... 0o7) => {
                 //SET b,r; SET b,(HL)
                 value = value | 1 << bit;
-                if reg == Reg::HL {
-                    memory.write_byte(self.reg16(Reg::HL), value);
-                } else {
-                    self.reg_set8(reg, value);
-                }
             },
             _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
+        }
+
+        if should_change_reg {
+            if reg == Reg::HL {
+                memory.write_byte(self.reg16(Reg::HL), value);
+            } else {
+                self.reg_set8(reg, value);
+            }
+        }
+
+        if opcode <= 0o77 {
+            self.flag_set(value == 0, Flag::Z);
+            self.flag_set(false, Flag::N);
+            self.flag_set(false, Flag::H);
         }
     }
 
