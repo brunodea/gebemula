@@ -236,10 +236,18 @@ impl Cpu {
                     //LD (nn), A; LD A, (nn)
                     self.exec_ld_nn_a(byte, memory);
                 },
+                (0o0 ... 0o7, 0o3) => {
+                    //INC nn; DEC nn
+                    self.exec_inc_dec16(byte);
+                },
                 (0o0 ... 0o7, 0o4 ... 0o5) => {
-                    //INC; DEC
+                    //INC n; DEC n
                     self.exec_inc_dec(byte, memory);
                 },
+                (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
+                    //ADD HL,ss
+                    self.exec_add_hl_ss(byte);
+                }
                 (0o0 ... 0o7, 0o6) => {
                     //LD r,n; LD n,r
                     self.exec_ld_r_n(byte, memory);
@@ -587,6 +595,30 @@ impl Cpu {
             },
             _ => panic!("Invalid opcode for ld others: {:#X}", opcode),
         }
+    }
+
+    fn exec_add_hl_ss(&mut self, opcode: u8) {
+        let reg: Reg = Reg::pair_from_dd(opcode >> 4);
+        let mut value: u16 = self.reg16(reg);
+
+        self.reg_set16(Reg::HL, self.reg16(Reg::HL) + value);
+    }
+
+    fn exec_inc_dec16(&mut self, opcode: u8) {
+        let reg: Reg = Reg::pair_from_dd(opcode >> 4);
+        let mut value: u16 = self.reg16(reg);
+        match opcode & 0b1111 {
+            0x3 =>{
+                //INC nn
+                value += 1;
+            },
+            0xB =>{
+                //DEC nn
+                value -= 1;
+            },
+            _ => unreachable!(),
+        }
+        self.reg_set16(reg, value);
     }
 
     fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) {
