@@ -198,6 +198,10 @@ impl Cpu {
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
+                (3 ... 7, 0) => {
+                    //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
+                    self.exec_jump(byte, memory);
+                },
                 (0 ... 7, 2) => {
                     //LD (nn), A; LD A, (nn)
                     self.exec_ld_nn_a(byte, memory);
@@ -216,12 +220,16 @@ impl Cpu {
                 (10 ... 17,_) => {
                     self.exec_ld_r_r(byte, memory);
                 },
+                (31, 3) => {
+                    //CB-Prefixed
+                    panic!("0xCB-prefixed not implemented yet!");
+                },
                 (20 ... 27,_)     |
                 (30 ... 37, 6) => {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
                     self.exec_bit_alu8(byte, memory);
                 },
-                (0,1)|(1,1)|(2,1)|(3,1)|
+                (0,1)|(2,1)|(4,1)|(6,1)|
                 (34 ... 37, 2) |
                 (34, 0) | (36, 0) |
                 (37, 0 ... 1) => {
@@ -231,10 +239,42 @@ impl Cpu {
                 },
                 _ => panic!("No opcode defined for {:#01$X}", byte, 2),
             }
+            println!("{} - {}", format!("{:#01$X}", byte, 4), self);
         }
     }
 
     /*Instructions execution codes*/
+
+    fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) {
+        let mut should_jump: bool = false;
+        match opcode {
+            0x18 => {
+                //JR n
+                should_jump = true;
+            },
+            0x20 => {
+                should_jump = !self.flag_is_set(Flag::Z);
+            },
+            0x28 => {
+                should_jump = self.flag_is_set(Flag::Z);
+            },
+            0x30 => {
+                should_jump = !self.flag_is_set(Flag::C);
+            },
+            0x38 => {
+                should_jump = self.flag_is_set(Flag::C);
+            },
+            _ => panic!("Invalid opcode for jump: {:#X}", opcode),
+        }
+
+        if should_jump {
+            //TODO mem next increments PC by one; make sure it is correct
+            let curr_addr: i16 = self.reg16(Reg::PC) as i16;
+            let displacement: i16 = util::twos_complement(self.mem_next(memory));
+            
+            self.reg_set16(Reg::PC, (curr_addr + displacement) as u16);
+        }
+    }
     
     fn exec_ld_others(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let addr: u16 = 0xFF00;

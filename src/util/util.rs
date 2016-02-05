@@ -22,3 +22,12 @@ pub fn has_borrow_on_any(byte_1: u8, byte_2: u8) -> bool {
 
     has
 }
+
+pub fn twos_complement(value: u8) -> i16 {
+    let mut value_i: i16 = value as i16;
+    if value_i < 0 {
+        value_i= -(!value_i - 1);
+    }
+
+    value_i
+}
