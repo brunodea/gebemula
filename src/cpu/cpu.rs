@@ -110,8 +110,8 @@ impl Cpu {
             self.regs[index] = (value >> 8) as u8;
             self.regs[index+1] = value as u8;
         }
-        if reg != Reg::PC {
-            print!("[{:?} <- {}] # ", reg, format!("{:#01$x}", value, 4));
+        if reg != Reg::F {
+            println!("{:?} <- {}", reg, format!("{:#01$x}", value, 4));
         }
     }
 
@@ -122,9 +122,12 @@ impl Cpu {
     fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
+            println!("{:?} -> {:#x} ", reg, self.regs[index]);
             self.regs[index] as u16
         } else {
-            (self.regs[index] as u16) << 8 | self.regs[index+1] as u16
+            let res: u16 = (self.regs[index] as u16) << 8 | self.regs[index+1] as u16;
+            println!("{:?} -> {:#x} ", reg, res);
+            res
         }
     }
 
@@ -150,7 +153,7 @@ impl Cpu {
             flags &= !mask;
         }
         self.reg_set8(Reg::F, flags); 
-        print!("{:?} ({:?}) ", flag, self.flag_is_set(flag));
+        println!("{:?} <- {:?}", flag, self.flag_is_set(flag));
     }
 
     fn flag_is_set(&self, flag: Flag) -> bool {
@@ -191,8 +194,8 @@ impl Cpu {
 
     //TODO: make sure the order is right
     fn push_sp16(&mut self, value: u16, memory: &mut mem::Memory) {
-        self.push_sp8(value as u8, memory);
         self.push_sp8((value >> 8) as u8, memory);
+        self.push_sp8(value as u8, memory);
     }
 
     fn pop_sp8(&mut self, memory: &mem::Memory) -> u8 {
@@ -203,8 +206,8 @@ impl Cpu {
     }
 
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
-        let hi: u8 = self.pop_sp8(memory);
         let lo: u8 = self.pop_sp8(memory);
+        let hi: u8 = self.pop_sp8(memory);
         ((hi as u16) << 8) | lo as u16
     }
 
@@ -229,38 +232,46 @@ impl Cpu {
 
         let mut byte: u8 = memory.read_byte(starting_point);
         loop { //TODO: ending point
-            print!("\n[{}] ", format!("{:#01$x}", self.reg16(Reg::PC), 6));
+            if self.reg16(Reg::PC) > 0xfe {
+                panic!("End of Bootstrap ROM.");
+            }
             byte = self.mem_next(memory);
-            print!("{}: ", format!("{:#01$x}", byte, 4));
+            print!("### {}: ", format!("{:#01$x}", byte, 4));
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
                 (0o3 ... 0o7, 0o0) => {
                     //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
+                    println!("JR:");
                     self.exec_jump(byte, memory);
                 },
                 (0o0 ... 0o7, 0o2) => {
                     //LD (nn), A; LD A, (nn)
+                    println!("LD (nn),A; LD A, (nn):");
                     self.exec_ld_nn_a(byte, memory);
                 },
                 (0o0 ... 0o7, 0o3) => {
                     //INC nn; DEC nn
+                    println!("INC nn; DEC nn:");
                     self.exec_inc_dec16(byte);
                 },
                 (0o0 ... 0o7, 0o4 ... 0o5) => {
                     //INC n; DEC n
+                    println!("INC n; DEC n:");
                     self.exec_inc_dec(byte, memory);
                 },
                 (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
                     //ADD HL,ss
+                    println!("ADD HL,ss:");
                     self.exec_add_hl_ss(byte);
                 }
                 (0o0 ... 0o7, 0o6) => {
                     //LD r,n; LD n,r
+                    println!("LD r,n; LD n,r:");
                     self.exec_ld_r_n(byte, memory);
                 },
                 (0o0 ... 0o3, 0o7) => {
-                    //RLCA, RRCA, RLA, RRA
+                    println!("RLCA, RRCA, RLA, RRA:");
                     self.exec_rotates_shifts(byte);
                 }
                 (0o16, 0o6) => {
@@ -268,25 +279,29 @@ impl Cpu {
                     panic!("HALT!");
                 },
                 (0o10 ... 0o17,_) => {
+                    println!("LD r,r:");
                     self.exec_ld_r_r(byte, memory);
                 },
                 (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
-                    //RET; RET NZ; RET Z; RET NC; RET C; RETI
+                    println!("RET; RET NZ; RET Z; RET NC; RET C; RETI:");
                     self.exec_ret(byte, memory);
                 },
                 (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
                 (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
                     //PUSH pp, POP pp
+                    println!("PUSH pp; POP pp:");
                     self.exec_push_pop(byte, memory);
                 },
                 (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
                 (0o32 ... 0o33, 0o4) => {
                     //CALL 
+                    println!("CALL:");
                     self.exec_call(byte, memory);
                 },
                 (0o20 ... 0o27, _) |
                 (0o30 ... 0o37, 0o6) => {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
+                    println!("AND,ADC,SUB,SBC,OR,XOR,CP:");
                     self.exec_bit_alu8(byte, memory);
                 },
                 (0o31, 0o3) => {
@@ -302,6 +317,7 @@ impl Cpu {
                     //LD (a16),A; LD A,(a16)
                     //LDH (a8),A; LDH A,(a8),
                     //LD HL, SP+r8; LD SP, HL;
+                    println!("LD others:");
                     self.exec_ld_others(byte, memory);
                 },
                 _ => panic!("No opcode defined for {:#01$x}", byte, 2),
@@ -453,6 +469,7 @@ impl Cpu {
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0, 0o0 ... 0o7) => {
                 //RLC b
+                println!("RLC b");
                 let bit_7: u8 = value >> 7 & 0b1;
 
                 value = value << 1 | value >> 7;
@@ -460,6 +477,7 @@ impl Cpu {
             },
             (0o1, 0o0 ... 0o7) => {
                 //RRC m
+                println!("RRC m");
                 let bit_0: u8 = value & 0b1;
 
                 value = value >> 1 | value << 7;
@@ -467,6 +485,7 @@ impl Cpu {
             },
             (0o2, 0o0 ... 0o7) => {
                 //RL m
+                println!("RL m");
                 let bit_7: u8 = value >> 7 & 0b1;
 
                 value = value << 1 | self.flag_bit(Flag::C);
@@ -474,6 +493,7 @@ impl Cpu {
             },
             (0o3, 0o0 ... 0o7) => {
                 //RR m
+                println!("RR m");
                 let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_0: u8 = value & 0b1;
 
@@ -482,6 +502,7 @@ impl Cpu {
             },
             (0o4, 0o0 ... 0o7) => {
                 //SLA n
+                println!("SLA n");
                 let bit_7: u8 = (value >> 7) & 0b1;
                 value = value << 1;
 
@@ -489,6 +510,7 @@ impl Cpu {
             },
             (0o5, 0o0 ... 0o7) => {
                 //SRA n
+                println!("SRA n");
                 let bit_7: u8 = (value >> 7) & 0b1;
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1 | (bit_7 << 7);
@@ -497,11 +519,13 @@ impl Cpu {
             },
             (0o6, 0o0 ... 0o7) => {
                 //SWAP n
+                println!("SWAP n");
                 value = value << 4 | value >> 4;
                 self.flag_set(false, Flag::C);
             },
             (0o7, 0o0 ... 0o7) => {
                 //SRL n
+                println!("SRL n");
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1;
 
@@ -509,6 +533,7 @@ impl Cpu {
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
+                println!("BIT b,r; BIT b,(HL)");
                 self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
@@ -517,10 +542,12 @@ impl Cpu {
             },
             (0o20 ... 0o27, 0o0 ... 0o7) => {
                 //RES b,r; RES b,(HL)
+                println!("RES b,r; RES b,(HL)");
                 value = value & !(1 << bit);
             },
             (0o30 ... 0o37, 0o0 ... 0o7) => {
                 //SET b,r; SET b,(HL)
+                println!("SET b,r; SET b,(HL)");
                 value = value | 1 << bit;
             },
             _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
@@ -679,7 +706,6 @@ impl Cpu {
         if reg == Reg::HL {
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
-        print!("reg {:?} antes: {:#x} ", reg, reg_val);
         //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3? 
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
@@ -704,7 +730,6 @@ impl Cpu {
         } else {
             self.reg_set8(reg, result);
         }
-        print!("reg {:?} depois: {:#x} ", reg, result);
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
