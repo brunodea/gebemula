@@ -32,8 +32,8 @@ impl fmt::Display for Memory {
             let lhs: u8 = self.mem[i];
             i += 1;
             let rhs: u8 = self.mem[i];
-            res = res + &format!("{:01$x}", lhs, 4);
-            res = res + &format!("{:01$x} ", rhs, 4);
+            res = res + &format!("{:01$x}", lhs, 2);
+            res = res + &format!("{:01$x} ", rhs, 2);
 
             i += 1;
         }
