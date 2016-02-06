@@ -1,3 +1,4 @@
+use std::fmt;
 use mem::memregion::MemoryRegion;
 
 // TODO: Implement MBC logic
@@ -15,6 +16,29 @@ pub struct Memory {
     io_registers: MemoryRegion,
     hram: MemoryRegion,
     interrupts_enable: MemoryRegion,
+}
+
+impl fmt::Display for Memory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let columns: u8 = 16;
+
+        let mut res: String = "".to_owned();
+
+        let mut i: usize = 0;
+        while i < self.mem.len() {
+            if i as u8 % columns == 0 {
+                res = res + &format!("\n{:01$x}: ", i, 8);
+            }
+            let lhs: u8 = self.mem[i];
+            i += 1;
+            let rhs: u8 = self.mem[i];
+            res = res + &format!("{:01$x}", lhs, 4);
+            res = res + &format!("{:01$x} ", rhs, 4);
+
+            i += 1;
+        }
+        write!(f, "{}", res)
+    }
 }
 
 impl Memory {
