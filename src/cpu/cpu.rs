@@ -867,11 +867,10 @@ impl Cpu {
             },
             (0o27, 0o0 ... 0o7) | (0o37, 0o6) => {
                 //CP
-                self.flag_set(opcode == 0xFE && reg_a_val == value, Flag::Z);
+                self.flag_set(reg_a_val == value, Flag::Z);
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
-                let c: bool = opcode == 0xFE && reg_a_val < value;
-                self.flag_set(c | !util::has_borrow_on_any(reg_a_val, value), Flag::C);
+                self.flag_set(reg_a_val < value, Flag::C);
                 unchange_a = true;
             },
 
