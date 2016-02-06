@@ -656,8 +656,11 @@ impl Cpu {
 
         if should_jump {
             //TODO mem next increments PC by one; make sure it is correct
-            let curr_addr: u16 = self.reg16(Reg::PC) - 1; //-1 because of mem_next that always adds 1 to PC making it point to the next instruction
             let imm: u8 = self.mem_next(memory) as u8;
+            let mut curr_addr: u16 = self.reg16(Reg::PC);
+            if (imm as i8) < 0 {
+                curr_addr = curr_addr - 2; //-2 for pointing to the opcode address.
+            }
         
             self.reg_set16(Reg::PC, util::twos_complement(imm, curr_addr));
         } else {
