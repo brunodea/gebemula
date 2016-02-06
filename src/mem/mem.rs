@@ -41,7 +41,9 @@ impl Memory {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        println!("{:#x} -> mem[{:#x}]", value, address);
+        if cfg!(debug_assertions) {
+            println!("{:#x} -> mem[{:#x}]", value, address);
+        }
         match address {
             0xC000 ... 0xCFFF => self.mem[(address + 0x2000) as usize] = value,
             0xE000 ... 0xFDFF => self.mem[(address - 0x2000) as usize] = value,
@@ -50,7 +52,9 @@ impl Memory {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        println!("{:#x} <- mem[{:#x}]", self.mem[address as usize], address);
+        if cfg!(debug_assertions) {
+            println!("{:#x} <- mem[{:#x}]", self.mem[address as usize], address);
+        }
         self.mem[address as usize]
     }
 

@@ -110,8 +110,10 @@ impl Cpu {
             self.regs[index] = (value >> 8) as u8;
             self.regs[index+1] = value as u8;
         }
-        if reg != Reg::F {
-            println!("{:?} <- {}", reg, format!("{:#01$x}", value, 4));
+        if cfg!(debug_assertions) {
+            if reg != Reg::F {
+                println!("{:?} <- {}", reg, format!("{:#01$x}", value, 4));
+            }
         }
     }
 
@@ -122,11 +124,15 @@ impl Cpu {
     fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
-            println!("{:?} -> {:#x} ", reg, self.regs[index]);
+            if cfg!(debug_assertions) {
+                println!("{:?} -> {:#x} ", reg, self.regs[index]);
+            }
             self.regs[index] as u16
         } else {
             let res: u16 = (self.regs[index] as u16) << 8 | self.regs[index+1] as u16;
-            println!("{:?} -> {:#x} ", reg, res);
+            if cfg!(debug_assertions) {
+                println!("{:?} -> {:#x} ", reg, res);
+            }
             res
         }
     }
@@ -153,7 +159,9 @@ impl Cpu {
             flags &= !mask;
         }
         self.reg_set8(Reg::F, flags); 
-        println!("{:?} <- {:?}", flag, self.flag_is_set(flag));
+        if cfg!(debug_assertions) {
+            println!("{:?} <- {:?}", flag, self.flag_is_set(flag));
+        }
     }
 
     fn flag_is_set(&self, flag: Flag) -> bool {
@@ -230,48 +238,64 @@ impl Cpu {
     pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
         self.reg_set16(Reg::PC, starting_point);
 
-        let mut byte: u8 = memory.read_byte(starting_point);
-        loop { //TODO: ending point
+        loop { 
             if self.reg16(Reg::PC) > 0xfe {
                 panic!("End of Bootstrap ROM.");
             }
-            byte = self.mem_next(memory);
-            print!("### {}: ", format!("{:#01$x}", byte, 4));
+            let byte: u8 = self.mem_next(memory);
+            if cfg!(debug_assertions) {
+                print!("### {}: ", format!("{:#01$x}", byte, 4));
+            }
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
                 (0o3 ... 0o7, 0o0) => {
                     //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
-                    println!("JR:");
+                    if cfg!(debug_assertions) {
+                        println!("JR:");
+                    }
                     self.exec_jump(byte, memory);
                 },
                 (0o0 ... 0o7, 0o2) => {
                     //LD (nn), A; LD A, (nn)
-                    println!("LD (nn),A; LD A, (nn):");
+                    if cfg!(debug_assertions) {
+                        println!("LD (nn),A; LD A, (nn):");
+                    }
                     self.exec_ld_nn_a(byte, memory);
                 },
                 (0o0 ... 0o7, 0o3) => {
                     //INC nn; DEC nn
-                    println!("INC nn; DEC nn:");
+                    if cfg!(debug_assertions) {
+                        println!("INC nn; DEC nn:");
+                    }
                     self.exec_inc_dec16(byte);
                 },
                 (0o0 ... 0o7, 0o4 ... 0o5) => {
                     //INC n; DEC n
-                    println!("INC n; DEC n:");
+                    if cfg!(debug_assertions) {
+                        println!("INC n; DEC n:");
+                    }
                     self.exec_inc_dec(byte, memory);
                 },
                 (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
                     //ADD HL,ss
-                    println!("ADD HL,ss:");
+                    if cfg!(debug_assertions) {
+                        println!("ADD HL,ss:");
+                    }
                     self.exec_add_hl_ss(byte);
                 }
                 (0o0 ... 0o7, 0o6) => {
                     //LD r,n; LD n,r
-                    println!("LD r,n; LD n,r:");
+                    if cfg!(debug_assertions) {
+                        println!("LD r,n; LD n,r:");
+                    }
                     self.exec_ld_r_n(byte, memory);
                 },
                 (0o0 ... 0o3, 0o7) => {
-                    println!("RLCA, RRCA, RLA, RRA:");
+                    //RLCA, RRCA, RLA, RRA
+                    if cfg!(debug_assertions) {
+                        println!("RLCA, RRCA, RLA, RRA:");
+                    }
                     self.exec_rotates_shifts(byte);
                 }
                 (0o16, 0o6) => {
@@ -279,29 +303,41 @@ impl Cpu {
                     panic!("HALT!");
                 },
                 (0o10 ... 0o17,_) => {
-                    println!("LD r,r:");
+                    //LD r,r
+                    if cfg!(debug_assertions) {
+                        println!("LD r,r:");
+                    }
                     self.exec_ld_r_r(byte, memory);
                 },
                 (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
-                    println!("RET; RET NZ; RET Z; RET NC; RET C; RETI:");
+                    //RET
+                    if cfg!(debug_assertions) {
+                        println!("RET; RET NZ; RET Z; RET NC; RET C; RETI:");
+                    }
                     self.exec_ret(byte, memory);
                 },
                 (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
                 (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
                     //PUSH pp, POP pp
-                    println!("PUSH pp; POP pp:");
+                    if cfg!(debug_assertions) {
+                        println!("PUSH pp; POP pp:");
+                    }
                     self.exec_push_pop(byte, memory);
                 },
                 (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
                 (0o32 ... 0o33, 0o4) => {
                     //CALL 
-                    println!("CALL:");
+                    if cfg!(debug_assertions) {
+                        println!("CALL:");
+                    }
                     self.exec_call(byte, memory);
                 },
                 (0o20 ... 0o27, _) |
                 (0o30 ... 0o37, 0o6) => {
                     //AND,ADC,SUB,SBC,OR,XOR,CP
-                    println!("AND,ADC,SUB,SBC,OR,XOR,CP:");
+                    if cfg!(debug_assertions) {
+                        println!("AND,ADC,SUB,SBC,OR,XOR,CP:");
+                    }
                     self.exec_bit_alu8(byte, memory);
                 },
                 (0o31, 0o3) => {
@@ -317,12 +353,14 @@ impl Cpu {
                     //LD (a16),A; LD A,(a16)
                     //LDH (a8),A; LDH A,(a8),
                     //LD HL, SP+r8; LD SP, HL;
-                    println!("LD others:");
+                    if cfg!(debug_assertions) {
+                        println!("LD others:");
+                    }
                     self.exec_ld_others(byte, memory);
                 },
                 _ => panic!("No opcode defined for {:#01$x}", byte, 2),
             }
-            //println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
+            println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
         }
     }
 
@@ -469,7 +507,9 @@ impl Cpu {
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0, 0o0 ... 0o7) => {
                 //RLC b
-                println!("RLC b");
+                if cfg!(debug_assertions) {
+                    println!("RLC b");
+                }
                 let bit_7: u8 = value >> 7 & 0b1;
 
                 value = value << 1 | value >> 7;
@@ -477,7 +517,9 @@ impl Cpu {
             },
             (0o1, 0o0 ... 0o7) => {
                 //RRC m
-                println!("RRC m");
+                if cfg!(debug_assertions) {
+                    println!("RRC m");
+                }
                 let bit_0: u8 = value & 0b1;
 
                 value = value >> 1 | value << 7;
@@ -485,7 +527,9 @@ impl Cpu {
             },
             (0o2, 0o0 ... 0o7) => {
                 //RL m
-                println!("RL m");
+                if cfg!(debug_assertions) {
+                    println!("RL m");
+                }
                 let bit_7: u8 = value >> 7 & 0b1;
 
                 value = value << 1 | self.flag_bit(Flag::C);
@@ -493,7 +537,9 @@ impl Cpu {
             },
             (0o3, 0o0 ... 0o7) => {
                 //RR m
-                println!("RR m");
+                if cfg!(debug_assertions) {
+                    println!("RR m");
+                }
                 let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_0: u8 = value & 0b1;
 
@@ -502,7 +548,9 @@ impl Cpu {
             },
             (0o4, 0o0 ... 0o7) => {
                 //SLA n
-                println!("SLA n");
+                if cfg!(debug_assertions) {
+                    println!("SLA n");
+                }
                 let bit_7: u8 = (value >> 7) & 0b1;
                 value = value << 1;
 
@@ -510,7 +558,9 @@ impl Cpu {
             },
             (0o5, 0o0 ... 0o7) => {
                 //SRA n
-                println!("SRA n");
+                if cfg!(debug_assertions) {
+                    println!("SRA n");
+                }
                 let bit_7: u8 = (value >> 7) & 0b1;
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1 | (bit_7 << 7);
@@ -519,13 +569,17 @@ impl Cpu {
             },
             (0o6, 0o0 ... 0o7) => {
                 //SWAP n
-                println!("SWAP n");
+                if cfg!(debug_assertions) {
+                    println!("SWAP n");
+                }
                 value = value << 4 | value >> 4;
                 self.flag_set(false, Flag::C);
             },
             (0o7, 0o0 ... 0o7) => {
                 //SRL n
-                println!("SRL n");
+                if cfg!(debug_assertions) {
+                    println!("SRL n");
+                }
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1;
 
@@ -533,7 +587,9 @@ impl Cpu {
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
-                println!("BIT b,r; BIT b,(HL)");
+                if cfg!(debug_assertions) {
+                    println!("BIT b,r; BIT b,(HL)");
+                }
                 self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
@@ -542,12 +598,16 @@ impl Cpu {
             },
             (0o20 ... 0o27, 0o0 ... 0o7) => {
                 //RES b,r; RES b,(HL)
-                println!("RES b,r; RES b,(HL)");
+                if cfg!(debug_assertions) {
+                    println!("RES b,r; RES b,(HL)");
+                }
                 value = value & !(1 << bit);
             },
             (0o30 ... 0o37, 0o0 ... 0o7) => {
                 //SET b,r; SET b,(HL)
-                println!("SET b,r; SET b,(HL)");
+                if cfg!(debug_assertions) {
+                    println!("SET b,r; SET b,(HL)");
+                }
                 value = value | 1 << bit;
             },
             _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
