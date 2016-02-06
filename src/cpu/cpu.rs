@@ -854,7 +854,7 @@ impl Cpu {
             let addr: u16 = self.reg16(Reg::HL);
             memory.write_byte(addr, rhs_val);
         } else {
-            self.reg_set8(reg_rhs, lhs_val);
+            self.reg_set8(reg_lhs, rhs_val);
         }
     }
 }
