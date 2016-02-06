@@ -14,14 +14,18 @@ use mem::mem::Memory;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
-    if args.len() == 2 {
-        let mut data: Vec<u8> = Vec::new();
-        File::open(&args[1]).unwrap().read_to_end(&mut data).unwrap();
+    if args.len() == 3 {
+        let mut bootstrap_data: Vec<u8> = Vec::new();
+        File::open(&args[1]).unwrap().read_to_end(&mut bootstrap_data).unwrap();
 
+        let mut game_data: Vec<u8> = Vec::new();
+        File::open(&args[2]).unwrap().read_to_end(&mut game_data).unwrap();
+        
         let mut mem: Memory = Memory::new();
         let mut cpu: Cpu = Cpu::new();
 
-        mem.read_bootstrap_rom(&data);
+        mem.read_rom(&bootstrap_data, &game_data);
+        mem.write_byte(0xFF44, 0x90); //for bypassing 'waiting for screen frame'.
         //starting point = bootstrap rom's initial position
         cpu.execute_instructions(0x0, &mut mem);
     } else {

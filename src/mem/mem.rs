@@ -92,9 +92,12 @@ impl Memory {
         self.mem[address as usize]
     }
 
-    pub fn read_bootstrap_rom(&mut self, rom: &[u8]) {
-        for (i, byte) in rom.iter().enumerate() {
-            self.mem[i] = *byte;
+    pub fn read_rom(&mut self, bootstrap_rom: &[u8], game_rom: &[u8]) {
+        for i in 0x100..game_rom.len() {
+            self.mem[i] = game_rom[i];
+        }
+        for i in 0..bootstrap_rom.len() {
+            self.mem[i] = bootstrap_rom[i];
         }
     }
 }
