@@ -42,11 +42,9 @@ impl Memory {
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            self.wram_bank_0.start() ... self.wram_bank_0.end() =>
-                self.mem[(address + 0x2000) as usize] = value;
-            self.wram_echo.start() ... self.wram_echo.end() =>
-                self.mem[(address - 0x2000) as usize] = value;
-            _ => self.mem[address as usize] = value;
+            0xC000 ... 0xCFFF => self.mem[(address + 0x2000) as usize] = value,
+            0xE000 ... 0xFDFF => self.mem[(address - 0x2000) as usize] = value,
+            _ => self.mem[address as usize] = value,
         }
     }
 
