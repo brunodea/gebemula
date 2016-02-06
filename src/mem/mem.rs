@@ -27,17 +27,11 @@ impl fmt::Display for Memory {
         let mut to: usize = self.mem.len();
         let mut from: usize = 0;
 
-        match f.width() {
-            Some(fr) => {
-                from = fr;
-            },
-            None => (),
+        if let Some(fr) = f.width() {
+            from = fr;
         }
-        match f.precision() {
-            Some(pr) => {
-                to = pr;
-            },
-            None => (),
+        if let Some(t) = f.precision() {
+            to = t;
         }
 
         let mut i: usize = 0;
