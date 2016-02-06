@@ -2,12 +2,12 @@ use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
     Z, N, H, C,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Reg {
     A, F,
     B, C,
@@ -110,6 +110,9 @@ impl Cpu {
             self.regs[index] = (value >> 8) as u8;
             self.regs[index+1] = value as u8;
         }
+        if reg != Reg::PC {
+            print!("[{:?} <- {}] # ", reg, format!("{:#01$x}", value, 4));
+        }
     }
 
     fn reg_set8(&mut self, reg: Reg, value: u8) {
@@ -147,6 +150,7 @@ impl Cpu {
             flags &= !mask;
         }
         self.reg_set8(Reg::F, flags); 
+        print!("{:?} ({:?}) ", flag, self.flag_is_set(flag));
     }
 
     fn flag_is_set(&self, flag: Flag) -> bool {
@@ -223,8 +227,11 @@ impl Cpu {
     pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
         self.reg_set16(Reg::PC, starting_point);
 
+        let mut byte: u8 = memory.read_byte(starting_point);
         loop { //TODO: ending point
-            let byte: u8 = self.mem_next(memory);
+            print!("\n[{}] ", format!("{:#01$x}", self.reg16(Reg::PC), 6));
+            byte = self.mem_next(memory);
+            print!("{}: ", format!("{:#01$x}", byte, 4));
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
@@ -299,7 +306,7 @@ impl Cpu {
                 },
                 _ => panic!("No opcode defined for {:#01$x}", byte, 2),
             }
-            println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
+            //println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
         }
     }
 
@@ -672,6 +679,7 @@ impl Cpu {
         if reg == Reg::HL {
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
+        print!("reg {:?} antes: {:#x} ", reg, reg_val);
         //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3? 
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
@@ -696,6 +704,7 @@ impl Cpu {
         } else {
             self.reg_set8(reg, result);
         }
+        print!("reg {:?} depois: {:#x} ", reg, result);
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
