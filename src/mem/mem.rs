@@ -24,8 +24,24 @@ impl fmt::Display for Memory {
 
         let mut res: String = "".to_owned();
 
+        let mut to: usize = self.mem.len();
+        let mut from: usize = 0;
+
+        match f.width() {
+            Some(fr) => {
+                from = fr;
+            },
+            None => (),
+        }
+        match f.precision() {
+            Some(pr) => {
+                to = pr;
+            },
+            None => (),
+        }
+
         let mut i: usize = 0;
-        while i < self.mem.len() {
+        while i >= from && i < to {
             if i as u8 % columns == 0 {
                 res = res + &format!("\n{:01$x}: ", i, 8);
             }
