@@ -246,8 +246,10 @@ impl Cpu {
 
             //instr, instruction type
             match ((byte >> 3) as u8, byte % 0o10) {
-                (0o3 ... 0o7, 0o0) => {
+                (0o3 ... 0o7, 0o0) |
+                (0o30, 0o3) | (0o30 ... 0o33, 0o2) => {
                     //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
+                    //JP r16; JP NZ,r16; JP Z,r16; JP NC,r16; JP C,r16
                     if cfg!(debug_assertions) {
                         println!("JR:");
                     }
@@ -628,32 +630,37 @@ impl Cpu {
     fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let mut should_jump: bool = false;
         match opcode {
-            0x18 => {
-                //JR n
+            0x18 | 0xC3 => {
+                //JR n; JP nn
                 should_jump = true;
             },
-            0x20 => {
-                //JR NZ,r8
+            0x20 | 0xC2 => {
+                //JR NZ,r8; JP NZ,nn
                 should_jump = !self.flag_is_set(Flag::Z);
             },
-            0x28 => {
-                //JR Z,r8
+            0x28 | 0xCA => {
+                //JR Z,r8; JP Z,nn
                 should_jump = self.flag_is_set(Flag::Z);
             },
-            0x30 => {
-                //JR NC,r8
+            0x30 | 0xD2 => {
+                //JR NC,r8; JP NC,nn
                 should_jump = !self.flag_is_set(Flag::C);
             },
-            0x38 => {
-                //JR C,r8
+            0x38 | 0xDA => {
+                //JR C,r8; JP C,nn
                 should_jump = self.flag_is_set(Flag::C);
             },
-            _ => panic!("Invalid opcode for jump: {:#X}", opcode),
+            _ => unreachable!(),
         }
 
+        //16 bits immediate (JP ... instruction)
+        let is_imm16: bool = opcode > 0x38;
         if should_jump {
             //TODO mem next increments PC by one; make sure it is correct
-            let imm: u8 = self.mem_next(memory) as u8;
+            let mut imm: u8 = self.mem_next(memory) as u8;
+            if is_imm16 {
+         //       imm = (self.mem_next(memory) as u16) << 8 | imm;
+            }
             let mut curr_addr: u16 = self.reg16(Reg::PC);
             if (imm as i8) < 0 {
                 curr_addr = curr_addr - 2; //-2 for pointing to the opcode address.
@@ -662,6 +669,9 @@ impl Cpu {
             self.reg_set16(Reg::PC, util::twos_complement(imm, curr_addr));
         } else {
             self.increment_pc();
+            if is_imm16 {
+                self.increment_pc();
+            }
         }
     }
     
