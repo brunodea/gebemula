@@ -41,10 +41,13 @@ impl Memory {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        if self.check_echo(address) {
-            self.mem[(address + 0x2000) as usize] = value;
+        match address {
+            self.wram_bank_0.start() ... self.wram_bank_0.end() =>
+                self.mem[(address + 0x2000) as usize] = value;
+            self.wram_echo.start() ... self.wram_echo.end() =>
+                self.mem[(address - 0x2000) as usize] = value;
+            _ => self.mem[address as usize] = value;
         }
-        self.mem[address as usize] = value;
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
@@ -54,16 +57,6 @@ impl Memory {
     pub fn read_bootstrap_rom(&mut self, rom: &[u8]) {
         for (i, byte) in rom.iter().enumerate() {
             self.mem[i] = *byte;
-        }
-    }
-
-    fn check_echo(&self, address: u16) -> bool {
-        if address >= self.rom_bank_00.start() && address <= self.rom_bank_00.end() {
-            true
-        } else if address >= 0xE000 && address < 0xFE00 {
-            panic!("Tried to write to a reserved memory area ({:#X}, Internal RAM Echo).", address);
-        } else {
-            false
         }
     }
 }
