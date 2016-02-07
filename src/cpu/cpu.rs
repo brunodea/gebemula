@@ -732,7 +732,6 @@ impl Cpu {
         let mut result = 0;
         let mut unchange_a: bool = false;
 
-        self.flag_set(result == 0, Flag::Z);
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o20, 0o0 ... 0o7) | (0o30, 0o6) => {
                 //ADD
@@ -799,6 +798,8 @@ impl Cpu {
         }
         if !unchange_a {
             self.reg_set8(Reg::A, result);
+        } else {
+            self.flag_set(result == 0, Flag::Z);
         }
     }
 
