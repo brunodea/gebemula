@@ -889,6 +889,14 @@ mod test {
             let mut mem: Memory = Memory::new();
             Test { cpu: cpu, mem: mem }
         }
+
+        fn instr_run(&mut self, opcode: u8) -> u16 {
+            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
+            self.mem.write_byte(PC_DEFAULT, opcode);
+            self.cpu.run_instruction(&mut self.mem);
+            PC_DEFAULT + 1 //PC_DEFAULT + 1 (opcode)
+        }
+
         //returns the value of the next instruction, regardless of the
         //executed instruction.
         fn instr_run8(&mut self, opcode: u8, imm: u8) -> u16 {
@@ -988,5 +996,38 @@ mod test {
         test.cpu.flag_set(false, super::Flag::C);
         addr = test.instr_run16(0xDA, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == addr);
+    }
+
+    #[test]
+    fn instr_inc_dec() {
+        let mut test: &mut Test = &mut Test::setup_jump();
+        test.cpu.regs = [0; 12];
+        //INC A
+        test.instr_run(0x3C);
+        assert!(test.cpu.reg8(super::Reg::A) == 0x1);
+        //INC B
+        test.instr_run(0x04);
+        assert!(test.cpu.reg8(super::Reg::B) == 0x1);
+        //INC C
+        test.instr_run(0x0C);
+        assert!(test.cpu.reg8(super::Reg::C) == 0x1);
+        //INC D
+        test.instr_run(0x14);
+        assert!(test.cpu.reg8(super::Reg::D) == 0x1);
+        //INC E
+        test.instr_run(0x1C);
+        assert!(test.cpu.reg8(super::Reg::E) == 0x1);
+        //INC H
+        test.instr_run(0x24);
+        assert!(test.cpu.reg8(super::Reg::H) == 0x1);
+        //INC L
+        test.instr_run(0x2C);
+        assert!(test.cpu.reg8(super::Reg::L) == 0x1);
+        //INC (HL)
+        let addr: u16 = 0x555;
+        test.cpu.reg_set16(super::Reg::HL, addr);
+        let val: u8 = test.mem.read_byte(addr);
+        test.instr_run(0x34);
+        assert!(test.mem.read_byte(addr) == val+1);
     }
 }
