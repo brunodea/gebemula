@@ -869,3 +869,84 @@ impl Cpu {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use super::super::super::mem::mem::Memory;
+
+    const PC_DEFAULT: u16 = 0x100;
+
+    struct Test {
+        pub cpu: Cpu,
+        pub mem: Memory,
+    }
+
+    impl Test {
+        pub fn setup_jump() -> Test {
+            let mut cpu: Cpu = Cpu::new();
+            let mut mem: Memory = Memory::new();
+            Test { cpu: cpu, mem: mem }
+        }
+    }
+
+    //returns the value of the next instruction, regardless of the
+    //executed instruction.
+    fn instr_run8(opcode: u8, imm: u8, test: &mut Test) -> u16 {
+        instr_run16(opcode, imm as u16, test);
+        PC_DEFAULT + 2 //PC_DEFAULT + 1 (opcode) + 1 (8 bits immediate)
+    }
+
+    fn instr_run16(opcode: u8, imm: u16, test: &mut Test) -> u16 {
+        test.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
+        test.mem.write_byte(test.cpu.reg16(super::Reg::PC), opcode);
+        test.mem.write_byte(test.cpu.reg16(super::Reg::PC) + 1, imm as u8);
+        test.mem.write_byte(test.cpu.reg16(super::Reg::PC) + 2, (imm >> 8) as u8);
+        test.cpu.run_instruction(&mut test.mem);
+        PC_DEFAULT + 3 //PC_DEFAULT + 1 (opcode) + 2 (16 bits immediate).
+    }
+
+
+    #[test]
+    fn instr_jump() {
+        let mut test: &mut Test = &mut Test::setup_jump();
+
+        let mut addr: u16;
+        //JR
+        addr = instr_run8(0x18, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+        //JR NZ
+        test.cpu.flag_set(false, super::Flag::Z);
+        addr = instr_run8(0x20, 0xfb, test); //-5
+        assert!(test.cpu.reg16(super::Reg::PC) == ((addr as i32)-5) as u16);
+        //JR Z
+        test.cpu.flag_set(true, super::Flag::Z);
+        addr = instr_run8(0x28, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+        //JR NC
+        test.cpu.flag_set(false, super::Flag::C);
+        addr = instr_run8(0x30, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+        //JR C
+        test.cpu.flag_set(true, super::Flag::C);
+        addr = instr_run8(0x38, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+
+        //JR NZ - no jump
+        test.cpu.flag_set(true, super::Flag::Z);
+        addr = instr_run8(0x20, 0xfb, test); //-5
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JR Z - no jump
+        test.cpu.flag_set(false, super::Flag::Z);
+        addr = instr_run8(0x28, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JR NC - no jump
+        test.cpu.flag_set(true, super::Flag::C);
+        addr = instr_run8(0x30, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JR C - no jump
+        test.cpu.flag_set(false, super::Flag::C);
+        addr = instr_run8(0x38, 0x1, test);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+    }
+}
