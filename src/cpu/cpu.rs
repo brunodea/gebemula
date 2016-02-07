@@ -219,92 +219,95 @@ impl Cpu {
 
     pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
         self.reg_set16(Reg::PC, starting_point);
-
         loop {
-            if self.reg16(Reg::PC) > 0xfe {
-                panic!("End of Bootstrap ROM.");
-            }
-            let byte: u8 = self.mem_next(memory);
+            self.run_instruction(memory);
+        }
+    }
 
-            //instr, instruction type
-            match ((byte >> 3) as u8, byte % 0o10) {
-                (0o3 ... 0o7, 0o0) |
-                (0o30, 0o3) | (0o30 ... 0o33, 0o2) => {
-                    //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
-                    //JP r16; JP NZ,r16; JP Z,r16; JP NC,r16; JP C,r16
-                    self.exec_jump(byte, memory);
-                },
-                (0o0 ... 0o7, 0o2) => {
-                    //LD (nn), A; LD A, (nn)
-                    self.exec_ld_nn_a(byte, memory);
-                },
-                (0o0 ... 0o7, 0o3) => {
-                    //INC nn; DEC nn
-                    self.exec_inc_dec16(byte);
-                },
-                (0o0 ... 0o7, 0o4 ... 0o5) => {
-                    //INC n; DEC n
-                    self.exec_inc_dec(byte, memory);
-                },
-                (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
-                    //ADD HL,ss
-                    self.exec_add_hl_ss(byte);
-                }
-                (0o0 ... 0o7, 0o6) => {
-                    //LD r,n; LD n,r
-                    self.exec_ld_r_n(byte, memory);
-                },
-                (0o0 ... 0o3, 0o7) => {
-                    //RLCA, RRCA, RLA, RRA
-                    self.exec_rotates_shifts(byte);
-                }
-                (0o16, 0o6) => {
-                    //TODO HALT instruction
-                    panic!("HALT!");
-                },
-                (0o10 ... 0o17,_) => {
-                    //LD r,r
-                    self.exec_ld_r_r(byte, memory);
-                },
-                (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
-                    //RET
-                    self.exec_ret(byte, memory);
-                },
-                (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
-                (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
-                    //PUSH pp, POP pp
-                    self.exec_push_pop(byte, memory);
-                },
-                (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
-                (0o32 ... 0o33, 0o4) => {
-                    //CALL
-                    self.exec_call(byte, memory);
-                },
-                (0o20 ... 0o27, _) |
-                (0o30 ... 0o37, 0o6) => {
-                    //AND,ADC,SUB,SBC,OR,XOR,CP
-                    self.exec_bit_alu8(byte, memory);
-                },
-                (0o31, 0o3) => {
-                    //CB-Prefixed
-                    self.exec_cb_prefixed(memory);
-                },
-                (0o0,0o1)|(0o2,0o1)|(0o4,0o1)|(0o6,0o1) |
-                (0o34 ... 0o37, 0o2) |
-                (0o34, 0o0) | (0o36, 0o0) |
-                (0o37, 0o0 ... 0o1) => {
-                    //LD BC,d16; LD DE,d16; LD HL,d16; LD SP,d16
-                    //LD (ff00+c), A; LD A, (ff00+c);
-                    //LD (a16),A; LD A,(a16)
-                    //LDH (a8),A; LDH A,(a8),
-                    //LD HL, SP+r8; LD SP, HL;
-                    self.exec_ld_others(byte, memory);
-                },
-                _ => panic!("No opcode defined for {:#01$x}", byte, 2),
-            }
-            if cfg!(debug_assertions) {
-                println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
-            }
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) {
+        /*if self.reg16(Reg::PC) > 0xfe {
+            panic!("End of Bootstrap ROM.");
+        }*/
+        let byte: u8 = self.mem_next(memory);
+
+        //instr, instruction type
+        match ((byte >> 3) as u8, byte % 0o10) {
+            (0o3 ... 0o7, 0o0) |
+            (0o30, 0o3) | (0o30 ... 0o33, 0o2) => {
+                //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
+                //JP r16; JP NZ,r16; JP Z,r16; JP NC,r16; JP C,r16
+                self.exec_jump(byte, memory);
+            },
+            (0o0 ... 0o7, 0o2) => {
+                //LD (nn), A; LD A, (nn)
+                self.exec_ld_nn_a(byte, memory);
+            },
+            (0o0 ... 0o7, 0o3) => {
+                //INC nn; DEC nn
+                self.exec_inc_dec16(byte);
+            },
+            (0o0 ... 0o7, 0o4 ... 0o5) => {
+                //INC n; DEC n
+                self.exec_inc_dec(byte, memory);
+            },
+            (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
+                //ADD HL,ss
+                self.exec_add_hl_ss(byte);
+            },
+            (0o0 ... 0o7, 0o6) => {
+                //LD r,n; LD n,r
+                self.exec_ld_r_n(byte, memory);
+            },
+            (0o0 ... 0o3, 0o7) => {
+                //RLCA, RRCA, RLA, RRA
+                self.exec_rotates_shifts(byte);
+            },
+            (0o16, 0o6) => {
+                //TODO HALT instruction
+                panic!("HALT!");
+            },
+            (0o10 ... 0o17,_) => {
+                //LD r,r
+                self.exec_ld_r_r(byte, memory);
+            },
+            (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
+                //RET
+                self.exec_ret(byte, memory);
+            },
+            (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
+            (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
+                //PUSH pp, POP pp
+                self.exec_push_pop(byte, memory);
+            },
+            (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
+            (0o32 ... 0o33, 0o4) => {
+                //CALL
+                self.exec_call(byte, memory);
+            },
+            (0o20 ... 0o27, _) |
+            (0o30 ... 0o37, 0o6) => {
+                //AND,ADC,SUB,SBC,OR,XOR,CP
+                self.exec_bit_alu8(byte, memory);
+            },
+            (0o31, 0o3) => {
+                //CB-Prefixed
+                self.exec_cb_prefixed(memory);
+            },
+            (0o0,0o1)|(0o2,0o1)|(0o4,0o1)|(0o6,0o1) |
+            (0o34 ... 0o37, 0o2) |
+            (0o34, 0o0) | (0o36, 0o0) |
+            (0o37, 0o0 ... 0o1) => {
+                //LD BC,d16; LD DE,d16; LD HL,d16; LD SP,d16
+                //LD (ff00+c), A; LD A, (ff00+c);
+                //LD (a16),A; LD A,(a16)
+                //LDH (a8),A; LDH A,(a8),
+                //LD HL, SP+r8; LD SP, HL;
+                self.exec_ld_others(byte, memory);
+            },
+            _ => panic!("No opcode defined for {:#01$x}", byte, 2),
+        }
+        if cfg!(debug_assertions) {
+            println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
         }
     }
 
