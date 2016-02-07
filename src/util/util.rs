@@ -29,7 +29,7 @@ pub fn has_borrow_on_any(byte_1: u8, byte_2: u8) -> bool {
     has
 }
 
-#[inline(always)]
+#[inline]
 pub fn is_neg16(value: u16) -> bool {
     ((value >> 15) & 0b1) == 0b1
 }
