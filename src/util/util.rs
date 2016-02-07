@@ -29,12 +29,23 @@ pub fn has_borrow_on_any(byte_1: u8, byte_2: u8) -> bool {
     has
 }
 
-//adds value to twos_complement value
-pub fn twos_complement(twos_complement: u8, value: u16) -> u16 {
-    let mut value_i: i8 = twos_complement as i8;
-    if value_i < 0 {
-        value_i= -(!value_i - 1);
+#[inline(always)]
+pub fn is_neg16(value: u16) -> bool {
+    ((value >> 15) & 0b1) == 0b1
+}
+
+pub fn twos_complement(mut value: u16) -> u16 {
+    if is_neg16(value) {
+        value = (!value) + 1;
     }
 
-    ((value as i32) + (value_i as i32)) as u16
+    value
+}
+
+pub fn sign_extend(value: u8) -> u16 {
+    let mut res: u16 = value as u16;
+    if (value >> 7) & 0b1 == 0b1 {
+        res = 0xFF00 | res;
+    }
+    res
 }

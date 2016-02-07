@@ -654,17 +654,19 @@ impl Cpu {
         //16 bits immediate (JP ... instruction)
         let is_imm16: bool = opcode > 0x38;
         if should_jump {
-            //TODO mem next increments PC by one; make sure it is correct
-            let mut imm: u8 = self.mem_next(memory) as u8;
+            let mut imm: u16 = util::sign_extend(self.mem_next(memory));
             if is_imm16 {
-         //       imm = (self.mem_next(memory) as u16) << 8 | imm;
+                imm = ((self.mem_next(memory) as u16) << 8) & imm;
             }
-            let mut curr_addr: u16 = self.reg16(Reg::PC);
-            if (imm as i8) < 0 {
-                curr_addr = curr_addr - 2; //-2 for pointing to the opcode address.
+
+            let mut addr: u16 = self.reg16(Reg::PC);
+            if util::is_neg16(imm) {
+                addr = addr - util::twos_complement(imm);
+            } else {
+                addr = addr + imm;
             }
-        
-            self.reg_set16(Reg::PC, util::twos_complement(imm, curr_addr));
+
+            self.reg_set16(Reg::PC, addr);
         } else {
             self.increment_pc();
             if is_imm16 {
