@@ -874,6 +874,7 @@ impl Cpu {
 mod test {
     use super::*;
     use super::super::super::mem::mem::Memory;
+    use super::super::super::util::util;
 
     const PC_DEFAULT: u16 = 0x100;
 
@@ -888,24 +889,25 @@ mod test {
             let mut mem: Memory = Memory::new();
             Test { cpu: cpu, mem: mem }
         }
-    }
+        //returns the value of the next instruction, regardless of the
+        //executed instruction.
+        fn instr_run8(&mut self, opcode: u8, imm: u8) -> u16 {
+            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
+            self.mem.write_byte(PC_DEFAULT, opcode);
+            self.mem.write_byte(PC_DEFAULT + 1, imm);
+            self.cpu.run_instruction(&mut self.mem);
+            PC_DEFAULT + 2 //PC_DEFAULT + 1 (opcode) + 1 (8 bits immediate)
+        }
 
-    //returns the value of the next instruction, regardless of the
-    //executed instruction.
-    fn instr_run8(opcode: u8, imm: u8, test: &mut Test) -> u16 {
-        instr_run16(opcode, imm as u16, test);
-        PC_DEFAULT + 2 //PC_DEFAULT + 1 (opcode) + 1 (8 bits immediate)
+        fn instr_run16(&mut self, opcode: u8, imm: u16) -> u16 {
+            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
+            self.mem.write_byte(PC_DEFAULT, opcode);
+            self.mem.write_byte(PC_DEFAULT + 1, imm as u8);
+            self.mem.write_byte(PC_DEFAULT + 2, (imm >> 8) as u8);
+            self.cpu.run_instruction(&mut self.mem);
+            PC_DEFAULT + 3 //PC_DEFAULT + 1 (opcode) + 2 (16 bits immediate).
+        }
     }
-
-    fn instr_run16(opcode: u8, imm: u16, test: &mut Test) -> u16 {
-        test.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
-        test.mem.write_byte(test.cpu.reg16(super::Reg::PC), opcode);
-        test.mem.write_byte(test.cpu.reg16(super::Reg::PC) + 1, imm as u8);
-        test.mem.write_byte(test.cpu.reg16(super::Reg::PC) + 2, (imm >> 8) as u8);
-        test.cpu.run_instruction(&mut test.mem);
-        PC_DEFAULT + 3 //PC_DEFAULT + 1 (opcode) + 2 (16 bits immediate).
-    }
-
 
     #[test]
     fn instr_jump() {
@@ -913,40 +915,78 @@ mod test {
 
         let mut addr: u16;
         //JR
-        addr = instr_run8(0x18, 0x1, test);
+        addr = test.instr_run8(0x18, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
         //JR NZ
         test.cpu.flag_set(false, super::Flag::Z);
-        addr = instr_run8(0x20, 0xfb, test); //-5
-        assert!(test.cpu.reg16(super::Reg::PC) == ((addr as i32)-5) as u16);
+        addr = test.instr_run8(0x20, 0xfb); //-5
+        assert!(test.cpu.reg16(super::Reg::PC) == addr - util::twos_complement(0xfffb));
         //JR Z
         test.cpu.flag_set(true, super::Flag::Z);
-        addr = instr_run8(0x28, 0x1, test);
+        addr = test.instr_run8(0x28, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
         //JR NC
         test.cpu.flag_set(false, super::Flag::C);
-        addr = instr_run8(0x30, 0x1, test);
+        addr = test.instr_run8(0x30, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
         //JR C
         test.cpu.flag_set(true, super::Flag::C);
-        addr = instr_run8(0x38, 0x1, test);
+        addr = test.instr_run8(0x38, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
 
         //JR NZ - no jump
         test.cpu.flag_set(true, super::Flag::Z);
-        addr = instr_run8(0x20, 0xfb, test); //-5
+        addr = test.instr_run8(0x20, 0xfb); //-5
         assert!(test.cpu.reg16(super::Reg::PC) == addr);
         //JR Z - no jump
         test.cpu.flag_set(false, super::Flag::Z);
-        addr = instr_run8(0x28, 0x1, test);
+        addr = test.instr_run8(0x28, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == addr);
         //JR NC - no jump
         test.cpu.flag_set(true, super::Flag::C);
-        addr = instr_run8(0x30, 0x1, test);
+        addr = test.instr_run8(0x30, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == addr);
         //JR C - no jump
         test.cpu.flag_set(false, super::Flag::C);
-        addr = instr_run8(0x38, 0x1, test);
+        addr = test.instr_run8(0x38, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+
+        /*16 bits jumps*/
+        //JP
+        addr = test.instr_run16(0xC3, 0x0001);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 0x0001));
+        //JP NZ
+        test.cpu.flag_set(false, super::Flag::Z);
+        addr = test.instr_run16(0xC2, 0xfffb); //-5
+        assert!(test.cpu.reg16(super::Reg::PC) == addr - util::twos_complement(0xfffb));
+        //JP Z
+        test.cpu.flag_set(true, super::Flag::Z);
+        addr = test.instr_run16(0xCA, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+        //JP NC
+        test.cpu.flag_set(false, super::Flag::C);
+        addr = test.instr_run16(0xD2, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+        //JP C
+        test.cpu.flag_set(true, super::Flag::C);
+        addr = test.instr_run16(0xDA, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
+
+        //JP NZ - no jump
+        test.cpu.flag_set(true, super::Flag::Z);
+        addr = test.instr_run16(0xC2, 0x00fb); //-5
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JP Z - no jump
+        test.cpu.flag_set(false, super::Flag::Z);
+        addr = test.instr_run16(0xCA, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JP NC - no jump
+        test.cpu.flag_set(true, super::Flag::C);
+        addr = test.instr_run16(0xD2, 0x1);
+        assert!(test.cpu.reg16(super::Reg::PC) == addr);
+        //JP C - no jump
+        test.cpu.flag_set(false, super::Flag::C);
+        addr = test.instr_run16(0xDA, 0x1);
         assert!(test.cpu.reg16(super::Reg::PC) == addr);
     }
 }
