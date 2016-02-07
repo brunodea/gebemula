@@ -573,7 +573,7 @@ impl Cpu {
         if should_jump {
             let mut imm: u16 = util::sign_extend(self.mem_next(memory));
             if is_imm16 {
-                imm = ((self.mem_next(memory) as u16) << 8) & imm;
+                imm = ((self.mem_next(memory) as u16) << 8) | imm;
             }
 
             let mut addr: u16 = self.reg16(Reg::PC);
