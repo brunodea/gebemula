@@ -47,14 +47,14 @@ impl Reg {
 pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
     regs: [u8; 12],
-} 
+}
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["AF", "BC", "DE", "HL", "SP", "PC"];
         let flags = format!("[{:#01$b} ZNHC]", self.flags(), 6);
         let mut regs: String = "".to_owned();
-        
+
         let mut i: usize = 0;
         while i < 12 {
             let value: u16 = (self.regs[i] as u16) << 8 | self.regs[i+1] as u16;
@@ -107,10 +107,8 @@ impl Cpu {
             self.regs[index] = (value >> 8) as u8;
             self.regs[index+1] = value as u8;
         }
-        if cfg!(debug_assertions) {
-            if reg != Reg::F {
-                println!("{:?} <- {}", reg, format!("{:#01$x}", value, 4));
-            }
+        if cfg!(debug_assertions) && reg != Reg::F {
+            println!("{:?} <- {}", reg, format!("{:#01$x}", value, 4));
         }
     }
 
@@ -146,7 +144,7 @@ impl Cpu {
             Flag::C => 0b0001,
         }
     }
-    
+
     fn flag_set(&mut self, set: bool, flag: Flag) {
         let mut flags: u8 = self.reg8(Reg::F);
         let mask: u8 = Cpu::flag_mask(flag);
@@ -155,7 +153,7 @@ impl Cpu {
         } else {
             flags &= !mask;
         }
-        self.reg_set8(Reg::F, flags); 
+        self.reg_set8(Reg::F, flags);
         if cfg!(debug_assertions) {
             println!("{:?} <- {:?}", flag, self.flag_is_set(flag));
         }
@@ -169,7 +167,7 @@ impl Cpu {
     }
 
     fn flag_bit(&self, flag: Flag) -> u8 {
-        let mut m: u8 = 0;
+        let m: u8;
         match flag {
             Flag::Z =>  {
                 m = 3;
@@ -235,7 +233,7 @@ impl Cpu {
     pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
         self.reg_set16(Reg::PC, starting_point);
 
-        loop { 
+        loop {
             if self.reg16(Reg::PC) > 0xfe {
                 panic!("End of Bootstrap ROM.");
             }
@@ -325,7 +323,7 @@ impl Cpu {
                 },
                 (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
                 (0o32 ... 0o33, 0o4) => {
-                    //CALL 
+                    //CALL
                     if cfg!(debug_assertions) {
                         println!("CALL:");
                     }
@@ -348,7 +346,7 @@ impl Cpu {
                 (0o34, 0o0) | (0o36, 0o0) |
                 (0o37, 0o0 ... 0o1) => {
                     //LD BC,d16; LD DE,d16; LD HL,d16; LD SP,d16
-                    //LD (ff00+c), A; LD A, (ff00+c); 
+                    //LD (ff00+c), A; LD A, (ff00+c);
                     //LD (a16),A; LD A,(a16)
                     //LDH (a8),A; LDH A,(a8),
                     //LD HL, SP+r8; LD SP, HL;
@@ -359,14 +357,14 @@ impl Cpu {
                 },
                 _ => panic!("No opcode defined for {:#01$x}", byte, 2),
             }
-            println!("opcode {} - {}", format!("{:#01$x}", byte, 4), self);
+            println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
         }
     }
 
     /*Instructions execution codes*/
 
     fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) {
-        let mut should_return: bool = false; 
+        let should_return: bool;
         match opcode {
             0xC0 => {
                 //RET NZ
@@ -401,13 +399,13 @@ impl Cpu {
             self.reg_set16(Reg::PC, addr);
         }
     }
-    
+
     fn exec_rotates_shifts(&mut self, opcode: u8) {
         let mut value: u8 = self.reg8(Reg::A);
 
         let bit_7: u8 = (value >> 7) & 0b1;
         let bit_0: u8 = value & 0b1;
-        let mut bit: u8 = bit_7;
+        let bit: u8;
         match opcode {
             0x07 => {
                 //RLCA
@@ -462,7 +460,7 @@ impl Cpu {
         let imm1: u8 = self.mem_next(memory);
         let imm2: u8 = self.mem_next(memory);
         let immediate: u16 = ((imm2 as u16) << 8) | imm1 as u16;
-        let mut should_jump = false;
+        let should_jump: bool;
         match opcode {
             0xC4 => {
                 //CALL NZ,a16
@@ -486,7 +484,7 @@ impl Cpu {
             },
             _ => unreachable!(),
         }
-    
+
         if should_jump {
             let pc: u16 = self.reg16(Reg::PC);
             self.push_sp16(pc, memory);
@@ -582,7 +580,7 @@ impl Cpu {
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1;
 
-                self.flag_set(value == 1, Flag::C);
+                self.flag_set(bit_0 == 1, Flag::C);
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
@@ -628,7 +626,7 @@ impl Cpu {
     }
 
     fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) {
-        let mut should_jump: bool = false;
+        let should_jump: bool;
         match opcode {
             0x18 | 0xC3 => {
                 //JR n; JP nn
@@ -674,7 +672,7 @@ impl Cpu {
             }
         }
     }
-    
+
     fn exec_ld_others(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let addr: u16 = 0xFF00;
         let a_val: u8 = self.reg8(Reg::A);
@@ -742,13 +740,13 @@ impl Cpu {
 
     fn exec_add_hl_ss(&mut self, opcode: u8) {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
-        let mut value: u16 = self.reg16(reg);
+        let value: u16 = self.reg16(reg);
 
         let hl: u16 = self.reg16(Reg::HL);
         self.reg_set16(Reg::HL, hl + value);
 
         self.flag_set(false, Flag::N);
-        self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H); 
+        self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
         self.flag_set(util::has_carry_on_bit16(15, hl, value), Flag::C);
     }
 
@@ -772,11 +770,11 @@ impl Cpu {
     fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let mut reg_val: u8 = self.reg8(reg);
-        let mut result: u8 = 0;
+        let result: u8;
         if reg == Reg::HL {
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
-        //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3? 
+        //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3?
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
                 //INC
@@ -786,7 +784,7 @@ impl Cpu {
             },
             (0o0 ... 0o7, 0o5) => {
                 //DEC
-                result = reg_val-1;    
+                result = reg_val-1;
                 self.flag_set(true, Flag::N);
                 let minus_one: i8 = -1;
                 self.flag_set(!util::has_borrow_on_bit(4, reg_val, minus_one as u8), Flag::H);
@@ -794,7 +792,7 @@ impl Cpu {
             _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
         }
         self.flag_set(result == 0, Flag::Z);
-        
+
         if reg == Reg::HL {
             memory.write_byte(self.reg16(Reg::HL), result);
         } else {
@@ -806,8 +804,8 @@ impl Cpu {
         //TODO Flag stuff
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
-        let mut value: u8 = 0;
-        
+        let value: u8;
+
         if opcode > 0xBF {
             value = self.mem_next(memory);
         } else if reg == Reg::HL {
@@ -830,7 +828,7 @@ impl Cpu {
             (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
                 result = reg_a_val + value;
-                if self.flag_is_set(Flag::C) { 
+                if self.flag_is_set(Flag::C) {
                     result |= 0b1;
                 }
                 self.flag_set(false, Flag::N);
@@ -894,7 +892,7 @@ impl Cpu {
             reg = Reg::HL;
         }
         let reg_val: u16 = self.reg16(reg);
-        
+
         match opcode & 0b1111 {
             0x2 => {
                 let addr: u16 = reg_val;
@@ -939,10 +937,9 @@ impl Cpu {
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
         let rhs_val: u8 = self.reg8(reg_rhs);
-        let lhs_val: u8 = self.reg8(reg_lhs);
 
         if reg_rhs == Reg::HL {
-            let value: u8 = self.mem_at_reg(Reg::HL, memory); 
+            let value: u8 = self.mem_at_reg(Reg::HL, memory);
             self.reg_set8(reg_lhs, value);
         } else if reg_lhs == Reg::HL {
             let addr: u16 = self.reg16(Reg::HL);
