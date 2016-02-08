@@ -2,8 +2,8 @@ use super::super::util::util;
 
 #[test]
 fn carry_borrow() {
-    assert!(util::has_carry_on_bit(2, 0x4, 0x4));
-    assert!(!util::has_carry_on_bit(4, 0x4, 0x4));
+    assert!(util::has_carry_on_bit(3, 0xF, 0x1));
+    assert!(!util::has_carry_on_bit(3, 0xB, 0x1));
 
     assert!(util::has_carry_on_bit16(8, 0x104, 0x104));
     assert!(!util::has_carry_on_bit16(1, 0x104, 0x104));
