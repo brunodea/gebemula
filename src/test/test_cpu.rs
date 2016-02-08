@@ -233,3 +233,32 @@ fn instr_inc_dec16() {
     test.instr_run(0x3B);
     assert!(test.cpu.reg8(Reg::SP) == 0x0);
 }
+
+#[test]
+fn instr_add_hl_ss() {
+    let mut test: &mut Test = &mut Test::new();
+    let z: bool = test.cpu.flag_is_set(Flag::Z);
+    test.cpu.reg_set16(Reg::HL, 0x1);
+    //ADD HL BC
+    test.cpu.reg_set16(Reg::BC, 0xffff);
+    test.instr_run(0x09);
+    assert!(test.cpu.reg16(Reg::HL) == 0x0);
+    assert!(test.cpu.flag_is_set(Flag::C));
+    //ADD HL DE
+    test.cpu.reg_set16(Reg::HL, 0x1);
+    test.cpu.reg_set16(Reg::DE, 0x0fff);
+    test.instr_run(0x19);
+    assert!(test.cpu.reg16(Reg::HL) == 0x1000);
+    assert!(test.cpu.flag_is_set(Flag::H));
+    //ADD HL HL
+    test.cpu.reg_set16(Reg::HL, 0x3);
+    test.instr_run(0x29);
+    assert!(test.cpu.reg16(Reg::HL) == 0x6);
+    //ADD HL SP
+    test.cpu.reg_set16(Reg::SP, 0x4);
+    test.instr_run(0x39);
+    assert!(test.cpu.reg16(Reg::HL) == 0xA);
+
+    assert!(z == test.cpu.flag_is_set(Flag::Z));
+    assert!(!test.cpu.flag_is_set(Flag::N));
+}
