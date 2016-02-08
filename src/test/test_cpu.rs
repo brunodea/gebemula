@@ -159,4 +159,44 @@ fn instr_inc() {
     let val: u8 = test.mem.read_byte(addr);
     test.instr_run(0x34);
     assert!(test.mem.read_byte(addr) == val+1);
+
+    assert!(!test.cpu.flag_is_set(Flag::N));
+}
+
+#[test]
+fn instr_dec() {
+    let mut test: &mut Test = &mut Test::new();
+    test.cpu.regs = [1; 12];
+    //DEC A
+    test.instr_run(0x3D);
+    assert!(test.cpu.reg8(Reg::A) == 0x0);
+    assert!(test.cpu.flag_is_set(Flag::Z));
+    //DEC B
+    test.cpu.reg_set8(Reg::B, 0x0);
+    test.instr_run(0x05);
+    assert!(test.cpu.reg8(Reg::B) == 0xFF);
+    assert!(!test.cpu.flag_is_set(Flag::H));
+    //DEC C
+    test.instr_run(0x0D);
+    assert!(test.cpu.reg8(Reg::C) == 0x0);
+    //DEC D
+    test.instr_run(0x15);
+    assert!(test.cpu.reg8(Reg::D) == 0x0);
+    //DEC E
+    test.instr_run(0x1D);
+    assert!(test.cpu.reg8(Reg::E) == 0x0);
+    //DEC H
+    test.instr_run(0x25);
+    assert!(test.cpu.reg8(Reg::H) == 0x0);
+    //DEC L
+    test.instr_run(0x2D);
+    assert!(test.cpu.reg8(Reg::L) == 0x0);
+    //DEC (HL)
+    let addr: u16 = 0x555;
+    test.cpu.reg_set16(Reg::HL, addr);
+    test.mem.write_byte(addr, 0x9);
+    test.instr_run(0x35);
+    assert!(test.mem.read_byte(addr) == 0x8);
+
+    assert!(test.cpu.flag_is_set(Flag::N));
 }
