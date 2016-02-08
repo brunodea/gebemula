@@ -52,7 +52,7 @@ pub struct Cpu {
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["AF", "BC", "DE", "HL", "SP", "PC"];
-        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 6);
+        let flags = format!("[{:#01$b} ZNHC]", self.flags() >> 4, 6);
         let mut regs: String = "".to_owned();
 
         let mut i: usize = 0;
@@ -128,10 +128,10 @@ impl Cpu {
 
     fn flag_mask(flag: Flag) -> u8 {
         match flag {
-            Flag::Z => 0b1000,
-            Flag::N => 0b0100,
-            Flag::H => 0b0010,
-            Flag::C => 0b0001,
+            Flag::Z => 0b1000_0000,
+            Flag::N => 0b0100_0000,
+            Flag::H => 0b0010_0000,
+            Flag::C => 0b0001_0000,
         }
     }
 
