@@ -675,11 +675,11 @@ impl Cpu {
         match opcode & 0b1111 {
             0x3 =>{
                 //INC nn
-                value += 1;
+                value = value.wrapping_add(1);
             },
             0xB =>{
                 //DEC nn
-                value -= 1;
+                value = (value as i32 - 1) as u16;
             },
             _ => unreachable!(),
         }
@@ -693,7 +693,6 @@ impl Cpu {
         if reg == Reg::HL {
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
-        //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3?
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
                 //INC
@@ -720,7 +719,6 @@ impl Cpu {
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
-        //TODO Flag stuff
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
