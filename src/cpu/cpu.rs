@@ -697,18 +697,18 @@ impl Cpu {
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
                 //INC
-                result = reg_val+1;
+                result = reg_val.wrapping_add(1);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_val, 1), Flag::H);
             },
             (0o0 ... 0o7, 0o5) => {
                 //DEC
-                result = reg_val-1;
+                result = (reg_val as i16 - 1) as u8;
                 self.flag_set(true, Flag::N);
                 let minus_one: i8 = -1;
                 self.flag_set(!util::has_borrow_on_bit(4, reg_val, minus_one as u8), Flag::H);
             },
-            _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
+            _ => unreachable!(),
         }
         self.flag_set(result == 0, Flag::Z);
 
@@ -732,20 +732,20 @@ impl Cpu {
         } else {
             value = self.reg8(reg);
         }
-        let mut result = 0;
+        let mut result: u8 = 0;
         let mut unchange_a: bool = false;
 
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o20, 0o0 ... 0o7) | (0o30, 0o6) => {
                 //ADD
-                result = reg_a_val + value;
+                result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
             (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
-                result = reg_a_val + value;
+                result = reg_a_val.wrapping_add(value);
                 if self.flag_is_set(Flag::C) {
                     result |= 0b1;
                 }
@@ -755,14 +755,14 @@ impl Cpu {
             },
             (0o22, 0o0 ... 0o7) | (0o32, 0o6) => {
                 //SUB
-                result = reg_a_val - value;
+                result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
             (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
                 //SBC
-                result = reg_a_val - value;
+                result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
