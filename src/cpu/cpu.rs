@@ -250,7 +250,7 @@ impl Cpu {
                 //INC n; DEC n
                 self.exec_inc_dec(byte, memory);
             },
-            (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
+            (0o1,0o1) | (0o3,0o1) | (0o5,0o1) | (0o7,0o1) => {
                 //ADD HL,ss
                 self.exec_add_hl_ss(byte);
             },
