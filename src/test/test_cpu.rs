@@ -262,3 +262,32 @@ fn instr_add_hl_ss() {
     assert!(z == test.cpu.flag_is_set(Flag::Z));
     assert!(!test.cpu.flag_is_set(Flag::N));
 }
+
+#[test]
+fn instr_ld_nn_a() {
+    let mut test: &mut Test = &mut Test::new();
+
+    //LD (BC), A
+    test.cpu.reg_set8(Reg::A, 0x10);
+    test.instr_run(0x02);
+    assert!(test.mem.read_byte(test.cpu.reg16(Reg::BC)) == 0x10);
+
+    //LD (DE), A
+    test.cpu.reg_set8(Reg::A, 0x11);
+    test.instr_run(0x12);
+    assert!(test.mem.read_byte(test.cpu.reg16(Reg::DE)) == 0x11);
+
+    //LD (HL+), A
+    test.cpu.reg_set8(Reg::A, 0x12);
+    let hl: u16 = test.cpu.reg16(Reg::HL);
+    test.instr_run(0x22);
+    assert!(test.mem.read_byte(hl) == 0x12);
+    assert!(test.cpu.reg16(Reg::HL) == (hl + 1));
+
+    //LD (HL-), A
+    test.cpu.reg_set8(Reg::A, 0x13);
+    let hl: u16 = test.cpu.reg16(Reg::HL);
+    test.instr_run(0x32);
+    assert!(test.mem.read_byte(hl) == 0x13);
+    assert!(test.cpu.reg16(Reg::HL) == (hl - 1));
+}
