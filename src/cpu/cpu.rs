@@ -146,7 +146,7 @@ impl Cpu {
         self.reg_set8(Reg::F, flags);
     }
 
-    fn flag_is_set(&self, flag: Flag) -> bool {
+    pub fn flag_is_set(&self, flag: Flag) -> bool {
         let flags: u8 = self.reg8(Reg::F);
         let mask: u8 = Cpu::flag_mask(flag);
 
