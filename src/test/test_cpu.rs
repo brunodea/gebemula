@@ -126,15 +126,18 @@ fn instr_jump() {
 }
 
 #[test]
-fn instr_inc_dec() {
+fn instr_inc() {
     let mut test: &mut Test = &mut Test::new();
     test.cpu.regs = [0; 12];
+    test.cpu.reg_set8(Reg::A, 0xFF);
     //INC A
     test.instr_run(0x3C);
-    assert!(test.cpu.reg8(Reg::A) == 0x1);
+    assert!(test.cpu.reg8(Reg::A) == 0x0);
+    assert!(test.cpu.flag_is_set(Flag::H));
     //INC B
     test.instr_run(0x04);
     assert!(test.cpu.reg8(Reg::B) == 0x1);
+    assert!(!test.cpu.flag_is_set(Flag::H));
     //INC C
     test.instr_run(0x0C);
     assert!(test.cpu.reg8(Reg::C) == 0x1);
