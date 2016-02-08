@@ -190,9 +190,8 @@ impl Cpu {
 
     fn pop_sp8(&mut self, memory: &mem::Memory) -> u8 {
         let sp: u16 = self.reg16(Reg::SP);
-        let value: u8 = memory.read_byte(sp);
         self.reg_set16(Reg::SP, sp + 1);
-        value
+        memory.read_byte(sp)
     }
 
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
