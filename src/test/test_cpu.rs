@@ -200,3 +200,36 @@ fn instr_dec() {
 
     assert!(test.cpu.flag_is_set(Flag::N));
 }
+
+#[test]
+fn instr_inc_dec16() {
+    let mut test: &mut Test = &mut Test::new();
+    test.cpu.regs = [0; 12];
+    //INC BC
+    test.cpu.reg_set16(Reg::BC, 0xffff);
+    test.instr_run(0x03);
+    assert!(test.cpu.reg8(Reg::BC) == 0x0);
+    //INC DE
+    test.instr_run(0x13);
+    assert!(test.cpu.reg8(Reg::DE) == 0x1);
+    //INC HL
+    test.instr_run(0x23);
+    assert!(test.cpu.reg8(Reg::HL) == 0x1);
+    //INC SP
+    test.instr_run(0x33);
+    assert!(test.cpu.reg8(Reg::SP) == 0x1);
+
+    //DEC BC
+    test.cpu.reg_set16(Reg::BC, 0x0);
+    test.instr_run(0x0B);
+    assert!(test.cpu.reg8(Reg::BC) == 0xffff);
+    //DEC DE
+    test.instr_run(0x1B);
+    assert!(test.cpu.reg8(Reg::DE) == 0x0);
+    //DEC HL
+    test.instr_run(0x2B);
+    assert!(test.cpu.reg8(Reg::HL) == 0x0);
+    //DEC SP
+    test.instr_run(0x3B);
+    assert!(test.cpu.reg8(Reg::SP) == 0x0);
+}
