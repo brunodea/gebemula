@@ -662,7 +662,7 @@ impl Cpu {
         let value: u16 = self.reg16(reg);
 
         let hl: u16 = self.reg16(Reg::HL);
-        self.reg_set16(Reg::HL, hl + value);
+        self.reg_set16(Reg::HL, hl.wrapping_add(value));
 
         self.flag_set(false, Flag::N);
         self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
