@@ -445,9 +445,11 @@ impl Cpu {
     fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) {
         let opcode = self.mem_next(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
-        let mut value: u8 = self.reg8(reg);
+        let mut value: u8;
         if reg == Reg::HL {
             value = memory.read_byte(self.reg16(Reg::HL));
+        } else {
+            value = self.reg8(reg);
         }
         let bit: u8 = opcode >> 3 & 0b111;
         let mut should_change_reg: bool = true;
@@ -612,7 +614,7 @@ impl Cpu {
             },
             0xE2 => {
                 //LD (C), A
-                memory.write_byte(addr+self.reg8(Reg::C) as u16, a_val);
+                memory.write_byte(addr + self.reg8(Reg::C) as u16, a_val);
             },
             0xEA => {
                 //LD (a16),A
@@ -631,7 +633,7 @@ impl Cpu {
             },
             0xF2 => {
                 //LD A,(C)
-                let value: u8 = memory.read_byte(self.reg16(Reg::C));
+                let value: u8 = memory.read_byte(self.reg8(Reg::C) as u16);
                 self.reg_set8(Reg::A, value);
             },
             0xF8 => {
@@ -797,10 +799,9 @@ impl Cpu {
 
             _ => unreachable!(),
         }
+        self.flag_set(result == 0, Flag::Z);
         if !unchange_a {
             self.reg_set8(Reg::A, result);
-        } else {
-            self.flag_set(result == 0, Flag::Z);
         }
     }
 
