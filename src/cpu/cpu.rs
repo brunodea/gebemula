@@ -1,6 +1,7 @@
 use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
+use super::timer;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Flag {
@@ -225,42 +226,44 @@ impl Cpu {
     }
 
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) {
-        /*if self.reg16(Reg::PC) > 0xfe {
+        if self.reg16(Reg::PC) > 0xfe {
+            println!("{}", memory);
             panic!("End of Bootstrap ROM.");
-        }*/
+        }
         let byte: u8 = self.mem_next(memory);
 
+        let cycles: u16;
         //instr, instruction type
         match ((byte >> 3) as u8, byte % 0o10) {
             (0o3 ... 0o7, 0o0) |
             (0o30, 0o3) | (0o30 ... 0o33, 0o2) => {
                 //JR r8; JR NZ,r8; JR Z,r8; JR NC,r8; JR C,r8
                 //JP r16; JP NZ,r16; JP Z,r16; JP NC,r16; JP C,r16
-                self.exec_jump(byte, memory);
+                cycles = self.exec_jump(byte, memory);
             },
             (0o0 ... 0o7, 0o2) => {
                 //LD (nn), A; LD A, (nn)
-                self.exec_ld_nn_a(byte, memory);
+                cycles = self.exec_ld_nn_a(byte, memory);
             },
             (0o0 ... 0o7, 0o3) => {
                 //INC nn; DEC nn
-                self.exec_inc_dec16(byte);
+                cycles = self.exec_inc_dec16(byte);
             },
             (0o0 ... 0o7, 0o4 ... 0o5) => {
                 //INC n; DEC n
-                self.exec_inc_dec(byte, memory);
+                cycles = self.exec_inc_dec(byte, memory);
             },
             (0o1,0o1) | (0o3,0o1) | (0o5,0o1) | (0o7,0o1) => {
                 //ADD HL,ss
-                self.exec_add_hl_ss(byte);
+                cycles = self.exec_add_hl_ss(byte);
             },
             (0o0 ... 0o7, 0o6) => {
                 //LD r,n; LD n,r
-                self.exec_ld_r_n(byte, memory);
+                cycles = self.exec_ld_r_n(byte, memory);
             },
             (0o0 ... 0o3, 0o7) => {
                 //RLCA, RRCA, RLA, RRA
-                self.exec_rotates_shifts(byte);
+                cycles = self.exec_rotates_shifts(byte);
             },
             (0o16, 0o6) => {
                 //TODO HALT instruction
@@ -268,30 +271,30 @@ impl Cpu {
             },
             (0o10 ... 0o17,_) => {
                 //LD r,r
-                self.exec_ld_r_r(byte, memory);
+                cycles = self.exec_ld_r_r(byte, memory);
             },
             (0o30 ... 0o33, 0o0) | (0o31,0o1) | (0o33,0o1) => {
                 //RET
-                self.exec_ret(byte, memory);
+                cycles = self.exec_ret(byte, memory);
             },
             (0o30,0o1) | (0o32,0o1) | (0o34,0o1) | (0o36,0o1) |
             (0o30,0o5) | (0o32,0o5) | (0o34,0o5) | (0o36,0o5) => {
                 //PUSH pp, POP pp
-                self.exec_push_pop(byte, memory);
+                cycles = self.exec_push_pop(byte, memory);
             },
             (0o30 ... 0o31, 0o4) | (0o31, 0o5) |
             (0o32 ... 0o33, 0o4) => {
                 //CALL
-                self.exec_call(byte, memory);
+                cycles = self.exec_call(byte, memory);
             },
             (0o20 ... 0o27, _) |
             (0o30 ... 0o37, 0o6) => {
                 //AND,ADC,SUB,SBC,OR,XOR,CP
-                self.exec_bit_alu8(byte, memory);
+                cycles = self.exec_bit_alu8(byte, memory);
             },
             (0o31, 0o3) => {
                 //CB-Prefixed
-                self.exec_cb_prefixed(memory);
+                cycles = self.exec_cb_prefixed(memory);
             },
             (0o0,0o1)|(0o2,0o1)|(0o4,0o1)|(0o6,0o1) |
             (0o34 ... 0o37, 0o2) |
@@ -302,19 +305,22 @@ impl Cpu {
                 //LD (a16),A; LD A,(a16)
                 //LDH (a8),A; LDH A,(a8),
                 //LD HL, SP+r8; LD SP, HL;
-                self.exec_ld_others(byte, memory);
+                cycles = self.exec_ld_others(byte, memory);
             },
             _ => panic!("No opcode defined for {:#01$x}", byte, 2),
         }
         if cfg!(debug_assertions) {
             println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
         }
+
+        timer::wait_cycles(cycles);
     }
 
     /*Instructions execution codes*/
 
-    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) {
+    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> u16 {
         let should_return: bool;
+        let mut cycles: u16 = 20;
         match opcode {
             0xC0 => {
                 //RET NZ
@@ -327,6 +333,7 @@ impl Cpu {
             0xC9 => {
                 //RET
                 should_return = true;
+                cycles = 16;
             },
             0xD0 => {
                 //RET NC
@@ -340,6 +347,7 @@ impl Cpu {
                 //TODO: enable interrupts
                 //RETI
                 should_return = true;
+                cycles = 16;
             },
             _ => unreachable!(),
         }
@@ -347,10 +355,13 @@ impl Cpu {
         if should_return {
             let addr: u16 = self.pop_sp16(memory);
             self.reg_set16(Reg::PC, addr);
+        } else {
+            cycles = 8;
         }
+        cycles
     }
 
-    fn exec_rotates_shifts(&mut self, opcode: u8) {
+    fn exec_rotates_shifts(&mut self, opcode: u8) -> u16 {
         let mut value: u8 = self.reg8(Reg::A);
 
         let bit_7: u8 = (value >> 7) & 0b1;
@@ -386,15 +397,19 @@ impl Cpu {
         self.flag_set(value == 0, Flag::Z);
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
+
+        4
     }
 
-    fn exec_push_pop(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_push_pop(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
+        let mut cycles: u16 = 16;
         match opcode & 0b1111 {
             0x1 => {
                 //POP
                 let sp_val: u16 = self.pop_sp16(memory);
                 self.reg_set16(reg, sp_val);
+                cycles = 12;
             },
             0x5 => {
                 //PUSH
@@ -403,9 +418,10 @@ impl Cpu {
             },
             _ => unreachable!(),
         }
+        cycles
     }
 
-    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         //push next instruction onto stack
         let imm1: u8 = self.mem_next(memory);
         let imm2: u8 = self.mem_next(memory);
@@ -435,14 +451,17 @@ impl Cpu {
             _ => unreachable!(),
         }
 
+        let mut cycles: u16 = 12;
         if should_jump {
             let pc: u16 = self.reg16(Reg::PC);
             self.push_sp16(pc, memory);
             self.reg_set16(Reg::PC, immediate);
+            cycles = 24;
         }
+        cycles
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> u16 {
         let opcode = self.mem_next(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -453,6 +472,8 @@ impl Cpu {
         }
         let bit: u8 = opcode >> 3 & 0b111;
         let mut should_change_reg: bool = true;
+
+        let mut cycles: u16 = if reg == Reg::HL { 16 } else { 8 };
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0, 0o0 ... 0o7) => {
                 //RLC b
@@ -517,6 +538,9 @@ impl Cpu {
                 self.flag_set(true, Flag::H);
 
                 should_change_reg = false;
+                if reg == Reg::HL {
+                    cycles = 12;
+                }
             },
             (0o20 ... 0o27, 0o0 ... 0o7) => {
                 //RES b,r; RES b,(HL)
@@ -542,9 +566,11 @@ impl Cpu {
             self.flag_set(false, Flag::N);
             self.flag_set(false, Flag::H);
         }
+
+        cycles
     }
 
-    fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_jump(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let should_jump: bool;
         match opcode {
             0x18 | 0xC3 => {
@@ -570,12 +596,15 @@ impl Cpu {
             _ => unreachable!(),
         }
 
+        let mut cycles: u16;
         //16 bits immediate (JP ... instruction)
         let is_imm16: bool = opcode > 0x38;
         if should_jump {
             let mut imm: u16 = util::sign_extend(self.mem_next(memory));
+            cycles = 12;
             if is_imm16 {
                 imm = ((self.mem_next(memory) as u16) << 8) | imm;
+                cycles = 16;
             }
 
             let mut addr: u16 = self.reg16(Reg::PC);
@@ -588,33 +617,42 @@ impl Cpu {
             self.reg_set16(Reg::PC, addr);
         } else {
             self.increment_pc();
+            cycles = 8;
             if is_imm16 {
                 self.increment_pc();
+                cycles = 12;
             }
         }
+
+        cycles
     }
 
-    fn exec_ld_others(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_ld_others(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let addr: u16 = 0xFF00;
         let a_val: u8 = self.reg8(Reg::A);
+        let cycles: u16;
         match opcode {
             0x01 | 0x11 | 0x21 | 0x31 => {
                 //TODO: make sure byte order is correct
+                //LD rr,nn
                 let imm1: u8 = self.mem_next(memory);
                 let imm2: u8 = self.mem_next(memory);
                 let value: u16 = (imm2 as u16) << 8 | imm1 as u16;
                 let reg: Reg = Reg::pair_from_dd(opcode >> 4);
                 self.reg_set16(reg, value);
+                cycles = 12;
             },
             0xE0 => {
                 //LDH (a8), A
                 let immediate: u16 = self.mem_next(memory) as u16;
 
                 memory.write_byte(addr+immediate, a_val);
+                cycles = 12;
             },
             0xE2 => {
                 //LD (C), A
                 memory.write_byte(addr + self.reg8(Reg::C) as u16, a_val);
+                cycles = 8;
             },
             0xEA => {
                 //LD (a16),A
@@ -624,28 +662,33 @@ impl Cpu {
                 let addr: u16 = (imm2 as u16) << 8 | imm1 as u16;
 
                 memory.write_byte(addr, a_val);
+                cycles = 16;
             },
             0xF0 => {
                 //LDH A, (a8)
                 let immediate: u16 = self.mem_next(memory) as u16;
                 let value: u8 = memory.read_byte(addr+immediate);
                 self.reg_set8(Reg::A, value);
+                cycles = 12;
             },
             0xF2 => {
                 //LD A,(C)
                 let value: u8 = memory.read_byte(self.reg8(Reg::C) as u16);
                 self.reg_set8(Reg::A, value);
+                cycles = 8;
             },
             0xF8 => {
                 //LD HL,SP+r8
                 let immediate: u16 = self.mem_next(memory) as u16;
                 let sp: u16 = self.reg16(Reg::SP);
                 self.reg_set16(Reg::HL, immediate+sp);
+                cycles = 12;
             },
             0xF9 => {
                 //LD SP,HL
                 let hl: u16 = self.reg16(Reg::HL);
                 self.push_sp16(hl, memory);
+                cycles = 8;
             },
             0xFA => {
                 //LD A, (a16)
@@ -654,12 +697,15 @@ impl Cpu {
                 let addr: u16 = (imm2 as u16) << 8 | imm1 as u16;
 
                 self.reg_set8(Reg::A, memory.read_byte(addr));
+                cycles = 16;
             },
             _ => panic!("Invalid opcode for ld others: {:#X}", opcode),
         }
+
+        cycles
     }
 
-    fn exec_add_hl_ss(&mut self, opcode: u8) {
+    fn exec_add_hl_ss(&mut self, opcode: u8) -> u16 {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let value: u16 = self.reg16(reg);
 
@@ -669,9 +715,11 @@ impl Cpu {
         self.flag_set(false, Flag::N);
         self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
         self.flag_set(util::has_carry_on_bit16(15, hl, value), Flag::C);
+
+        8
     }
 
-    fn exec_inc_dec16(&mut self, opcode: u8) {
+    fn exec_inc_dec16(&mut self, opcode: u8) -> u16 {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let mut value: u16 = self.reg16(reg);
         match opcode & 0b1111 {
@@ -686,13 +734,17 @@ impl Cpu {
             _ => unreachable!(),
         }
         self.reg_set16(reg, value);
+
+        8
     }
 
-    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let mut reg_val: u8 = self.reg8(reg);
         let result: u8;
+        let mut cycles: u16 = 4;
         if reg == Reg::HL {
+            cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
         match ((opcode >> 3) as u8, opcode % 0o10) {
@@ -718,19 +770,23 @@ impl Cpu {
         } else {
             self.reg_set8(reg, result);
         }
+
+        cycles
     }
 
-    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
+    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> u16 {
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
 
+        let mut cycles: u16 = 8;
         if opcode > 0xBF {
             value = self.mem_next(memory);
         } else if reg == Reg::HL {
             value = self.mem_at_reg(reg, memory);
         } else {
             value = self.reg8(reg);
+            cycles = 4;
         }
         let mut result: u8;
         let mut unchange_a: bool = false;
@@ -803,9 +859,11 @@ impl Cpu {
         if !unchange_a {
             self.reg_set8(Reg::A, result);
         }
+
+        cycles
     }
 
-    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -814,11 +872,13 @@ impl Cpu {
 
         match opcode & 0b1111 {
             0x2 => {
+                //LD (ss), A;
                 let addr: u16 = reg_val;
                 let val: u8 = self.reg8(Reg::A);
                 memory.write_byte(addr, val);
             },
             0xA => {
+                //LD A,(ss)
                 let val: u8 = self.mem_at_reg(reg, memory);
                 self.reg_set8(Reg::A, val);
             },
@@ -837,34 +897,47 @@ impl Cpu {
                 _ => unreachable!(),
             }
         }
+
+        8
     }
 
-    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let immediate: u8 = self.mem_next(memory);
 
+        let cycles: u16;
         if reg == Reg::HL {
+            //LD (HL),n
             let addr: u16 = self.reg16(Reg::HL);
             memory.write_byte(addr, immediate);
+            cycles = 12;
         } else {
+            //LD r,n
             self.reg_set8(reg, immediate);
+            cycles = 8
         }
+        cycles
     }
 
-    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) {
+    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
         let rhs_val: u8 = self.reg8(reg_rhs);
 
+        let cycles: u16;
         if reg_rhs == Reg::HL {
             let value: u8 = self.mem_at_reg(Reg::HL, memory);
             self.reg_set8(reg_lhs, value);
+            cycles = 8;
         } else if reg_lhs == Reg::HL {
             let addr: u16 = self.reg16(Reg::HL);
             memory.write_byte(addr, rhs_val);
+            cycles = 8;
         } else {
             self.reg_set8(reg_lhs, rhs_val);
+            cycles = 4;
         }
+        cycles
     }
 }
