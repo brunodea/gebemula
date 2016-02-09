@@ -18,39 +18,38 @@ pub struct Memory {
 }
 
 
-// TODO: Rewrite to work with new memory structure
-//impl fmt::Display for Memory {
-//fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    //let columns: u8 = 16;
+impl fmt::Display for Memory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let columns: u8 = 16;
 
-        //let mut res: String = "".to_owned();
+        let mut res: String = "".to_owned();
 
-        //let mut to: usize = self.mem.len();
-        //let mut from: usize = 0;
+        let mut to: usize = 0xffff;
+        let mut from: usize = 0;
 
-        //if let Some(fr) = f.width() {
-        //    from = fr;
-        //}
-        //if let Some(t) = f.precision() {
-        //    to = t;
-        //}
+        if let Some(fr) = f.width() {
+            from = fr;
+        }
+        if let Some(t) = f.precision() {
+            to = t;
+        }
 
-       // let mut i: usize = 0;
-        //while i >= from && i < to {
-            //if i as u8 % columns == 0 {
-            //    res = res + &format!("\n{:01$x}: ", i, 8);
-            //}
-            //let lhs: u8 = self.mem[i];
-            //i += 1;
-            //let rhs: u8 = self.mem[i];
-            //res = res + &format!("{:01$x}", lhs, 2);
-            //res = res + &format!("{:01$x} ", rhs, 2);
+        let mut i: usize = 0;
+        while i >= from && i < to {
+            if i as u8 % columns == 0 {
+                res = res + &format!("\n{:01$x}: ", i, 8);
+            }
+            let lhs: u8 = self.read_byte(i as u16);
+            i += 1;
+            let rhs: u8 = self.read_byte(i as u16);
+            res = res + &format!("{:01$x}", lhs, 2);
+            res = res + &format!("{:01$x} ", rhs, 2);
 
-            //i += 1;
-        //}
-       // write!(f, "{}", res)
-//    }
-//}
+            i += 1;
+        }
+        write!(f, "{}", res)
+    }
+}
 
 impl Memory {
     pub fn new() -> Memory {
