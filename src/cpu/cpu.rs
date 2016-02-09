@@ -147,26 +147,23 @@ impl Cpu {
     }
 
     pub fn flag_is_set(&self, flag: Flag) -> bool {
-        let flags: u8 = self.reg8(Reg::F);
-        let mask: u8 = Cpu::flag_mask(flag);
-
-        mask & flags == mask
+        self.flag_bit(flag) == 0b1
     }
 
     fn flag_bit(&self, flag: Flag) -> u8 {
         let m: u8;
         match flag {
             Flag::Z =>  {
-                m = 3;
+                m = 7;
             },
             Flag::N => {
-                m = 2;
+                m = 6;
             },
             Flag::H => {
-                m = 1;
+                m = 5;
             },
             Flag::C => {
-                m = 0;
+                m = 4;
             },
         }
         (self.flags() >> m) & 0b1
