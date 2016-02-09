@@ -726,7 +726,7 @@ impl Cpu {
         } else {
             value = self.reg8(reg);
         }
-        let mut result: u8 = 0;
+        let mut result: u8;
         let mut unchange_a: bool = false;
 
         match ((opcode >> 3) as u8, opcode % 0o10) {
@@ -787,7 +787,7 @@ impl Cpu {
                 result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
-                self.flag_set(reg_a_val < value, Flag::C);
+                self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
                 unchange_a = true;
             },
 
