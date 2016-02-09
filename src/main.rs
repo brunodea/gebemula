@@ -24,8 +24,8 @@ fn main() {
         let mut mem: Memory = Memory::new();
         let mut cpu: Cpu = Cpu::new();
 
-        mem.load_rom(0x0, &game_data);
-        mem.load_rom(0x0, &bootstrap_data);
+        mem.load_game_rom(&game_data);
+        mem.load_bootstrap_rom(&bootstrap_data);
         mem.write_byte(0xFF44, 0x90); //for bypassing 'waiting for screen frame'.
         //starting point = bootstrap rom's initial position
         cpu.execute_instructions(0x0, &mut mem);
