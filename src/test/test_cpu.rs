@@ -291,3 +291,21 @@ fn instr_ld_nn_a() {
     assert!(test.mem.read_byte(hl) == 0x13);
     assert!(test.cpu.reg16(Reg::HL) == (hl - 1));
 }
+
+#[test]
+fn instr_ld_r_n() {
+    let mut test: &mut Test = &mut Test::new();
+
+    test.instr_run8(0x06, 0x33);
+    assert!(test.cpu.reg16(Reg::B) == 0x33);
+    test.instr_run8(0x0E, 0x33);
+    assert!(test.cpu.reg16(Reg::C) == 0x33);
+    test.instr_run8(0x16, 0x33);
+    assert!(test.cpu.reg16(Reg::D) == 0x33);
+    test.instr_run8(0x1E, 0x33);
+    assert!(test.cpu.reg16(Reg::E) == 0x33);
+    test.instr_run8(0x26, 0x33);
+    assert!(test.cpu.reg16(Reg::H) == 0x33);
+    test.instr_run8(0x2E, 0x33);
+    assert!(test.cpu.reg16(Reg::L) == 0x33);
+}
