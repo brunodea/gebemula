@@ -506,7 +506,7 @@ impl Cpu {
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
-                self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
+                self.flag_set((value >> bit) & 0b1 == 0b0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
@@ -784,7 +784,7 @@ impl Cpu {
             },
             (0o27, 0o0 ... 0o7) | (0o37, 0o6) => {
                 //CP
-                self.flag_set(reg_a_val == value, Flag::Z);
+                result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(reg_a_val < value, Flag::C);
