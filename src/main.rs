@@ -1,6 +1,9 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
+#[cfg(test)]
+mod test;
+
 mod cpu;
 mod mem;
 mod util;
@@ -9,7 +12,7 @@ use std::env;
 use std::io::Read;
 use std::fs::File;
 
-use cpu::Cpu;
+use cpu::cpu::Cpu;
 use mem::mem::Memory;
 
 fn main() {

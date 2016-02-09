@@ -1,26 +1,33 @@
 
-//TODO make sure both has_carry and has_borrow are correct implemented.
+//TODO make sure both has_carry and has_borrow are correctly implemented.
 
-pub fn has_carry_on_bit(bit: u8, byte_1: u8, byte_2: u8) -> bool {
-    let mask: u8 = 1 << bit;
-    byte_1 & mask == byte_2 & mask
+pub fn has_carry_on_bit(bit: u8, lhs: u8, rhs: u8) -> bool {
+    has_carry_on_bit16(bit, lhs as u16, rhs as u16)
 }
-
 pub fn has_carry_on_bit16(bit: u8, lhs: u16, rhs: u16) -> bool {
-    let mask: u16 = 1 << bit as u16;
-    lhs & mask == rhs & mask
+    let mut carry: bool = false;
+    for i in 0..(bit+1) {
+        let lhs_bit_one: bool = (lhs >> i) & 0b1 == 1;
+        let rhs_bit_one: bool = (rhs >> i) & 0b1 == 1;
+        carry = (lhs_bit_one && rhs_bit_one) || (carry && (lhs_bit_one || rhs_bit_one));
+    }
+    carry
 }
-
-pub fn has_borrow_on_bit(bit: u8, byte_1: u8, byte_2: u8) -> bool {
-    let mask: u8 = 1 << bit;
-    byte_1 & mask == 0b0 && byte_2 & mask == 0b1
+#[inline]
+pub fn has_borrow_on_bit(bit: u8, lhs: u8, rhs: u8) -> bool {
+    let mut carry: bool = false;
+    for i in 0..(bit+1) {
+        let lhs_bit_one: bool = (lhs >> i) & 0b1 == 1;
+        let rhs_bit_one: bool = (rhs >> i) & 0b1 == 1;
+        carry = (!lhs_bit_one && rhs_bit_one) || (carry && rhs_bit_one);
+    }
+    carry
+//    ((lhs >> bit) & 0b1 == 0) && ((rhs >> bit) & 0b1 == 1)
 }
-
-
-pub fn has_borrow_on_any(byte_1: u8, byte_2: u8) -> bool {
+pub fn has_borrow_on_any(lhs: u8, rhs: u8) -> bool {
     let mut has = false;
     for i in 0..8 {
-        has = has_borrow_on_bit(i, byte_1, byte_2);
+        has = has_borrow_on_bit(i, lhs, rhs);
         if has {
             break;
         }

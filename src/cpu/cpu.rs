@@ -3,12 +3,12 @@ use super::super::mem::mem;
 use super::super::util::util;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum Flag {
+pub enum Flag {
     Z, N, H, C,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum Reg {
+pub enum Reg {
     A, F,
     B, C,
     D, E,
@@ -46,13 +46,13 @@ impl Reg {
 #[derive(Debug)]
 pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
-    regs: [u8; 12],
+    pub regs: [u8; 12],
 }
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let regs_names = ["AF", "BC", "DE", "HL", "SP", "PC"];
-        let flags = format!("[{:#01$b} ZNHC]", self.flags(), 6);
+        let flags = format!("[{:#01$b} ZNHC]", self.flags() >> 4, 6);
         let mut regs: String = "".to_owned();
 
         let mut i: usize = 0;
@@ -99,7 +99,7 @@ impl Cpu {
         }
     }
 
-    fn reg_set16(&mut self, reg: Reg, value: u16) {
+    pub fn reg_set16(&mut self, reg: Reg, value: u16) {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
             self.regs[index] = value as u8;
@@ -109,11 +109,11 @@ impl Cpu {
         }
     }
 
-    fn reg_set8(&mut self, reg: Reg, value: u8) {
+    pub fn reg_set8(&mut self, reg: Reg, value: u8) {
         self.reg_set16(reg, value as u16);
     }
 
-    fn reg16(&self, reg: Reg) -> u16 {
+    pub fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
             self.regs[index] as u16
@@ -122,20 +122,20 @@ impl Cpu {
         }
     }
 
-    fn reg8(&self, reg: Reg) -> u8 {
+    pub fn reg8(&self, reg: Reg) -> u8 {
         self.reg16(reg) as u8
     }
 
     fn flag_mask(flag: Flag) -> u8 {
         match flag {
-            Flag::Z => 0b1000,
-            Flag::N => 0b0100,
-            Flag::H => 0b0010,
-            Flag::C => 0b0001,
+            Flag::Z => 0b1000_0000,
+            Flag::N => 0b0100_0000,
+            Flag::H => 0b0010_0000,
+            Flag::C => 0b0001_0000,
         }
     }
 
-    fn flag_set(&mut self, set: bool, flag: Flag) {
+    pub fn flag_set(&mut self, set: bool, flag: Flag) {
         let mut flags: u8 = self.reg8(Reg::F);
         let mask: u8 = Cpu::flag_mask(flag);
         if set {
@@ -146,27 +146,24 @@ impl Cpu {
         self.reg_set8(Reg::F, flags);
     }
 
-    fn flag_is_set(&self, flag: Flag) -> bool {
-        let flags: u8 = self.reg8(Reg::F);
-        let mask: u8 = Cpu::flag_mask(flag);
-
-        mask & flags == mask
+    pub fn flag_is_set(&self, flag: Flag) -> bool {
+        self.flag_bit(flag) == 0b1
     }
 
     fn flag_bit(&self, flag: Flag) -> u8 {
         let m: u8;
         match flag {
             Flag::Z =>  {
-                m = 3;
+                m = 7;
             },
             Flag::N => {
-                m = 2;
+                m = 6;
             },
             Flag::H => {
-                m = 1;
+                m = 5;
             },
             Flag::C => {
-                m = 0;
+                m = 4;
             },
         }
         (self.flags() >> m) & 0b1
@@ -190,9 +187,8 @@ impl Cpu {
 
     fn pop_sp8(&mut self, memory: &mem::Memory) -> u8 {
         let sp: u16 = self.reg16(Reg::SP);
-        let value: u8 = memory.read_byte(sp);
         self.reg_set16(Reg::SP, sp + 1);
-        value
+        memory.read_byte(sp)
     }
 
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
@@ -250,7 +246,7 @@ impl Cpu {
                 //INC n; DEC n
                 self.exec_inc_dec(byte, memory);
             },
-            (0o1,0o1) | (0o3,0o1) | (0o51,0o1) | (0o7,0o1) => {
+            (0o1,0o1) | (0o3,0o1) | (0o5,0o1) | (0o7,0o1) => {
                 //ADD HL,ss
                 self.exec_add_hl_ss(byte);
             },
@@ -510,7 +506,7 @@ impl Cpu {
             },
             (0o10 ... 0o17, 0o0 ... 0o7) => {
                 //BIT b,r; BIT b,(HL)
-                self.flag_set(value >> bit & 0b1 == 0, Flag::Z);
+                self.flag_set((value >> bit) & 0b1 == 0b0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
@@ -662,7 +658,7 @@ impl Cpu {
         let value: u16 = self.reg16(reg);
 
         let hl: u16 = self.reg16(Reg::HL);
-        self.reg_set16(Reg::HL, hl + value);
+        self.reg_set16(Reg::HL, hl.wrapping_add(value));
 
         self.flag_set(false, Flag::N);
         self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
@@ -675,11 +671,11 @@ impl Cpu {
         match opcode & 0b1111 {
             0x3 =>{
                 //INC nn
-                value += 1;
+                value = value.wrapping_add(1);
             },
             0xB =>{
                 //DEC nn
-                value -= 1;
+                value = (value as i32 - 1) as u16;
             },
             _ => unreachable!(),
         }
@@ -693,22 +689,21 @@ impl Cpu {
         if reg == Reg::HL {
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
-        //TODO: borrow reg_val and -1? carry reg_val 1 from bit 3?
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o0 ... 0o7, 0o4) => {
                 //INC
-                result = reg_val+1;
+                result = reg_val.wrapping_add(1);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_val, 1), Flag::H);
             },
             (0o0 ... 0o7, 0o5) => {
                 //DEC
-                result = reg_val-1;
+                result = (reg_val as i16 - 1) as u8;
                 self.flag_set(true, Flag::N);
                 let minus_one: i8 = -1;
                 self.flag_set(!util::has_borrow_on_bit(4, reg_val, minus_one as u8), Flag::H);
             },
-            _ => panic!("Invalid opcode for inc/dec: {:#X}", opcode),
+            _ => unreachable!(),
         }
         self.flag_set(result == 0, Flag::Z);
 
@@ -720,7 +715,6 @@ impl Cpu {
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) {
-        //TODO Flag stuff
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
@@ -732,20 +726,20 @@ impl Cpu {
         } else {
             value = self.reg8(reg);
         }
-        let mut result = 0;
+        let mut result: u8 = 0;
         let mut unchange_a: bool = false;
 
         match ((opcode >> 3) as u8, opcode % 0o10) {
             (0o20, 0o0 ... 0o7) | (0o30, 0o6) => {
                 //ADD
-                result = reg_a_val + value;
+                result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
             },
             (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
-                result = reg_a_val + value;
+                result = reg_a_val.wrapping_add(value);
                 if self.flag_is_set(Flag::C) {
                     result |= 0b1;
                 }
@@ -755,14 +749,14 @@ impl Cpu {
             },
             (0o22, 0o0 ... 0o7) | (0o32, 0o6) => {
                 //SUB
-                result = reg_a_val - value;
+                result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
             },
             (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
                 //SBC
-                result = reg_a_val - value;
+                result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
@@ -790,7 +784,7 @@ impl Cpu {
             },
             (0o27, 0o0 ... 0o7) | (0o37, 0o6) => {
                 //CP
-                self.flag_set(reg_a_val == value, Flag::Z);
+                result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);
                 self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
                 self.flag_set(reg_a_val < value, Flag::C);
@@ -867,167 +861,5 @@ impl Cpu {
         } else {
             self.reg_set8(reg_lhs, rhs_val);
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use super::super::super::mem::mem::Memory;
-    use super::super::super::util::util;
-
-    const PC_DEFAULT: u16 = 0x100;
-
-    struct Test {
-        pub cpu: Cpu,
-        pub mem: Memory,
-    }
-
-    impl Test {
-        pub fn setup_jump() -> Test {
-            let mut cpu: Cpu = Cpu::new();
-            let mut mem: Memory = Memory::new();
-            Test { cpu: cpu, mem: mem }
-        }
-
-        fn instr_run(&mut self, opcode: u8) -> u16 {
-            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
-            self.mem.write_byte(PC_DEFAULT, opcode);
-            self.cpu.run_instruction(&mut self.mem);
-            PC_DEFAULT + 1 //PC_DEFAULT + 1 (opcode)
-        }
-
-        //returns the value of the next instruction, regardless of the
-        //executed instruction.
-        fn instr_run8(&mut self, opcode: u8, imm: u8) -> u16 {
-            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
-            self.mem.write_byte(PC_DEFAULT, opcode);
-            self.mem.write_byte(PC_DEFAULT + 1, imm);
-            self.cpu.run_instruction(&mut self.mem);
-            PC_DEFAULT + 2 //PC_DEFAULT + 1 (opcode) + 1 (8 bits immediate)
-        }
-
-        fn instr_run16(&mut self, opcode: u8, imm: u16) -> u16 {
-            self.cpu.reg_set16(super::Reg::PC, PC_DEFAULT);
-            self.mem.write_byte(PC_DEFAULT, opcode);
-            self.mem.write_byte(PC_DEFAULT + 1, imm as u8);
-            self.mem.write_byte(PC_DEFAULT + 2, (imm >> 8) as u8);
-            self.cpu.run_instruction(&mut self.mem);
-            PC_DEFAULT + 3 //PC_DEFAULT + 1 (opcode) + 2 (16 bits immediate).
-        }
-    }
-
-    #[test]
-    fn instr_jump() {
-        let mut test: &mut Test = &mut Test::setup_jump();
-
-        let mut addr: u16;
-        //JR
-        addr = test.instr_run8(0x18, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-        //JR NZ
-        test.cpu.flag_set(false, super::Flag::Z);
-        addr = test.instr_run8(0x20, 0xfb); //-5
-        assert!(test.cpu.reg16(super::Reg::PC) == addr - util::twos_complement(0xfffb));
-        //JR Z
-        test.cpu.flag_set(true, super::Flag::Z);
-        addr = test.instr_run8(0x28, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-        //JR NC
-        test.cpu.flag_set(false, super::Flag::C);
-        addr = test.instr_run8(0x30, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-        //JR C
-        test.cpu.flag_set(true, super::Flag::C);
-        addr = test.instr_run8(0x38, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-
-        //JR NZ - no jump
-        test.cpu.flag_set(true, super::Flag::Z);
-        addr = test.instr_run8(0x20, 0xfb); //-5
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JR Z - no jump
-        test.cpu.flag_set(false, super::Flag::Z);
-        addr = test.instr_run8(0x28, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JR NC - no jump
-        test.cpu.flag_set(true, super::Flag::C);
-        addr = test.instr_run8(0x30, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JR C - no jump
-        test.cpu.flag_set(false, super::Flag::C);
-        addr = test.instr_run8(0x38, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-
-        /*16 bits jumps*/
-        //JP
-        addr = test.instr_run16(0xC3, 0x0001);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 0x0001));
-        //JP NZ
-        test.cpu.flag_set(false, super::Flag::Z);
-        addr = test.instr_run16(0xC2, 0xfffb); //-5
-        assert!(test.cpu.reg16(super::Reg::PC) == addr - util::twos_complement(0xfffb));
-        //JP Z
-        test.cpu.flag_set(true, super::Flag::Z);
-        addr = test.instr_run16(0xCA, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-        //JP NC
-        test.cpu.flag_set(false, super::Flag::C);
-        addr = test.instr_run16(0xD2, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-        //JP C
-        test.cpu.flag_set(true, super::Flag::C);
-        addr = test.instr_run16(0xDA, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == (addr + 1));
-
-        //JP NZ - no jump
-        test.cpu.flag_set(true, super::Flag::Z);
-        addr = test.instr_run16(0xC2, 0x00fb); //-5
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JP Z - no jump
-        test.cpu.flag_set(false, super::Flag::Z);
-        addr = test.instr_run16(0xCA, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JP NC - no jump
-        test.cpu.flag_set(true, super::Flag::C);
-        addr = test.instr_run16(0xD2, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-        //JP C - no jump
-        test.cpu.flag_set(false, super::Flag::C);
-        addr = test.instr_run16(0xDA, 0x1);
-        assert!(test.cpu.reg16(super::Reg::PC) == addr);
-    }
-
-    #[test]
-    fn instr_inc_dec() {
-        let mut test: &mut Test = &mut Test::setup_jump();
-        test.cpu.regs = [0; 12];
-        //INC A
-        test.instr_run(0x3C);
-        assert!(test.cpu.reg8(super::Reg::A) == 0x1);
-        //INC B
-        test.instr_run(0x04);
-        assert!(test.cpu.reg8(super::Reg::B) == 0x1);
-        //INC C
-        test.instr_run(0x0C);
-        assert!(test.cpu.reg8(super::Reg::C) == 0x1);
-        //INC D
-        test.instr_run(0x14);
-        assert!(test.cpu.reg8(super::Reg::D) == 0x1);
-        //INC E
-        test.instr_run(0x1C);
-        assert!(test.cpu.reg8(super::Reg::E) == 0x1);
-        //INC H
-        test.instr_run(0x24);
-        assert!(test.cpu.reg8(super::Reg::H) == 0x1);
-        //INC L
-        test.instr_run(0x2C);
-        assert!(test.cpu.reg8(super::Reg::L) == 0x1);
-        //INC (HL)
-        let addr: u16 = 0x555;
-        test.cpu.reg_set16(super::Reg::HL, addr);
-        let val: u8 = test.mem.read_byte(addr);
-        test.instr_run(0x34);
-        assert!(test.mem.read_byte(addr) == val+1);
     }
 }
