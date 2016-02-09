@@ -123,7 +123,11 @@ impl Cpu {
     }
 
     pub fn reg8(&self, reg: Reg) -> u8 {
-        self.reg16(reg) as u8
+        if !Cpu::reg_is8(reg) {
+            panic!("Trying to get 8 bits from 16-bit register: {:?}", reg)
+        }
+        let index: usize = Cpu::reg_index(reg);
+        self.regs[index]
     }
 
     fn flag_mask(flag: Flag) -> u8 {
