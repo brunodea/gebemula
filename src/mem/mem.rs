@@ -84,7 +84,7 @@ impl Memory {
             io_registers: [0; 0x80],
             hram: [0; 0x7F],
             interrupts_enable: 0,
-            cartridge: vec![0; 0x8000], // assuming 32kb cartridge
+            cartridge: vec![0; 0x200000],
             cartridge_type: CartridgeType::RomOnly,
             current_rom_bank: 1, // should never be 0
             current_ram_bank: 0,
