@@ -56,3 +56,7 @@ pub fn sign_extend(value: u8) -> u16 {
     }
     res
 }
+
+pub fn is_bit_one(value: u16, bit: u8) -> bool {
+    value & (1 << bit) >> bit == 1 
+}
