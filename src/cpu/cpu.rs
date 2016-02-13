@@ -4,12 +4,12 @@ use super::super::util::util;
 use super::timer;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Flag {
+enum Flag {
     Z, N, H, C,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Reg {
+enum Reg {
     A, F,
     B, C,
     D, E,
@@ -47,7 +47,7 @@ impl Reg {
 #[derive(Debug)]
 pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
-    pub regs: [u8; 12],
+    regs: [u8; 12],
 }
 
 impl fmt::Display for Cpu {
@@ -100,7 +100,11 @@ impl Cpu {
         }
     }
 
-    pub fn reg_set16(&mut self, reg: Reg, value: u16) {
+    pub fn reset_registers(&mut self) {
+        self.regs = [0; 12];
+    }
+
+    fn reg_set16(&mut self, reg: Reg, value: u16) {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
             self.regs[index] = value as u8;
@@ -110,11 +114,11 @@ impl Cpu {
         }
     }
 
-    pub fn reg_set8(&mut self, reg: Reg, value: u8) {
+    fn reg_set8(&mut self, reg: Reg, value: u8) {
         self.reg_set16(reg, value as u16);
     }
 
-    pub fn reg16(&self, reg: Reg) -> u16 {
+    fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
             self.regs[index] as u16
@@ -123,7 +127,7 @@ impl Cpu {
         }
     }
 
-    pub fn reg8(&self, reg: Reg) -> u8 {
+    fn reg8(&self, reg: Reg) -> u8 {
         if !Cpu::reg_is8(reg) {
             panic!("Trying to get 8 bits from 16-bit register: {:?}", reg)
         }
@@ -140,7 +144,7 @@ impl Cpu {
         }
     }
 
-    pub fn flag_set(&mut self, set: bool, flag: Flag) {
+    fn flag_set(&mut self, set: bool, flag: Flag) {
         let mut flags: u8 = self.reg8(Reg::F);
         let mask: u8 = Cpu::flag_mask(flag);
         if set {
@@ -151,7 +155,7 @@ impl Cpu {
         self.reg_set8(Reg::F, flags);
     }
 
-    pub fn flag_is_set(&self, flag: Flag) -> bool {
+     fn flag_is_set(&self, flag: Flag) -> bool {
         self.flag_bit(flag) == 0b1
     }
 
@@ -237,13 +241,6 @@ impl Cpu {
         let n2: u16 = self.mem_next8(memory) as u16;
 
         (n2 << 8) | n1
-    }
-
-    pub fn execute_instructions(&mut self, starting_point: u16, memory: &mut mem::Memory) {
-        self.reg_set16(Reg::PC, starting_point);
-        loop {
-            self.run_instruction(memory);
-        }
     }
 
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) {

@@ -7,13 +7,13 @@ mod test;
 mod cpu;
 mod mem;
 mod util;
+mod gebemula;
 
 use std::env;
 use std::io::Read;
 use std::fs::File;
 
-use cpu::cpu::Cpu;
-use mem::mem::Memory;
+use gebemula::Gebemula;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -24,14 +24,10 @@ fn main() {
         let mut game_data: Vec<u8> = Vec::new();
         File::open(&args[2]).unwrap().read_to_end(&mut game_data).unwrap();
         
-        let mut mem: Memory = Memory::new();
-        let mut cpu: Cpu = Cpu::new();
-
-        mem.load_game_rom(&game_data);
-        mem.load_bootstrap_rom(&bootstrap_data);
-        mem.write_byte(0xFF44, 0x90); //for bypassing 'waiting for screen frame'.
-        //starting point = bootstrap rom's initial position
-        cpu.execute_instructions(0x0, &mut mem);
+        let gebemula: &mut Gebemula = &mut Gebemula::new();
+        gebemula.load_game_rom(&game_data);
+        gebemula.load_bootstrap_rom(&bootstrap_data);
+        gebemula.run();
     } else {
         println!("Invalid number of arguments.");
     }
