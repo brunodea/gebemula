@@ -1,11 +1,45 @@
-use std::thread;
-use std::time::Duration;
+use cpu::interrupt::Interrupt;
 
-pub const CPU_CLOCK_SPEED_NS: f32 = 238.4; //nano seconds per cycle.
-pub const H_SYNC_LINE_CYCLES: u32 = 456; //per line
-pub const V_SYNC_FRAME_CYCLES: u32 = 70224; //per frame
+const NS_PER_CYCLE: u64 = 2384000; //nanoseconds per cycle
 
-pub fn wait_cycles(cycles: u16) {
-    thread::sleep(Duration::new(0, (CPU_CLOCK_SPEED_NS * cycles as f32) as u32))
+pub struct Timer {
+    event_queue: Vec<Interrupt>,
 }
 
+impl Timer {
+    pub fn new() -> Timer {
+        Timer {
+            event_queue: Vec::new(),
+        }
+    }
+    
+    //TODO handle priority
+    pub fn push_event(&mut self, event: Interrupt) {
+        self.event_queue.push(event);
+    }
+
+    fn first_event(&self) -> Option<Interrupt> {
+        if self.event_queue.is_empty() {
+            None
+        } else {
+            Some(self.event_queue[0])
+        }
+    }
+
+    pub fn next_event(&mut self) -> Option<Interrupt> {
+        if self.event_queue.is_empty() {
+            None
+        } else {
+            Some(self.event_queue.remove(0))
+        }
+    }
+
+    pub fn cycles_until_next_event(&self) -> Option<u64> {
+        match self.first_event() {
+            Some(event) => {
+                Some(event.ns_time_diff_to_now() / NS_PER_CYCLE)
+            },
+            None => None,
+        }
+    }
+}

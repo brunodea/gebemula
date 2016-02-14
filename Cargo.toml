@@ -5,3 +5,4 @@ authors = ["Bruno Romero de Azevedo <brunodea@inf.ufsm.br>"]
 
 [dependencies]
 clippy = "*"
+time = "0.1"

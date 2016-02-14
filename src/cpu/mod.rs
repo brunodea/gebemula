@@ -1,2 +1,3 @@
 pub mod cpu;
-mod timer;
+pub mod timer;
+pub mod interrupt;

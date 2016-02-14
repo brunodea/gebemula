@@ -1,7 +1,6 @@
 use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
-use super::timer;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -243,7 +242,7 @@ impl Cpu {
         (n2 << 8) | n1
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u16 {
         //if self.reg16(Reg::PC) > 0xfe {
         //println!("{}", memory);
         //panic!("End of Bootstrap ROM.");
@@ -508,7 +507,7 @@ impl Cpu {
             println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
         }
 
-        timer::wait_cycles(cycles);
+        cycles
     }
 
     /*Instructions execution codes*/
