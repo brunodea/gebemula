@@ -1,9 +1,8 @@
 use cpu::cpu::Cpu;
 use mem::mem::Memory;
 use time::{Duration, PreciseTime};
-use std::time;
+use std;
 use cpu::timer::{EventType, Event, Timeline};
-use std::thread;
 
 pub struct Gebemula {
     cpu: Cpu,
@@ -55,7 +54,7 @@ impl Gebemula {
                 //should happen.
                 let duration: Duration = start.to(PreciseTime::now());
                 if let Some(offset_time) = event.offset_time(duration) {
-                    thread::sleep(time::Duration::new(0, offset_time as u32));
+                    std::thread::sleep(std::time::Duration::new(0, offset_time as u32));
                 }
                 //put periodic events in the queue again.
                 match event.event_type {
