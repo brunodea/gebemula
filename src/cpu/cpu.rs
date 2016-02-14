@@ -1,6 +1,7 @@
 use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
+use cpu::ioregisters::Interrupt;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -47,6 +48,7 @@ impl Reg {
 pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
     regs: [u8; 12],
+    ime_flag: bool, //interrupt master enable flag
 }
 
 impl fmt::Display for Cpu {
@@ -71,6 +73,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
             regs: [0; 12],
+            ime_flag: true,
         }
     }
 
@@ -242,13 +245,29 @@ impl Cpu {
         (n2 << 8) | n1
     }
 
+    pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
+        if self.ime_flag {
+            if let Some(interrupt) = Interrupt::next_request(memory) {
+                if Interrupt::is_enabled(interrupt, memory) {
+                    self.ime_flag = false;
+                    let pc: u16 = self.reg16(Reg::PC);
+                    self.push_sp16(pc, memory);
+                    self.reg_set16(Reg::PC, Interrupt::address(interrupt));
+                    Interrupt::remove_request(interrupt, memory);
+                    //since the interrupt request is removed and interrupts are disabled,
+                    //simply returning to the main loop seems correct.
+                }
+            }
+        }
+    }
+
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u16 {
         let byte: u8 = self.mem_next8(memory);
         let mut cycles: u16 = 0;
         //instr, instruction type
         match byte {
             /***************************************/
-            /*      Misc/Control instructions      */ 
+            /*      Misc/Control instructions      */
             /***************************************/
             0x0 => {
                 //NOP
@@ -262,9 +281,14 @@ impl Cpu {
             },
             0xF3 => {
                 //DI
+                //self.ime_flag = false;
+                //cycles = 4;
             },
             0xFB => {
                 //EI
+                //Interrupt::enable_all(memory)?
+                //self.ime_flag = true;
+                //cycles = 4;
             },
             0xCB => {
                 //CB-prefixed
@@ -335,7 +359,7 @@ impl Cpu {
             },
             0xE2 => {
                 //LD (C),A
-                memory.write_byte(0xFF00 + self.reg8(Reg::C) as u16, 
+                memory.write_byte(0xFF00 + self.reg8(Reg::C) as u16,
                                   self.reg8(Reg::A));
                 cycles = 8;
             },
@@ -534,10 +558,10 @@ impl Cpu {
                 should_return = self.flag_is_set(Flag::C);
             },
             0xD9 => {
-                //TODO: enable interrupts
                 //RETI
                 should_return = true;
                 cycles = 16;
+                self.ime_flag = true;
             },
             _ => unreachable!(),
         }
@@ -974,7 +998,7 @@ impl Cpu {
 
         cycles
     }
-    
+
     fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
