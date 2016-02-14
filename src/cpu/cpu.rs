@@ -281,14 +281,16 @@ impl Cpu {
             },
             0xF3 => {
                 //DI
-                //self.ime_flag = false;
-                //cycles = 4;
+                //TODO on the manual it says that it should disable only after the
+                //instruction after DI (same for EI).
+                self.ime_flag = false;
+                cycles = 4;
             },
             0xFB => {
                 //EI
                 //Interrupt::enable_all(memory)?
-                //self.ime_flag = true;
-                //cycles = 4;
+                self.ime_flag = true;
+                cycles = 4;
             },
             0xCB => {
                 //CB-prefixed
