@@ -243,10 +243,6 @@ impl Cpu {
     }
 
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u16 {
-        //if self.reg16(Reg::PC) > 0xfe {
-        //println!("{}", memory);
-        //panic!("End of Bootstrap ROM.");
-        // }
         let byte: u8 = self.mem_next8(memory);
         let mut cycles: u16 = 0;
         //instr, instruction type
