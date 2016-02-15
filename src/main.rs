@@ -1,9 +1,6 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
-#[cfg(test)]
-mod test;
-
 mod debugger;
 mod cpu;
 mod mem;
