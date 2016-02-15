@@ -32,12 +32,12 @@ impl Gebemula {
         self.timer.init(&self.mem);
     }
 
-    pub fn run(&mut self, debug_console: bool) {
+    pub fn run(&mut self) {
         self.init();
         let debugger: &mut Debugger = &mut Debugger::new();
         loop {
             let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
-            if debug_console {
+            if cfg!(debug_assertions) {
                 debugger.run(instruction, &self.cpu, &self.mem);
             }
             self.timer.update(instruction.cycles, &mut self.mem);
