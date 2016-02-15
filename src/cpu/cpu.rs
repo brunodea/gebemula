@@ -1,7 +1,7 @@
 use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
-use cpu::ioregisters::Interrupt;
+use cpu::interrupt;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -188,7 +188,7 @@ impl Cpu {
 
     fn push_sp8(&mut self, value: u8, memory: &mut mem::Memory) {
         let sp: u16 = self.reg16(Reg::SP) - 1; //sp auto-decrements when pushing (it goes down in the memory)
-        memory.write_byte(sp, value);
+        self.mem_write(sp, value, memory);
         self.reg_set16(Reg::SP, sp);
     }
 
@@ -247,16 +247,21 @@ impl Cpu {
         (n2 << 8) | n1
     }
 
+    //function for having control of memory writes
+    fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
+        memory.write_byte(address, value);
+    }
+
     pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
         if self.ime_flag {
-            if let Some(interrupt) = Interrupt::next_request(memory) {
-                if Interrupt::is_enabled(interrupt, memory) {
+            if let Some(interrupt) = interrupt::next_request(memory) {
+                if interrupt::is_enabled(interrupt, memory) {
                     self.halt_flag = false;
                     self.ime_flag = false;
                     let pc: u16 = self.reg16(Reg::PC);
                     self.push_sp16(pc, memory);
-                    self.reg_set16(Reg::PC, Interrupt::address(interrupt));
-                    Interrupt::remove_request(interrupt, memory);
+                    self.reg_set16(Reg::PC, interrupt::address(interrupt));
+                    interrupt::remove_request(interrupt, memory);
                     //since the interrupt request is removed and interrupts are disabled,
                     //simply returning to the main loop seems correct.
                 }
@@ -296,7 +301,7 @@ impl Cpu {
             },
             0xFB => {
                 //EI
-                //Interrupt::enable_all(memory)?
+                //interrupt::enable_all(memory)?
                 self.ime_flag = true;
                 cycles = 4;
             },
@@ -356,8 +361,9 @@ impl Cpu {
             0xE0 => {
                 //LDH (n),A
                 let immediate: u16 = self.mem_next8(memory) as u16;
-                memory.write_byte(0xFF00+immediate,
-                                  self.reg8(Reg::A));
+                self.mem_write(0xFF00+immediate,
+                                  self.reg8(Reg::A),
+                                  memory);
                 cycles = 12;
             },
             0xF0 => {
@@ -369,8 +375,9 @@ impl Cpu {
             },
             0xE2 => {
                 //LD (C),A
-                memory.write_byte(0xFF00 + self.reg8(Reg::C) as u16,
-                                  self.reg8(Reg::A));
+                self.mem_write(0xFF00 + self.reg8(Reg::C) as u16,
+                                  self.reg8(Reg::A),
+                                  memory);
                 cycles = 8;
             },
             0xF2 => {
@@ -382,7 +389,7 @@ impl Cpu {
             0xEA => {
                 //LD (nn),A
                 let val: u16 = self.mem_next16(memory);
-                memory.write_byte(val, self.reg8(Reg::A));
+                self.mem_write(val, self.reg8(Reg::A), memory);
                 cycles = 16;
             },
             0xFA => {
@@ -406,8 +413,8 @@ impl Cpu {
                 //LD (nn), SP
                 let addr: u16 = self.mem_next16(memory);
                 let val: u16 = self.reg16(Reg::SP);
-                memory.write_byte(addr, val as u8);
-                memory.write_byte(addr+1, (val >> 8) as u8);
+                self.mem_write(addr, val as u8, memory);
+                self.mem_write(addr+1, (val >> 8) as u8, memory);
                 cycles = 20;
             },
             0xC1 | 0xD1 | 0xE1 => {
@@ -757,7 +764,7 @@ impl Cpu {
 
         if should_change_reg {
             if reg == Reg::HL {
-                memory.write_byte(self.reg16(Reg::HL), value);
+                self.mem_write(self.reg16(Reg::HL), value, memory)
             } else {
                 self.reg_set8(reg, value);
             }
@@ -912,7 +919,7 @@ impl Cpu {
         self.flag_set(result == 0, Flag::Z);
 
         if reg == Reg::HL {
-            memory.write_byte(self.reg16(Reg::HL), result);
+            self.mem_write(self.reg16(Reg::HL), result, memory);
         } else {
             self.reg_set8(reg, result);
         }
@@ -1026,7 +1033,7 @@ impl Cpu {
         }
         let addr: u16 = self.reg16(reg);
         let val: u8 = self.reg8(Reg::A);
-        memory.write_byte(addr, val);
+        self.mem_write(addr, val, memory);
         8
     }
 
@@ -1038,7 +1045,7 @@ impl Cpu {
         if reg == Reg::HL {
             //LD (HL),n
             let addr: u16 = self.reg16(Reg::HL);
-            memory.write_byte(addr, immediate);
+            self.mem_write(addr, immediate, memory);
             cycles = 12;
         } else {
             //LD r,n
@@ -1061,7 +1068,7 @@ impl Cpu {
             cycles = 8;
         } else if reg_lhs == Reg::HL {
             let addr: u16 = self.reg16(Reg::HL);
-            memory.write_byte(addr, rhs_val);
+            self.mem_write(addr, rhs_val, memory);
             cycles = 8;
         } else {
             self.reg_set8(reg_lhs, rhs_val);

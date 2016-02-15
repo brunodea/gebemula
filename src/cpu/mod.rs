@@ -1,2 +1,3 @@
 pub mod cpu;
-mod ioregisters;
+mod interrupt;
+mod timer;

@@ -1,8 +1,6 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
-extern crate time;
-
 #[cfg(test)]
 mod test;
 
