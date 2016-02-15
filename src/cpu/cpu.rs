@@ -49,6 +49,7 @@ pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
     regs: [u8; 12],
     ime_flag: bool, //interrupt master enable flag
+    halt_flag: bool, //cpu doesn't run until an interrupt occurs.
 }
 
 impl fmt::Display for Cpu {
@@ -74,6 +75,7 @@ impl Cpu {
         Cpu {
             regs: [0; 12],
             ime_flag: true,
+            halt_flag: false,
         }
     }
 
@@ -249,6 +251,7 @@ impl Cpu {
         if self.ime_flag {
             if let Some(interrupt) = Interrupt::next_request(memory) {
                 if Interrupt::is_enabled(interrupt, memory) {
+                    self.halt_flag = false;
                     self.ime_flag = false;
                     let pc: u16 = self.reg16(Reg::PC);
                     self.push_sp16(pc, memory);
@@ -262,6 +265,9 @@ impl Cpu {
     }
 
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u16 {
+        if self.halt_flag {
+            return 0;
+        }
         let byte: u8 = self.mem_next8(memory);
         let mut cycles: u16 = 0;
         //instr, instruction type
@@ -278,6 +284,8 @@ impl Cpu {
             },
             0x76 => {
                 //HALT
+                cycles = 4;
+                self.halt_flag = true;
             },
             0xF3 => {
                 //DI
