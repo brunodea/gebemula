@@ -1,5 +1,7 @@
 use super::super::mem::mem;
 use cpu::interrupt;
+use std::thread;
+use std::time;
 
 const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 
@@ -20,6 +22,8 @@ pub struct Timer {
     tima_cycles_counter: u32,
     tima_rate_cycles: u32,
     vblank_interrupt_cycles_counter: u32,
+    frame_rate_cycles: u32,
+    frame_rate_cycles_counter: u32,
 }
 
 impl Timer {
@@ -29,6 +33,8 @@ impl Timer {
             tima_cycles_counter: 0,
             tima_rate_cycles: 0,
             vblank_interrupt_cycles_counter: 0,
+            frame_rate_cycles_counter: 0,
+            frame_rate_cycles: cycles_from_hz(60), //default: 60hz
         }
     }
 
@@ -62,6 +68,13 @@ impl Timer {
         if self.vblank_interrupt_cycles_counter >= VBLANK_INTERRUPT_RATE_CYCLES {
             interrupt::request(interrupt::Interrupt::VBlank, memory);
             self.vblank_interrupt_cycles_counter = 0;
+        }
+
+        self.frame_rate_cycles_counter += cycles;
+        if self.frame_rate_cycles_counter >= self.frame_rate_cycles {
+            //TODO adjust duration to consider elapsed time since the last frame.
+            thread::sleep(time::Duration::new(0, 16666666)); //~1/60 seconds
+            self.frame_rate_cycles_counter = 0;
         }
     }
 }
