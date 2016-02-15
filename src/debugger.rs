@@ -79,12 +79,12 @@ impl Debugger {
                     self.should_run_cpu = true;
                 },
                 "help" => {
-                    println!("- show [cpu|ioregs|memory]\n\tShows state of component.");
-                    println!("- step\n\tRuns instruction pointed by PC prints it.");
-                    println!("- last\n\tPrints last instruction.");
-                    println!("- break <address in hex>\n\tRuns instructions until provided address.");
-                    println!("- run [debug]\n\tDisables the debugger and runs the code. If 'debug' is set, the cpu state after every instruction will be printed.");
-                    println!("- help\n\tShows this.");
+                    println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
+                    println!("- step\n\tRun instruction pointed by PC and print it.");
+                    println!("- last\n\tPrint last instruction.");
+                    println!("- break <address in hex>\n\tRun instructions until provided address is reached.");
+                    println!("- run [debug]\n\tDisable the debugger and run the code. If 'debug' is set, the instruction and the cpu state after its execution will be printed.");
+                    println!("- help\n\tShow this.");
                 },
                 "run" => {
                     words.remove(0);
