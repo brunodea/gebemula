@@ -6,7 +6,7 @@ pub struct Debugger {
     break_addr: Option<u16>,
     debugging: bool,
     should_run_cpu: bool,
-    is_run_debug: bool,
+    run_debug: u8, //0b0000_0000 - bit 0: cpu, bit 1: human;
     is_step: bool,
 }
 
@@ -16,7 +16,7 @@ impl Debugger {
             break_addr: None,
             debugging: true,
             should_run_cpu: false,
-            is_run_debug: false,
+            run_debug: 0x00,
             is_step: false,
         }
     }
@@ -24,9 +24,18 @@ impl Debugger {
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
         if !self.debugging {
             return;
-        } else if self.is_run_debug {
-            print!("{}:\n\t", instruction);
-            println!("{}", cpu);
+        } else if self.run_debug != 0x00 {
+            let debug_cpu: bool = self.run_debug & 0b1 == 0b1;
+            let debug_human: bool = (self.run_debug >> 1) & 0b1 == 0b1;
+
+            if debug_human {
+                let v: &str = if debug_cpu { ":\n\t" } else { "\n" };
+                print!("{}{}", instruction, v);
+            }
+            if debug_cpu {
+                println!("{}", cpu);
+            }
+
             return;
         }
         if self.is_step {
@@ -42,7 +51,7 @@ impl Debugger {
                 self.should_run_cpu = false;
                 self.is_step = false;
                 print!("gbm> "); //gbm: gebemula
-                io::stdout().flush();
+                io::stdout().flush().unwrap();
                 let mut input = String::new();
                 match io::stdin().read_line(&mut input) {
                     Ok(_) => {
@@ -83,7 +92,8 @@ impl Debugger {
                     println!("- step\n\tRun instruction pointed by PC and print it.");
                     println!("- last\n\tPrint last instruction.");
                     println!("- break <address in hex>\n\tRun instructions until provided address is reached.");
-                    println!("- run [debug]\n\tDisable the debugger and run the code. If 'debug' is set, the instruction and the cpu state after its execution will be printed.");
+                    println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
+                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be print.");
                     println!("- help\n\tShow this.");
                 },
                 "run" => {
@@ -102,13 +112,32 @@ impl Debugger {
         if parameters.is_empty() {
             self.debugging = false;
             self.should_run_cpu = true;
-        } else if parameters.len() > 1 {
+        } else if parameters.len() > 3 {
             println!("Invalid number of parameters for run.");
-        } else {
+        } else { //1 <= parameters <= 3
             match parameters[0] {
                 "debug" => {
-                    self.is_run_debug = true;
-                    self.should_run_cpu = true;
+                    let mut cpu: bool = false;
+                    let mut human: bool = false;
+                    for param in &parameters[1..] {
+                        match *param {
+                            "cpu" => {
+                                cpu = true;
+                            },
+                            "human" => {
+                                human = true;
+                            },
+                            _ => {
+                                println!("Invalid parameter for `run debug`: {}", param);
+                                break;
+                            }
+                        }
+                    }
+                    if cpu || human {
+                        self.run_debug = if human { 0b10 } else { 0b00 };
+                        self.run_debug = if cpu { self.run_debug | 0b01 } else { self.run_debug };
+                        self.should_run_cpu = true;
+                    }
                 },
                 _ => println!("Invalid parameter for run: {}", parameters[0]),
             }
