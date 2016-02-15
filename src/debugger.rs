@@ -4,7 +4,6 @@ use std::io::{self, Write};
 
 pub struct Debugger {
     break_addr: Option<u16>,
-    debugging: bool,
     should_run_cpu: bool,
     run_debug: u8, //0b0000_0000 - bit 0: cpu, bit 1: human;
     is_step: bool,
@@ -14,7 +13,6 @@ impl Debugger {
     pub fn new() -> Debugger {
         Debugger {
             break_addr: None,
-            debugging: true,
             should_run_cpu: false,
             run_debug: 0x00,
             is_step: false,
@@ -22,9 +20,7 @@ impl Debugger {
     }
 
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
-        if !self.debugging {
-            return;
-        } else if self.run_debug != 0x00 {
+        if self.run_debug != 0x00 {
             let debug_cpu: bool = self.run_debug & 0b1 == 0b1;
             let debug_human: bool = (self.run_debug >> 1) & 0b1 == 0b1;
 
@@ -113,10 +109,7 @@ impl Debugger {
     }
 
     fn parse_run(&mut self, parameters: &[&str]) {
-        if parameters.is_empty() {
-            self.debugging = false;
-            self.should_run_cpu = true;
-        } else if parameters.len() > 3 {
+        if parameters.is_empty() || parameters.len() < 2 || parameters.len() > 3 {
             println!("Invalid number of parameters for run.");
         } else { //1 <= parameters <= 3
             match parameters[0] {
