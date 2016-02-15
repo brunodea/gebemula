@@ -88,13 +88,7 @@ impl Debugger {
                     self.should_run_cpu = true;
                 },
                 "help" => {
-                    println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
-                    println!("- step\n\tRun instruction pointed by PC and print it.");
-                    println!("- last\n\tPrint last instruction.");
-                    println!("- break <address in hex>\n\tRun instructions until the instruction at the provided address is run.");
-                    println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
-                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be print.");
-                    println!("- help\n\tShow this.");
+                    Debugger::display_help();
                 },
                 "run" => {
                     words.remove(0);
@@ -103,14 +97,28 @@ impl Debugger {
                 "" => {
                     //does nothing
                 },
-                _ => println!("Invalid command: {}", words[0]),
+                _ => {
+                    println!("Invalid command: {}", words[0]);
+                    Debugger::display_help();
+                },
             }
         }
+    }
+
+    fn display_help() {
+        println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
+        println!("- step\n\tRun instruction pointed by PC and print it.");
+        println!("- last\n\tPrint last instruction.");
+        println!("- break <address in hex>\n\tRun instructions until the instruction at the provided address is run.");
+        println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
+                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be print.");
+        println!("- help\n\tShow this.");
     }
 
     fn parse_run(&mut self, parameters: &[&str]) {
         if parameters.is_empty() || parameters.len() < 2 || parameters.len() > 3 {
             println!("Invalid number of parameters for run.");
+            Debugger::display_help();
         } else { //1 <= parameters <= 3
             match parameters[0] {
                 "debug" => {
@@ -126,6 +134,7 @@ impl Debugger {
                             },
                             _ => {
                                 println!("Invalid parameter for `run debug`: {}", param);
+                                Debugger::display_help();
                                 break;
                             }
                         }
@@ -136,7 +145,10 @@ impl Debugger {
                         self.should_run_cpu = true;
                     }
                 },
-                _ => println!("Invalid parameter for run: {}", parameters[0]),
+                _ => {
+                    println!("Invalid parameter for run: {}", parameters[0]);
+                    Debugger::display_help();
+                },
             }
         }
     }
@@ -144,6 +156,7 @@ impl Debugger {
     fn parse_show(parameters: &[&str], cpu: &Cpu, mem: &Memory) {
         if parameters.len() != 1 {
             println!("Invalid number of arguments for 'show'");
+            Debugger::display_help();
         } else {
             match parameters[0] {
                 "cpu" => {
@@ -157,6 +170,7 @@ impl Debugger {
                 },
                 _ => {
                     println!("Invalid parameter for 'show': {}", parameters[0]);
+                    Debugger::display_help();
                 },
             }
         }
