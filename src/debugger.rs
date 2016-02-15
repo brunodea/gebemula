@@ -42,27 +42,31 @@ impl Debugger {
             println!("{}", instruction); //prints the instruction run after step.
         }
         if let Some(addr) = self.break_addr {
-            if instruction.address == addr {
+            if instruction.address >= addr { //>= because the provided address may point to an immediate, in which case == would never be true.
                 println!("{}", instruction);
                 self.break_addr = None;
+                self.read_loop(instruction, cpu, mem);
             }
         } else {
-            loop {
-                self.should_run_cpu = false;
-                self.is_step = false;
-                print!("gbm> "); //gbm: gebemula
-                io::stdout().flush().unwrap();
-                let mut input = String::new();
-                match io::stdin().read_line(&mut input) {
-                    Ok(_) => {
-                        input.pop(); //removes the '\n'.
-                        self.parse(&input, instruction, cpu, mem);
-                    },
-                    Err(error) => println!("error: {}", error),
-                }
-                if self.should_run_cpu {
-                    break;
-                }
+            self.read_loop(instruction, cpu, mem);
+        }
+    }
+    fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
+        loop {
+            self.should_run_cpu = false;
+            self.is_step = false;
+            print!("gbm> "); //gbm: gebemula
+            io::stdout().flush().unwrap();
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    input.pop(); //removes the '\n'.
+                    self.parse(&input, instruction, cpu, mem);
+                },
+                Err(error) => println!("error: {}", error),
+            }
+            if self.should_run_cpu {
+                break;
             }
         }
     }
@@ -91,7 +95,7 @@ impl Debugger {
                     println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
                     println!("- step\n\tRun instruction pointed by PC and print it.");
                     println!("- last\n\tPrint last instruction.");
-                    println!("- break <address in hex>\n\tRun instructions until provided address is reached.");
+                    println!("- break <address in hex>\n\tRun instructions until the instruction at the provided address is run.");
                     println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
                              \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be print.");
                     println!("- help\n\tShow this.");
