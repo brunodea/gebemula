@@ -1,6 +1,7 @@
 use cpu::cpu::{Cpu, Instruction};
 use mem::mem::Memory;
 use cpu::timer::Timer;
+use debugger::Debugger;
 
 pub struct Gebemula {
     cpu: Cpu,
@@ -31,10 +32,14 @@ impl Gebemula {
         self.timer.init(&self.mem);
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, debug_console: bool) {
         self.init();
+        let debugger: &mut Debugger = &mut Debugger::new();
         loop {
             let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
+            if debug_console {
+                debugger.run(instruction, &self.cpu, &self.mem);
+            }
             self.timer.update(instruction.cycles, &mut self.mem);
             //Checks for interrupt requests should be made after *every* instruction is
             //run.

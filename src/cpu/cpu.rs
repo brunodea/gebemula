@@ -68,6 +68,29 @@ impl Instruction {
     }
 }
 
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let prefix = match self.prefix {
+            Some(val) => format!("{:#x}", val),
+            None => "".to_owned(),
+        };
+        let imm8 = match self.imm8 {
+            Some(val) => format!("{:#x}", val),
+            None => "".to_owned(),
+        };
+        let imm16 = match self.imm16 {
+            Some(val) => format!("{:#01$x}", val, 6),
+            None => "".to_owned(),
+        };
+        let mut opcode = format!("{:#x}", self.opcode);
+        if prefix != "" {
+            opcode = format!("{}{:x}", prefix, self.opcode);
+        }
+        let addr = format!("{:#01$x}", self.address, 6);
+        write!(f, "{}: {} {}{}", addr, opcode, imm8, imm16)
+    }
+}
+
 #[derive(Debug)]
 pub struct Cpu {
     //[A,F,B,C,D,E,H,L,SP,PC]
