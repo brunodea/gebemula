@@ -25,7 +25,7 @@ fn main() {
         let mut game_data: Vec<u8> = Vec::new();
         File::open(&args[2]).unwrap().read_to_end(&mut game_data).unwrap();
 
-        let debug_console: bool = args.len() == 4 && args[3] == "-d";
+        let debug_console: bool = args.len() == 4 && args[3] == "debugger";
 
         let gebemula: &mut Gebemula = &mut Gebemula::new();
         gebemula.load_game_rom(&game_data);

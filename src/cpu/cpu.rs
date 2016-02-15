@@ -604,12 +604,7 @@ impl Cpu {
         if instruction.cycles == 0 {
             panic!("Unknown instruction: {:#x}", byte);
         }
-        //if cfg!(debug_assertions) {
-        //    println!("opcode {}: {}", format!("{:#01$x}", byte, 4), self);
-        //}
-        
         instruction.address = addr;
-
         instruction
     }
 
