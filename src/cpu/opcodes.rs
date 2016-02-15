@@ -1,6 +1,6 @@
 use cpu::cpu::{Instruction, Reg};
 
-    pub fn instr_to_human(instruction: &Instruction) -> String {
+pub fn instr_to_human(instruction: &Instruction) -> String {
     if let Some(_) = instruction.prefix {
         //CB-prefixed instructions
         let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
@@ -89,7 +89,7 @@ use cpu::cpu::{Instruction, Reg};
             },
             0x0F => {
                 "RRCA".to_owned()
-            }, 
+            },
             0x1F => {
                 "RRA".to_owned()
             },
@@ -134,7 +134,7 @@ use cpu::cpu::{Instruction, Reg};
                 //LD r,r; LD r,(HL); LD (HL),r
                 let reg_rhs: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let reg_lhs: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
-                
+
                 let r: String;
                 let l: String;
                 if reg_rhs == Reg::HL {
@@ -147,7 +147,7 @@ use cpu::cpu::{Instruction, Reg};
                 } else {
                     l = format!("{:?}", reg_lhs);
                 }
-                
+
                 format!("ld {},{}", l, r)
             },
             0xE0 => {
