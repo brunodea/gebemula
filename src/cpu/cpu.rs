@@ -275,7 +275,7 @@ impl Cpu {
 
     pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u32 {
         if self.halt_flag {
-            return 0;
+            return 4; //TODO make sure 4 cycles from the HALT instruction is correct.
         }
         let byte: u8 = self.mem_next8(memory);
         let mut cycles: u32 = 0;
