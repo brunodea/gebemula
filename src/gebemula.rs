@@ -33,7 +33,8 @@ impl Gebemula {
     pub fn run(&mut self) {
         self.init();
         loop {
-            self.cpu.run_instruction(&mut self.mem) as u64;
+            let cycles: u32 = self.cpu.run_instruction(&mut self.mem);
+            self.timer.update(cycles, &mut self.mem);
             //Checks for interrupt requests should be made after *every* instruction is
             //run.
             self.cpu.handle_interrupts(&mut self.mem);

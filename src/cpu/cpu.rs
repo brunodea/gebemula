@@ -273,12 +273,12 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u16 {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> u32 {
         if self.halt_flag {
             return 0;
         }
         let byte: u8 = self.mem_next8(memory);
-        let mut cycles: u16 = 0;
+        let mut cycles: u32 = 0;
         //instr, instruction type
         match byte {
             /***************************************/
@@ -553,9 +553,9 @@ impl Cpu {
 
     /*Instructions execution codes*/
 
-    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> u16 {
+    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> u32 {
         let should_return: bool;
-        let mut cycles: u16 = 20;
+        let mut cycles: u32 = 20;
         match opcode {
             0xC0 => {
                 //RET NZ
@@ -596,7 +596,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_rotates_shifts(&mut self, opcode: u8) -> u16 {
+    fn exec_rotates_shifts(&mut self, opcode: u8) -> u32 {
         let mut value: u8 = self.reg8(Reg::A);
 
         let bit_7: u8 = (value >> 7) & 0b1;
@@ -636,7 +636,7 @@ impl Cpu {
         4
     }
 
-    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         //push next instruction onto stack
         let immediate: u16 = self.mem_next16(memory);
         let should_jump: bool;
@@ -664,7 +664,7 @@ impl Cpu {
             _ => unreachable!(),
         }
 
-        let mut cycles: u16 = 12;
+        let mut cycles: u32 = 12;
         if should_jump {
             let pc: u16 = self.reg16(Reg::PC);
             self.push_sp16(pc, memory);
@@ -674,7 +674,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> u16 {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> u32 {
         let opcode = self.mem_next8(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -686,7 +686,7 @@ impl Cpu {
         let bit: u8 = opcode >> 3 & 0b111;
         let mut should_change_reg: bool = true;
 
-        let mut cycles: u16 = if reg == Reg::HL { 16 } else { 8 };
+        let mut cycles: u32 = if reg == Reg::HL { 16 } else { 8 };
         match opcode {
             0x00 ... 0x07 => {
                 //RLC b
@@ -783,7 +783,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let should_jump: bool;
         let mut jump_to_hl: bool = false;
         match opcode {
@@ -815,7 +815,7 @@ impl Cpu {
             _ => unreachable!(),
         }
 
-        let cycles: u16;
+        let cycles: u32;
         if should_jump {
             cycles = 16;
             let val: u16;
@@ -834,7 +834,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let should_jump: bool;
         match opcode {
             0x18 => {
@@ -860,7 +860,7 @@ impl Cpu {
             _ => unreachable!(),
         }
 
-        let cycles: u16;
+        let cycles: u32;
         if should_jump {
             let imm: u16 = util::sign_extend(self.mem_next8(memory));
             cycles = 12;
@@ -881,7 +881,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_add_hl_rr(&mut self, opcode: u8) -> u16 {
+    fn exec_add_hl_rr(&mut self, opcode: u8) -> u32 {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let value: u16 = self.reg16(reg);
 
@@ -895,11 +895,11 @@ impl Cpu {
         8
     }
 
-    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let mut reg_val: u8 = self.reg8(reg);
         let result: u8;
-        let mut cycles: u16 = 4;
+        let mut cycles: u32 = 4;
         if reg == Reg::HL {
             cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);
@@ -931,12 +931,12 @@ impl Cpu {
         cycles
     }
 
-    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> u16 {
+    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> u32 {
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
 
-        let mut cycles: u16 = 8;
+        let mut cycles: u32 = 8;
         if opcode > 0xBF {
             value = self.mem_next8(memory);
         } else if reg == Reg::HL {
@@ -1020,7 +1020,7 @@ impl Cpu {
         cycles
     }
 
-    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1030,7 +1030,7 @@ impl Cpu {
         8
     }
 
-    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1041,11 +1041,11 @@ impl Cpu {
         8
     }
 
-    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let immediate: u8 = self.mem_next8(memory);
 
-        let cycles: u16;
+        let cycles: u32;
         if reg == Reg::HL {
             //LD (HL),n
             let addr: u16 = self.reg16(Reg::HL);
@@ -1059,13 +1059,13 @@ impl Cpu {
         cycles
     }
 
-    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> u16 {
+    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> u32 {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
         let rhs_val: u8 = self.reg8(reg_rhs);
 
-        let cycles: u16;
+        let cycles: u32;
         if reg_rhs == Reg::HL {
             let value: u8 = self.mem_at_reg(Reg::HL, memory);
             self.reg_set8(reg_lhs, value);
