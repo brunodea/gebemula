@@ -1,4 +1,4 @@
-use cpu::cpu::Cpu;
+use cpu::cpu::{Cpu, Instruction};
 use mem::mem::Memory;
 use cpu::timer::Timer;
 
@@ -34,8 +34,8 @@ impl Gebemula {
     pub fn run(&mut self) {
         self.init();
         loop {
-            let cycles: u32 = self.cpu.run_instruction(&mut self.mem);
-            self.timer.update(cycles, &mut self.mem);
+            let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
+            self.timer.update(instruction.cycles, &mut self.mem);
             //Checks for interrupt requests should be made after *every* instruction is
             //run.
             self.cpu.handle_interrupts(&mut self.mem);
