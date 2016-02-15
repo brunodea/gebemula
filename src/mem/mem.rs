@@ -14,7 +14,7 @@ pub struct Memory {
     rom_bank_00: [u8; 0x4000],
     rom_bank_01_nn: [u8; 0x4000],
     vram: [u8; 0x2000],
-    external_ram: [u8; 0x8000], // TODO: dinamically allocate size?
+    external_ram: [u8; 0x7A1200], // TODO: dinamically allocate size?
     wram_bank_0: [u8; 0x1000],
     wram_bank_1_n: [u8; 0x1000],
     wram_echo: [u8; 0x1E00], // mirror c000 to ddff
@@ -37,7 +37,7 @@ impl Memory {
             rom_bank_00: [0; 0x4000],
             rom_bank_01_nn: [0; 0x4000],
             vram: [0; 0x2000],
-            external_ram: [0; 0x8000],
+            external_ram: [0; 0x7A1200],
             wram_bank_0: [0; 0x1000],
             wram_bank_1_n: [0; 0x1000],
             wram_echo: [0; 0x1E00], // mirror C000 to DDFF
@@ -137,19 +137,35 @@ impl Memory {
     pub fn handle_banking(&mut self, address: u16, byte: u8) {
         match address {
             0x000 ... 0x1FFF => {
-                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 {
+                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 || self.cartridge_type == CartridgeType::Mbc5 {
                     self.enable_ram_banking(address, byte);
                 }
             },
-            0x2000 ... 0x3FFF => {
+            0x2000 ... 0x2FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 {
                     self.change_rom_bank_lower_bits(byte);
+                } else if self.cartridge_type == CartridgeType::Mbc5 {
+                    self.change_rom_bank_lower_bits_mbc5(byte);
                 }
             },
+            0x3000 ... 0x3FFF => {
+                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 {
+                    self.change_rom_bank_lower_bits(byte);
+                } else if self.cartridge_type == CartridgeType::Mbc5 {
+                    self.change_rom_bank_9th_bit_mbc5(byte);
+                }
+            },
+
             0x4000 ... 0x5FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 {
                     if self.rom_banking_enabled {
                         self.change_rom_bank_upper_bits(byte);
+                    } else {
+                        self.change_ram_bank(byte);
+                    }
+                } else if self.cartridge_type == CartridgeType::Mbc5 { 
+                    if self.rom_banking_enabled {
+                        self.change_rom_bank_9th_bit_mbc5(byte);
                     } else {
                         self.change_ram_bank(byte);
                     }
@@ -182,19 +198,41 @@ impl Memory {
                 let lower_bits: u16 = byte as u16 & 0x1F;
                 self.current_rom_bank &= 0x0E;
                 self.current_rom_bank |= lower_bits;
-            },        
+                if self.current_rom_bank == 0 {
+                    self.current_rom_bank += 1;
+                }
+            }, 
             CartridgeType::Mbc2 => self.current_rom_bank = byte as u16 & 0xF,
             _ => panic!("Unsupported cartridge type."),
         }
-
         if self.current_rom_bank == 0 {
             self.current_rom_bank += 1;
         }
     }
 
+    pub fn change_rom_bank_lower_bits_mbc5(&mut self, byte: u8) {
+        if self.cartridge_type == CartridgeType::Mbc5 {
+            let lower_bits: u16 = byte as u16 & 0xFF;
+            self.current_rom_bank &= 0xF00;
+            self.current_rom_bank |= lower_bits;
+        } else {
+            panic!("Tried to handle cartridge as MB5.");
+        }
+    }
+
+    pub fn change_rom_bank_9th_bit_mbc5(&mut self, byte: u8) {
+        if self.cartridge_type == CartridgeType::Mbc5 {
+            let upper_bit: u16 = byte as u16 & (0x1 << 8);
+            self.current_rom_bank &= 0xFF;
+            self.current_rom_bank |= upper_bit;
+        } else {
+            panic!("Tried to handle cartridge as MB5.");
+        }
+    }
+
     pub fn change_rom_bank_upper_bits(&mut self, byte: u8) {
+        let upper_bits: u16 = byte as u16 & 0xE0;
         self.current_rom_bank &= 0x1F;
-        let upper_bits: u16 = byte as u16 & 0x0E;
         self.current_rom_bank |= upper_bits;
         if self.current_rom_bank == 0 {
             self.current_rom_bank += 1;
@@ -230,10 +268,11 @@ impl Memory {
                 self.rom_bank_01_nn[i - 0x4000] = *byte;
             }
             match self.cartridge[0x147] {
-                0 => self.cartridge_type = CartridgeType::RomOnly,
-                1 ... 3 => self.cartridge_type = CartridgeType::Mbc1,
-                5 ... 6 => self.cartridge_type = CartridgeType::Mbc2,
-                _ => panic!("Cartridges of type {} are not yet supported.", self.cartridge[0x147]),
+                0x0 => self.cartridge_type = CartridgeType::RomOnly,
+                0x1 ... 0x3 => self.cartridge_type = CartridgeType::Mbc1,
+                0x5 ... 0x6 => self.cartridge_type = CartridgeType::Mbc2,
+                0x19 ... 0x1E => self.cartridge_type = CartridgeType::Mbc5,
+                _ => panic!("Cartridges of type {:#X} are not yet supported.", self.cartridge[0x147]),
             }
         }
     }
