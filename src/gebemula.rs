@@ -29,7 +29,6 @@ impl Gebemula {
     fn init(&mut self) {
         self.cpu.reset_registers();
         self.mem.write_byte(0xFF44, 0x90); //for bypassing 'waiting for screen frame'.
-        self.timer.init(&self.mem);
     }
 
     pub fn run(&mut self) {

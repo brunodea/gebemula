@@ -1,4 +1,6 @@
 use cpu::cpu::{Cpu, Instruction};
+use cpu::timer;
+use cpu::interrupt;
 use mem::mem::Memory;
 use std::io::{self, Write};
 
@@ -163,7 +165,19 @@ impl Debugger {
                     println!("{}", cpu);
                 },
                 "ioregs" => {
-                    println!("Not implemented in Debugger yet!");
+                    let tima: u8 = mem.read_byte(timer::TIMA_REGISTER_ADDR);
+                    let tma: u8 = mem.read_byte(timer::TMA_REGISTER_ADDR);
+                    let tac: u8 = mem.read_byte(timer::TAC_REGISTER_ADDR);
+                    let div: u8 = mem.read_byte(timer::DIV_REGISTER_ADDR);
+                    let if_: u8 = mem.read_byte(interrupt::IF_REGISTER_ADDR);
+                    let ie: u8 = mem.read_byte(interrupt::IE_REGISTER_ADDR);
+
+                    println!("IF: {:#x} {:#b}", if_, if_); 
+                    println!("IE: {:#x} {:#b}", ie, ie); 
+                    println!("TIMA: {:#x} {:#b}", tima, tima); 
+                    println!("TMA: {:#x} {:#b}", tma, tma);
+                    println!("TAC: {:#x} {:#b}", tac, tac);
+                    println!("DIV: {:#x} {:#b}", div, div); 
                 },
                 "memory" => {
                     println!("{}", mem);

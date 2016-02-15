@@ -1,7 +1,7 @@
 use super::super::mem::mem;
 /*Interrupt registers*/
-const IF_REGISTER_ADDR: u16 = 0xFF0F; //interrupt request register
-const IE_REGISTER_ADDR: u16 = 0xFFFF; //interrupt enable
+pub const IF_REGISTER_ADDR: u16 = 0xFF0F; //interrupt request register
+pub const IE_REGISTER_ADDR: u16 = 0xFFFF; //interrupt enable
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Interrupt {
@@ -62,7 +62,10 @@ pub fn is_requested(interrupt: Interrupt, memory: &mem::Memory) -> bool {
 }
 
 pub fn request(interrupt: Interrupt, memory: &mut mem::Memory) {
-    set_bit(bit(interrupt), IF_REGISTER_ADDR, memory);
+    //can only request interrupt if it is enabled.
+    if is_enabled(interrupt, memory) {
+        set_bit(bit(interrupt), IF_REGISTER_ADDR, memory);
+    }
 }
 
 pub fn remove_request(interrupt: Interrupt, memory: &mut mem::Memory) {

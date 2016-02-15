@@ -6,9 +6,9 @@ use std::time;
 const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 
 /*Timer registers*/
-const TIMA_REGISTER_ADDR: u16 = 0xFF05; //Timer Counter (incremented at a precise rate -- specified by TAC)
-const TMA_REGISTER_ADDR: u16 = 0xFF06; //Timer Modulo (holds the value to set TIMA for when TIMA overflows)
-const TAC_REGISTER_ADDR: u16 = 0xFF07; //Timer Control
+pub const TIMA_REGISTER_ADDR: u16 = 0xFF05; //Timer Counter (incremented at a precise rate -- specified by TAC)
+pub const TMA_REGISTER_ADDR: u16 = 0xFF06; //Timer Modulo (holds the value to set TIMA for when TIMA overflows)
+pub const TAC_REGISTER_ADDR: u16 = 0xFF07; //Timer Control
 
 pub const DIV_REGISTER_ADDR: u16 = 0xFF04; //Divider Register
 const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;
@@ -36,10 +36,6 @@ impl Timer {
             frame_rate_cycles_counter: 0,
             frame_rate_cycles: cycles_from_hz(60), //default: 60hz
         }
-    }
-
-    pub fn init(&mut self, memory: &mem::Memory) {
-        self.tima_rate_cycles = cycles_from_hz(input_clock(memory));
     }
 
     pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {

@@ -1,4 +1,4 @@
 pub mod cpu;
 pub mod timer;
-mod interrupt;
+pub mod interrupt;
 mod opcodes;
