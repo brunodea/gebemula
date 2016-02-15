@@ -3,6 +3,7 @@ use super::super::mem::mem;
 use super::super::util::util;
 use cpu::interrupt;
 use cpu::timer;
+use cpu::opcodes;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -10,7 +11,7 @@ enum Flag {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum Reg {
+pub enum Reg {
     A, F,
     B, C,
     D, E,
@@ -21,7 +22,7 @@ enum Reg {
 }
 
 impl Reg {
-    fn pair_from_ddd(byte: u8) -> Reg {
+    pub fn pair_from_ddd(byte: u8) -> Reg {
         match byte & 0b111 {
             0b000 => Reg::B,
             0b001 => Reg::C,
@@ -34,7 +35,7 @@ impl Reg {
             _ => unreachable!(),
         }
     }
-    fn pair_from_dd(byte: u8) -> Reg {
+    pub fn pair_from_dd(byte: u8) -> Reg {
         match byte & 0b11 {
             0b00 => Reg::BC,
             0b01 => Reg::DE,
@@ -87,7 +88,7 @@ impl fmt::Display for Instruction {
             opcode = format!("{}{:x}", prefix, self.opcode);
         }
         let addr = format!("{:#01$x}", self.address, 6);
-        write!(f, "{}: {} {}{}", addr, opcode, imm8, imm16)
+            write!(f, "{}: {} ({} {}{})", addr, opcodes::instr_to_human(self), opcode, imm8, imm16)
     }
 }
 
