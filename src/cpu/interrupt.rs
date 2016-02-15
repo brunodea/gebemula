@@ -1,7 +1,5 @@
 use super::super::mem::mem;
-/*Interrupt registers*/
-pub const IF_REGISTER_ADDR: u16 = 0xFF0F; //interrupt request register
-pub const IE_REGISTER_ADDR: u16 = 0xFFFF; //interrupt enable
+use cpu::consts;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Interrupt {
@@ -58,18 +56,18 @@ fn unset_bit(bit: u8, addr: u16, memory: &mut mem::Memory) {
 }
 
 pub fn is_requested(interrupt: Interrupt, memory: &mem::Memory) -> bool {
-    is_set_bit(bit(interrupt), IF_REGISTER_ADDR, memory)
+    is_set_bit(bit(interrupt), consts::IF_REGISTER_ADDR, memory)
 }
 
 pub fn request(interrupt: Interrupt, memory: &mut mem::Memory) {
     //can only request interrupt if it is enabled.
     if is_enabled(interrupt, memory) {
-        set_bit(bit(interrupt), IF_REGISTER_ADDR, memory);
+        set_bit(bit(interrupt), consts::IF_REGISTER_ADDR, memory);
     }
 }
 
 pub fn remove_request(interrupt: Interrupt, memory: &mut mem::Memory) {
-    unset_bit(bit(interrupt), IF_REGISTER_ADDR, memory);
+    unset_bit(bit(interrupt), consts::IF_REGISTER_ADDR, memory);
 }
 
 pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
@@ -84,21 +82,21 @@ pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
 }
 
 pub fn is_enabled(interrupt: Interrupt, memory: &mem::Memory) -> bool {
-    is_set_bit(bit(interrupt), IE_REGISTER_ADDR, memory)
+    is_set_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory)
 }
 
 pub fn enable(interrupt: Interrupt, memory: &mut mem::Memory) {
-    set_bit(bit(interrupt), IE_REGISTER_ADDR, memory);
+    set_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory);
 }
 
 pub fn disable(interrupt: Interrupt, memory: &mut mem::Memory) {
-    unset_bit(bit(interrupt), IE_REGISTER_ADDR, memory);
+    unset_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory);
 }
 
 pub fn disable_all(memory: &mut mem::Memory) {
-    memory.write_byte(IE_REGISTER_ADDR, 0x00);
+    memory.write_byte(consts::IE_REGISTER_ADDR, 0x00);
 }
 
 pub fn enable_all(memory: &mut mem::Memory) {
-    memory.write_byte(IE_REGISTER_ADDR, 0x01);
+    memory.write_byte(consts::IE_REGISTER_ADDR, 0x01);
 }

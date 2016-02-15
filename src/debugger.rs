@@ -1,6 +1,5 @@
 use cpu::cpu::{Cpu, Instruction};
-use cpu::timer;
-use cpu::interrupt;
+use cpu::consts;
 use mem::mem::Memory;
 use std::io::{self, Write};
 
@@ -209,12 +208,12 @@ impl Debugger {
                     println!("{}", cpu);
                 },
                 "ioregs" => {
-                    let tima: u8 = mem.read_byte(timer::TIMA_REGISTER_ADDR);
-                    let tma: u8 = mem.read_byte(timer::TMA_REGISTER_ADDR);
-                    let tac: u8 = mem.read_byte(timer::TAC_REGISTER_ADDR);
-                    let div: u8 = mem.read_byte(timer::DIV_REGISTER_ADDR);
-                    let if_: u8 = mem.read_byte(interrupt::IF_REGISTER_ADDR);
-                    let ie: u8 = mem.read_byte(interrupt::IE_REGISTER_ADDR);
+                    let tima: u8 = mem.read_byte(consts::TIMA_REGISTER_ADDR);
+                    let tma: u8 = mem.read_byte(consts::TMA_REGISTER_ADDR);
+                    let tac: u8 = mem.read_byte(consts::TAC_REGISTER_ADDR);
+                    let div: u8 = mem.read_byte(consts::DIV_REGISTER_ADDR);
+                    let if_: u8 = mem.read_byte(consts::IF_REGISTER_ADDR);
+                    let ie: u8 = mem.read_byte(consts::IE_REGISTER_ADDR);
 
                     println!("IF: {:#x} {:#b}", if_, if_);
                     println!("IE: {:#x} {:#b}", ie, ie);

@@ -1,21 +1,8 @@
 use super::super::mem::mem;
 use cpu::interrupt;
+use cpu::consts;
 use std::thread;
 use std::time;
-
-const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
-
-/*Timer registers*/
-pub const TIMA_REGISTER_ADDR: u16 = 0xFF05; //Timer Counter (incremented at a precise rate -- specified by TAC)
-pub const TMA_REGISTER_ADDR: u16 = 0xFF06; //Timer Modulo (holds the value to set TIMA for when TIMA overflows)
-pub const TAC_REGISTER_ADDR: u16 = 0xFF07; //Timer Control
-
-pub const DIV_REGISTER_ADDR: u16 = 0xFF04; //Divider Register
-const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;
-const DIV_REGISTER_UPDATE_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / DIV_REGISTER_UPDATE_RATE_HZ;
-
-const VBLANK_INTERRUPT_RATE_HZ: u32 = 60;
-const VBLANK_INTERRUPT_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / VBLANK_INTERRUPT_RATE_HZ;
 
 pub struct Timer {
     div_cycles_counter: u32,
@@ -42,9 +29,9 @@ impl Timer {
 
     pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
         self.div_cycles_counter += cycles;
-        if self.div_cycles_counter >= DIV_REGISTER_UPDATE_RATE_CYCLES {
-            let div: u8 = memory.read_byte(DIV_REGISTER_ADDR);
-            memory.write_byte(DIV_REGISTER_ADDR, div.wrapping_add(1));
+        if self.div_cycles_counter >= consts::DIV_REGISTER_UPDATE_RATE_CYCLES {
+            let div: u8 = memory.read_byte(consts::DIV_REGISTER_ADDR);
+            memory.write_byte(consts::DIV_REGISTER_ADDR, div.wrapping_add(1));
             self.div_cycles_counter = 0;
         }
 
@@ -55,14 +42,14 @@ impl Timer {
             }
             self.tima_cycles_counter += cycles;
             if self.tima_cycles_counter >= self.tima_rate_cycles {
-                let mut tima: u8 = memory.read_byte(TIMA_REGISTER_ADDR);
+                let mut tima: u8 = memory.read_byte(consts::TIMA_REGISTER_ADDR);
                 if tima == 0xFF {
                     //overflows
-                    tima = memory.read_byte(TMA_REGISTER_ADDR);
+                    tima = memory.read_byte(consts::TMA_REGISTER_ADDR);
                 } else {
                     tima += 1;
                 }
-                memory.write_byte(TIMA_REGISTER_ADDR, tima);
+                memory.write_byte(consts::TIMA_REGISTER_ADDR, tima);
                 interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
                 self.tima_cycles_counter = 0;
             }
@@ -71,7 +58,7 @@ impl Timer {
         }
 
         self.vblank_interrupt_cycles_counter += cycles;
-        if self.vblank_interrupt_cycles_counter >= VBLANK_INTERRUPT_RATE_CYCLES {
+        if self.vblank_interrupt_cycles_counter >= consts::VBLANK_INTERRUPT_RATE_CYCLES {
             interrupt::request(interrupt::Interrupt::VBlank, memory);
             self.vblank_interrupt_cycles_counter = 0;
         }
@@ -87,11 +74,11 @@ impl Timer {
 
 #[inline]
 pub fn timer_stop(memory: &mem::Memory) -> bool {
-    (memory.read_byte(TAC_REGISTER_ADDR) >> 2) & 0b1 == 0b0
+    (memory.read_byte(consts::TAC_REGISTER_ADDR) >> 2) & 0b1 == 0b0
 }
 
 pub fn input_clock(memory: &mem::Memory) -> u32 {
-    match memory.read_byte(TAC_REGISTER_ADDR) & 0b11 {
+    match memory.read_byte(consts::TAC_REGISTER_ADDR) & 0b11 {
         0b00 => 4096,
         0b01 => 262144,
         0b10 => 65536,
@@ -102,5 +89,5 @@ pub fn input_clock(memory: &mem::Memory) -> u32 {
 
 #[inline]
 pub fn cycles_from_hz(rate_hz: u32) -> u32 {
-    CPU_FREQUENCY_HZ / rate_hz
+    consts::CPU_FREQUENCY_HZ / rate_hz
 }
