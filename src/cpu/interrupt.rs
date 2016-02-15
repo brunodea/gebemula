@@ -11,21 +11,11 @@ pub enum Interrupt {
 
 pub fn bit(interrupt: Interrupt) -> u8 {
     match interrupt {
-        Interrupt::VBlank => {
-            0
-        },
-        Interrupt::LCDC => {
-            1
-        },
-        Interrupt::TimerOverflow => {
-            2
-        },
-        Interrupt::SerialIO => {
-            3
-        },
-        Interrupt::TransitionHighLow => {
-            4
-        }
+        Interrupt::VBlank => 0,
+        Interrupt::LCDC => 1,
+        Interrupt::TimerOverflow => 2,
+        Interrupt::SerialIO => 3,
+        Interrupt::TransitionHighLow => 4,
     }
 }
 
@@ -42,21 +32,11 @@ pub fn from_bit(bit: u8) -> Interrupt {
 
 pub fn address(interrupt: Interrupt) -> u16 {
     match interrupt {
-        Interrupt::VBlank => {
-            0x40
-        },
-        Interrupt::LCDC => {
-            0x48
-        },
-        Interrupt::TimerOverflow => {
-            0x50
-        },
-        Interrupt::SerialIO => {
-            0x58
-        },
-        Interrupt::TransitionHighLow => {
-            0x60
-        }
+        Interrupt::VBlank => 0x40,
+        Interrupt::LCDC => 0x48,
+        Interrupt::TimerOverflow => 0x50,
+        Interrupt::SerialIO => 0x58,
+        Interrupt::TransitionHighLow => 0x60,
     }
 }
 
