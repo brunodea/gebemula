@@ -7,6 +7,31 @@ const TIMA_REGISTER_ADDR: u16 = 0xFF05; //Timer Counter (incremented at a precis
 const TMA_REGISTER_ADDR: u16 = 0xFF06; //Timer Modulo (holds the value to set TIMA for when TIMA overflows)
 const TAC_REGISTER_ADDR: u16 = 0xFF07; //Timer Control
 
+pub const DIV_REGISTER_ADDR: u16 = 0xFF04; //Divider Register
+const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;
+pub const DIV_REGISTER_UPDATE_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / DIV_REGISTER_UPDATE_RATE_HZ;
+
+pub struct Timer {
+    div_cycles_counter: u32,
+}
+
+impl Timer {
+    pub fn new() -> Timer {
+        Timer {
+            div_cycles_counter: 0,
+        }
+    }
+
+    pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
+        self.div_cycles_counter += cycles;
+        if self.div_cycles_counter >= DIV_REGISTER_UPDATE_RATE_CYCLES {
+            let div: u8 = memory.read_byte(DIV_REGISTER_ADDR);
+            memory.write_byte(DIV_REGISTER_ADDR, div + 1);
+            self.div_cycles_counter = 0;
+        }
+    }
+}
+
 pub fn increment_timer_counter(memory: &mut mem::Memory) {
     let mut tima: u8 = memory.read_byte(TIMA_REGISTER_ADDR);
     if tima == 0xFF {

@@ -2,6 +2,7 @@ use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
 use cpu::interrupt;
+use cpu::timer;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -248,7 +249,10 @@ impl Cpu {
     }
 
     //function for having control of memory writes
-    fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
+    fn mem_write(&self, address: u16, mut value: u8, memory: &mut mem::Memory) {
+        if address == timer::DIV_REGISTER_ADDR {
+            value = 0;
+        }
         memory.write_byte(address, value);
     }
 

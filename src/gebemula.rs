@@ -1,10 +1,11 @@
 use cpu::cpu::Cpu;
 use mem::mem::Memory;
-use std;
+use cpu::timer::Timer;
 
 pub struct Gebemula {
     cpu: Cpu,
     mem: Memory,
+    timer: Timer,
 }
 
 impl Gebemula {
@@ -12,6 +13,7 @@ impl Gebemula {
         Gebemula {
             cpu: Cpu::new(),
             mem: Memory::new(),
+            timer: Timer::new(),
         }
     }
 
