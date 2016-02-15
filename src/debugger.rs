@@ -9,7 +9,7 @@ pub struct Debugger {
     should_run_cpu: bool,
     run_debug: u8, //0b0000_0000 - bit 0: cpu, bit 1: human;
     break_debug: u8, //same as run_debug
-    is_step: bool,
+    num_steps: u32,
 }
 
 impl Debugger {
@@ -18,8 +18,8 @@ impl Debugger {
             break_addr: None,
             should_run_cpu: false,
             run_debug: 0x00,
-            is_step: false,
             break_debug: 0x00,
+            num_steps: 0,
         }
     }
 
@@ -37,16 +37,26 @@ impl Debugger {
                 self.print_cpu_human(self.break_debug, instruction, cpu);
             }
         } else {
-            if self.is_step {
-                println!("{}", instruction); //prints the instruction run after step.
+            let go_to_loop: bool = match self.num_steps {
+                0 => true,
+                _ => {
+                    self.num_steps -= 1;
+                    if self.num_steps == 0 {
+                        println!("{}", instruction); //prints the instruction run after step.
+                        true
+                    } else {
+                        false
+                    }
+                },
+            };
+            if go_to_loop {
+                self.read_loop(instruction, cpu, mem);
             }
-            self.read_loop(instruction, cpu, mem);
         }
     }
     fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
         loop {
             self.should_run_cpu = false;
-            self.is_step = false;
             print!("gbm> "); //gbm: gebemula
             io::stdout().flush().unwrap();
             let mut input = String::new();
@@ -77,31 +87,32 @@ impl Debugger {
     }
 
     fn parse(&mut self, command: &str, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
-        let words: &mut Vec<&str> = &mut command.split(" ").collect();
+        let aux: &mut Vec<&str> = &mut command.trim().split(" ").collect();
+        let mut words: Vec<&str> = Vec::new();
+        for w in aux.iter().filter(|x| *x.to_owned() != "") {
+            words.push(w.trim());
+        }
+
         if !words.is_empty() {
             match words[0] {
                 "show" => {
-                    words.remove(0);
-                    Debugger::parse_show(words, cpu, mem);
+                    Debugger::parse_show(&words[1..], cpu, mem);
                 },
                 "step" => {
-                    self.is_step = true;
-                    self.should_run_cpu = true;
+                    self.parse_step(&words[1..]);
+                    self.should_run_cpu = self.num_steps > 0;
                 },
                 "last" => {
                     println!("{}", instruction);
                 },
                 "break" => {
-                    words.remove(0);
-                    self.parse_break(words);
-                    self.should_run_cpu = true;
+                    self.parse_break(&words[1..]);
                 },
                 "help" => {
                     Debugger::display_help("");
                 },
                 "run" => {
-                    words.remove(0);
-                    self.parse_run(words);
+                    self.parse_run(&words[1..]);
                 },
                 "" => {
                     //does nothing
@@ -118,7 +129,8 @@ impl Debugger {
             println!("**ERROR: {}", error_msg);
         }
         println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
-        println!("- step\n\tRun instruction pointed by PC and print it.");
+        println!("- step [num (decimal)]\n\tRun instruction pointed by PC and print it.\
+                 \n\tIf a num is set, run step num times and print the last one.");
         println!("- last\n\tPrint last instruction.");
         println!("- break <address in hex> [cpu|human]\n\tRun instructions until the instruction at the provided address is run.\
                  \n\tIf cpu or human (or both) are set, print each instruction run.");
@@ -127,10 +139,27 @@ impl Debugger {
         println!("- help\n\tShow this.");
     }
 
+    fn parse_step(&mut self, parameters: &[&str]) {
+        if parameters.is_empty() {
+            self.num_steps = 1;
+        } else if parameters.len() == 1 {
+            let steps = match parameters[0].parse::<u32>() {
+                Ok(s) => s,
+                Err(e) => {
+                    Debugger::display_help(&format!("Couldn't parse number of steps: {}", e));
+                    0
+                },
+            };
+            self.num_steps = steps;
+        } else {
+            Debugger::display_help("Too many parameters for the command `step`.");
+        }
+    }
+
     fn parse_run(&mut self, parameters: &[&str]) {
         if parameters.is_empty() || parameters.len() < 2 || parameters.len() > 3 {
             Debugger::display_help(&format!("Invalid number of parameters for run."));
-        } else { //1 <= parameters <= 3
+        } else { //2 <= parameters <= 3
             match parameters[0] {
                 "debug" => {
                     if let Some(value) = Debugger::cpu_human_in_params(&parameters[1..]) {
@@ -209,7 +238,10 @@ impl Debugger {
             Debugger::display_help(&format!("***ERROR: Invalid number of arguments for 'break'\n"));
         } else {
             self.break_addr = match u16::from_str_radix(&parameters[0][2..], 16) {
-                Ok(value) => Some(value),
+                Ok(value) => {
+                    self.should_run_cpu = true;
+                    Some(value)
+                },
                 Err(value) => {
                     Debugger::display_help(&format!("***ERROR: Address is not a valid hex number: {}\n", value));
                     None
@@ -218,10 +250,10 @@ impl Debugger {
             if parameters.len() >= 2 {
                 if let Some(value) = Debugger::cpu_human_in_params(&parameters[1..]) {
                     self.break_debug = value;
-                    self.should_run_cpu = true;
                 } else {
                     //user input incorret value
                     self.break_addr = None;
+                    self.should_run_cpu = false;
                 }
             }
         }
