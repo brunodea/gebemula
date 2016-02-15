@@ -121,9 +121,9 @@ impl Debugger {
         println!("- step\n\tRun instruction pointed by PC and print it.");
         println!("- last\n\tPrint last instruction.");
         println!("- break <address in hex> [cpu|human]\n\tRun instructions until the instruction at the provided address is run.\
-                 \n\tIf cpu or human (or both) are set, prints each instruction run.");
+                 \n\tIf cpu or human (or both) are set, print each instruction run.");
         println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
-                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be print.");
+                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be printed.");
         println!("- help\n\tShow this.");
     }
 
