@@ -12,10 +12,14 @@ pub const DIV_REGISTER_ADDR: u16 = 0xFF04; //Divider Register
 const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;
 const DIV_REGISTER_UPDATE_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / DIV_REGISTER_UPDATE_RATE_HZ;
 
+const VBLANK_INTERRUPT_RATE_HZ: u32 = 60;
+const VBLANK_INTERRUPT_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / VBLANK_INTERRUPT_RATE_HZ;
+
 pub struct Timer {
     div_cycles_counter: u32,
     tima_cycles_counter: u32,
     tima_rate_cycles: u32,
+    vblank_interrupt_cycles_counter: u32,
 }
 
 impl Timer {
@@ -24,6 +28,7 @@ impl Timer {
             div_cycles_counter: 0,
             tima_cycles_counter: 0,
             tima_rate_cycles: 0,
+            vblank_interrupt_cycles_counter: 0,
         }
     }
 
@@ -35,7 +40,7 @@ impl Timer {
         self.div_cycles_counter += cycles;
         if self.div_cycles_counter >= DIV_REGISTER_UPDATE_RATE_CYCLES {
             let div: u8 = memory.read_byte(DIV_REGISTER_ADDR);
-            memory.write_byte(DIV_REGISTER_ADDR, div + 1);
+            memory.write_byte(DIV_REGISTER_ADDR, div.wrapping_add(1));
             self.div_cycles_counter = 0;
         }
 
@@ -51,6 +56,12 @@ impl Timer {
             memory.write_byte(TIMA_REGISTER_ADDR, tima);
             interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
             self.tima_cycles_counter = 0;
+        }
+
+        self.vblank_interrupt_cycles_counter += cycles;
+        if self.vblank_interrupt_cycles_counter >= VBLANK_INTERRUPT_RATE_CYCLES {
+            interrupt::request(interrupt::Interrupt::VBlank, memory);
+            self.vblank_interrupt_cycles_counter = 0;
         }
     }
 }
