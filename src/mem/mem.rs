@@ -94,9 +94,6 @@ impl Memory {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        //if cfg!(debug_assertions) {
-        //    println!("{:#x} -> mem[{:#x}]", value, address);
-        //}
         match address {
             0x0000 ... 0x7FFF => self.handle_banking(address, value),
             0x8000 ... 0x9FFF => self.vram[(address - 0x8000) as usize] = value,
