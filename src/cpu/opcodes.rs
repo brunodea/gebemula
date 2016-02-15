@@ -272,28 +272,28 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("cp {}", v)
             },
             0xC6 => {
-                format!("add A,{}", instruction.imm8.unwrap())
+                format!("add A,{:#x}", instruction.imm8.unwrap())
             },
             0xD6 => {
-                format!("sub {}", instruction.imm8.unwrap())
+                format!("sub {:#x}", instruction.imm8.unwrap())
             },
             0xE6 => {
-                format!("and {}", instruction.imm8.unwrap())
+                format!("and {:#x}", instruction.imm8.unwrap())
             },
             0xF6 => {
-                format!("or {}", instruction.imm8.unwrap())
+                format!("or {:#x}", instruction.imm8.unwrap())
             },
             0xCE => {
-                format!("adc A,{}", instruction.imm8.unwrap())
+                format!("adc A,{:#x}", instruction.imm8.unwrap())
             },
             0xDE => {
-                format!("sbc A,{}", instruction.imm8.unwrap())
+                format!("sbc A,{:#x}", instruction.imm8.unwrap())
             },
             0xEE => {
-                format!("xor {}", instruction.imm8.unwrap())
+                format!("xor {:#x}", instruction.imm8.unwrap())
             },
             0xFE => {
-                format!("cp {}", instruction.imm8.unwrap())
+                format!("cp {:#x}", instruction.imm8.unwrap())
             },
             0x04 | 0x14 | 0x24 | 0x34 |
             0x0C | 0x1C | 0x2C | 0x3C => {
