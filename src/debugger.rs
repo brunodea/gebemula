@@ -25,6 +25,7 @@ impl Debugger {
         if !self.debugging {
             return;
         } else if self.is_run_debug {
+            print!("{}:\n\t", instruction);
             println!("{}", cpu);
             return;
         }
