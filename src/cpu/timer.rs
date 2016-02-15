@@ -24,6 +24,7 @@ pub struct Timer {
     vblank_interrupt_cycles_counter: u32,
     frame_rate_cycles: u32,
     frame_rate_cycles_counter: u32,
+    timer_started: bool,
 }
 
 impl Timer {
@@ -32,6 +33,7 @@ impl Timer {
             div_cycles_counter: 0,
             tima_cycles_counter: 0,
             tima_rate_cycles: 0,
+            timer_started: false,
             vblank_interrupt_cycles_counter: 0,
             frame_rate_cycles_counter: 0,
             frame_rate_cycles: cycles_from_hz(60), //default: 60hz
@@ -46,18 +48,26 @@ impl Timer {
             self.div_cycles_counter = 0;
         }
 
-        self.tima_cycles_counter += cycles;
-        if self.tima_cycles_counter >= self.tima_rate_cycles {
-            let mut tima: u8 = memory.read_byte(TIMA_REGISTER_ADDR);
-            if tima == 0xFF {
-                //overflows
-                tima = memory.read_byte(TMA_REGISTER_ADDR);
-            } else {
-                tima += 1;
+        if !timer_stop(memory) {
+            if !self.timer_started {
+                self.tima_rate_cycles = cycles_from_hz(input_clock(memory));
+                self.timer_started = true;
             }
-            memory.write_byte(TIMA_REGISTER_ADDR, tima);
-            interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
-            self.tima_cycles_counter = 0;
+            self.tima_cycles_counter += cycles;
+            if self.tima_cycles_counter >= self.tima_rate_cycles {
+                let mut tima: u8 = memory.read_byte(TIMA_REGISTER_ADDR);
+                if tima == 0xFF {
+                    //overflows
+                    tima = memory.read_byte(TMA_REGISTER_ADDR);
+                } else {
+                    tima += 1;
+                }
+                memory.write_byte(TIMA_REGISTER_ADDR, tima);
+                interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
+                self.tima_cycles_counter = 0;
+            }
+        } else {
+            self.timer_started = false;
         }
 
         self.vblank_interrupt_cycles_counter += cycles;
@@ -75,6 +85,7 @@ impl Timer {
     }
 }
 
+#[inline]
 pub fn timer_stop(memory: &mem::Memory) -> bool {
     (memory.read_byte(TAC_REGISTER_ADDR) >> 2) & 0b1 == 0b0
 }
@@ -89,6 +100,7 @@ pub fn input_clock(memory: &mem::Memory) -> u32 {
     }
 }
 
+#[inline]
 pub fn cycles_from_hz(rate_hz: u32) -> u32 {
     CPU_FREQUENCY_HZ / rate_hz
 }
