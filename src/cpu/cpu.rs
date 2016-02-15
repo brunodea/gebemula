@@ -88,7 +88,11 @@ impl fmt::Display for Instruction {
             opcode = format!("{}{:x}", prefix, self.opcode);
         }
         let addr = format!("{:#01$x}", self.address, 6);
+        if imm8 == "" && imm16 == "" {
+            write!(f, "{}: {} ({})", addr, opcodes::instr_to_human(self), opcode)
+        } else {
             write!(f, "{}: {} ({} {}{})", addr, opcodes::instr_to_human(self), opcode, imm8, imm16)
+        }
     }
 }
 
