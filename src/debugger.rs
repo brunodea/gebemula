@@ -44,7 +44,7 @@ impl Debugger {
                 Err(_) => "Undefined",
             };
             println!("Game: {}", game_title);
-            println!("Type 'help' for the command list.")
+            println!("Type 'help' for the command list.");
             println!("----------------------------------");
             self.display_header = false;
         }
