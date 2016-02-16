@@ -1,5 +1,6 @@
 use std::fmt;
 use util::util;
+use mem::consts;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum CartridgeType {
@@ -267,12 +268,12 @@ impl Memory {
             } else if i < 0x8000 {
                 self.rom_bank_01_nn[i - 0x4000] = *byte;
             }
-            match self.cartridge[0x147] {
+            match self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize] {
                 0x0 => self.cartridge_type = CartridgeType::RomOnly,
                 0x1 ... 0x3 => self.cartridge_type = CartridgeType::Mbc1,
                 0x5 ... 0x6 => self.cartridge_type = CartridgeType::Mbc2,
                 0x19 ... 0x1E => self.cartridge_type = CartridgeType::Mbc5,
-                _ => panic!("Cartridges of type {:#X} are not yet supported.", self.cartridge[0x147]),
+                _ => panic!("Cartridges of type {:#X} are not yet supported.", self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize]),
             }
         }
     }
