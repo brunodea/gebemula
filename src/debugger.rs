@@ -7,7 +7,7 @@ use std::io::{self, Write};
 pub struct Debugger {
     break_addr: Option<u16>,
     should_run_cpu: bool,
-    run_debug: u8, //0b0000_0000 - bit 0: cpu, bit 1: human;
+    run_debug: Option<u8>, //0b0000_0000 - bit 0: cpu, bit 1: human;
     break_debug: u8, //same as run_debug
     num_steps: u32,
 }
@@ -17,15 +17,15 @@ impl Debugger {
         Debugger {
             break_addr: None,
             should_run_cpu: false,
-            run_debug: 0x00,
+            run_debug: None,
             break_debug: 0x00,
             num_steps: 0,
         }
     }
 
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
-        if self.run_debug != 0x00 {
-            self.print_cpu_human(self.run_debug, instruction, cpu);
+        if self.run_debug != None {
+            self.print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
         }
         if let Some(addr) = self.break_addr {
@@ -134,8 +134,8 @@ impl Debugger {
         println!("- last\n\tPrint last instruction.");
         println!("- break <address in hex> [cpu|human]\n\tRun instructions until the instruction at the provided address is run.\
                  \n\tIf cpu or human (or both) are set, print each instruction run.");
-        println!("- run [debug [cpu|human]]\n\tDisable the debugger and run the code.\
-                             \n\tIf debug is set, information about cpu state or instruction (human friendly) or both (if both are set) will be printed.");
+        println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
+                             \n\tIf set, information about cpu state or instruction (human friendly) or both (if both are set) will be printed.");
         println!("- help\n\tShow this.");
     }
 
@@ -157,20 +157,14 @@ impl Debugger {
     }
 
     fn parse_run(&mut self, parameters: &[&str]) {
-        if parameters.is_empty() || parameters.len() < 2 || parameters.len() > 3 {
+        if parameters.is_empty() {
+            self.run_debug = Some(0);
+            self.should_run_cpu = true;
+        } else if parameters.len() > 2 {
             Debugger::display_help(&format!("Invalid number of parameters for run."));
-        } else { //2 <= parameters <= 3
-            match parameters[0] {
-                "debug" => {
-                    if let Some(value) = Debugger::cpu_human_in_params(&parameters[1..]) {
-                        self.run_debug = value;
-                        self.should_run_cpu = true;
-                    }
-                },
-                _ => {
-                    Debugger::display_help(&format!("Invalid parameter for run: {}", parameters[0]));
-                },
-            }
+        } else if let Some(value) = Debugger::cpu_human_in_params(&parameters) {
+            self.run_debug = Some(value);
+            self.should_run_cpu = true;
         }
     }
 
