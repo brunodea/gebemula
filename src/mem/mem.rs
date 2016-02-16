@@ -18,7 +18,7 @@ pub struct Memory {
     external_ram: [u8; 0x7A1200], // TODO: dinamically allocate size?
     wram_bank_0: [u8; 0x1000],
     wram_bank_1_n: [u8; 0x1000],
-    wram_echo: [u8; 0x1E00], // mirror c000 to ddff
+    wram_echo: [u8; 0x1E00], 
     oam: [u8; 0xA0],
     unusable: [u8; 0x60],
     io_registers: [u8; 0x80],
@@ -99,9 +99,9 @@ impl Memory {
             },
             0xC000 ... 0xCFFF => {
                 self.wram_bank_0[(address - 0xC000) as usize] = value;
-                //if address <= 0xCDFF {
-                //    self.wram_echo[(address - 0xC000) as usize] = value;
-                //}
+                if address <= 0xCDFF {
+                    self.wram_echo[(address - 0xC000) as usize] = value;
+                }
             },
             0xD000 ... 0xDFFF => self.wram_bank_1_n[(address - 0xD000) as usize] = value,
             0xE000 ... 0xFDFF => {
@@ -121,9 +121,9 @@ impl Memory {
         match address {
             0x0000 ... 0x3FFF => self.rom_bank_00[address as usize],
             // TODO: Find why cartridge address as u16 is overflowing
-            0x4000 ... 0x7FFF => self.cartridge[(address as u32 - 0x4000 as u32 + self.current_rom_bank as u32 * 0x4000 as u32) as usize],
+            0x4000 ... 0x7FFF => self.cartridge[(address - 0x4000 + self.current_rom_bank * consts::ROM_BANK_SIZE) as usize],
             0x8000 ... 0x9FFF => self.vram[(address - 0x8000) as usize],
-            0xA000 ... 0xBFFF => self.external_ram[(address - 0xA000 + self.current_ram_bank * 0x2000) as usize],
+            0xA000 ... 0xBFFF => self.external_ram[(address - 0xA000 + self.current_ram_bank * consts::RAM_BANK_SIZE) as usize],
             0xC000 ... 0xCFFF => self.wram_bank_0[(address - 0xC000) as usize],
             0xD000 ... 0xDFFF => self.wram_bank_1_n[(address - 0xD000) as usize],
             0xE000 ... 0xFDFF => self.wram_echo[(address - 0xE000) as usize],
