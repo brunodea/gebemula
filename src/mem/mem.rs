@@ -41,16 +41,16 @@ impl Memory {
             external_ram: [0; 0x7A1200],
             wram_bank_0: [0; 0x1000],
             wram_bank_1_n: [0; 0x1000],
-            wram_echo: [0; 0x1E00], // mirror C000 to DDFF
+            wram_echo: [0; 0x1E00], 
             oam: [0; 0xA0],
             unusable: [0; 0x60],
             io_registers: [0; 0x80],
             hram: [0; 0x7F],
-            interrupts_enable: 0,
+            interrupts_enable: 0x0,
             cartridge: vec![0; 0x200000],
             cartridge_type: CartridgeType::RomOnly,
-            current_rom_bank: 1, // should never be 0
-            current_ram_bank: 0,
+            current_rom_bank: 0x1,
+            current_ram_bank: 0x0,
             rom_banking_enabled: true,
             ram_banking_enabled: false,
         }
@@ -99,9 +99,9 @@ impl Memory {
             },
             0xC000 ... 0xCFFF => {
                 self.wram_bank_0[(address - 0xC000) as usize] = value;
-                if address <= 0xCDFF {
-                    self.wram_echo[(address - 0xC000) as usize] = value;
-                }
+                //if address <= 0xCDFF {
+                //    self.wram_echo[(address - 0xC000) as usize] = value;
+                //}
             },
             0xD000 ... 0xDFFF => self.wram_bank_1_n[(address - 0xD000) as usize] = value,
             0xE000 ... 0xFDFF => {
@@ -120,7 +120,8 @@ impl Memory {
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
             0x0000 ... 0x3FFF => self.rom_bank_00[address as usize],
-            0x4000 ... 0x7FFF => self.cartridge[(address - 0x4000 + self.current_rom_bank * 0x4000) as usize],
+            // TODO: Find why cartridge address as u16 is overflowing
+            0x4000 ... 0x7FFF => self.cartridge[(address as u32 - 0x4000 as u32 + self.current_rom_bank as u32 * 0x4000 as u32) as usize],
             0x8000 ... 0x9FFF => self.vram[(address - 0x8000) as usize],
             0xA000 ... 0xBFFF => self.external_ram[(address - 0xA000 + self.current_ram_bank * 0x2000) as usize],
             0xC000 ... 0xCFFF => self.wram_bank_0[(address - 0xC000) as usize],
@@ -197,17 +198,17 @@ impl Memory {
         match self.cartridge_type {
             CartridgeType::Mbc1 => {
                 let lower_bits: u16 = byte as u16 & 0x1F;
-                self.current_rom_bank &= 0x0E;
+                self.current_rom_bank &= 0xE0;
                 self.current_rom_bank |= lower_bits;
-                if self.current_rom_bank == 0 {
-                    self.current_rom_bank += 1;
+                if self.current_rom_bank == 0x0 || self.current_ram_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+                    self.current_rom_bank += 0x1;
                 }
             }, 
             CartridgeType::Mbc2 => self.current_rom_bank = byte as u16 & 0xF,
             _ => panic!("Unsupported cartridge type."),
         }
-        if self.current_rom_bank == 0 {
-            self.current_rom_bank += 1;
+        if self.current_rom_bank == 0x0 {
+            self.current_rom_bank = 0x1;
         }
     }
 
@@ -235,22 +236,25 @@ impl Memory {
         let upper_bits: u16 = byte as u16 & 0xE0;
         self.current_rom_bank &= 0x1F;
         self.current_rom_bank |= upper_bits;
-        if self.current_rom_bank == 0 {
-            self.current_rom_bank += 1;
+        if self.current_rom_bank == 0x0 || self.current_ram_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+            self.current_rom_bank += 0x1;
         }
+
     }
 
     pub fn change_ram_bank(&mut self, byte: u8) {
-        self.current_ram_bank = byte as u16 & 0x03;
+        self.current_ram_bank = byte as u16 & 0x3;
     }
     
     pub fn handle_mbc1_mode(&mut self, byte: u8) {
-        let memory_mode_bit: u16 = byte as u16 & 0x01;
-        if memory_mode_bit == 0 {
+        let memory_mode_bit: u16 = byte as u16 & 0x1;
+        if memory_mode_bit == 0x0 {
             self.rom_banking_enabled = true;
-            self.current_ram_bank = 0;
+            self.ram_banking_enabled = false;
+            self.current_ram_bank = 0x0;
         } else {
             self.rom_banking_enabled = false;
+            self.ram_banking_enabled = true;
         }
     }
 
