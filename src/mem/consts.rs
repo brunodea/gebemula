@@ -1,0 +1,2 @@
+pub const GAME_TITLE_ADDR_START: u16 = 0x134;
+pub const GAME_TITLE_ADDR_END: u16 = 0x142;
