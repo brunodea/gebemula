@@ -94,7 +94,7 @@ impl Memory {
             0x8000 ... 0x9FFF => self.vram[(address - 0x8000) as usize] = value,
             0xA000 ... 0xBFFF => {
                 if self.ram_banking_enabled {
-                    self.external_ram[(address - 0xA000 + self.current_ram_bank * 0x2000) as usize] = value;
+                    self.external_ram[(address as u32 - 0xA000 as u32 + self.current_ram_bank as u32 * consts::RAM_BANK_SIZE as u32) as usize] = value;
                 }
             },
             0xC000 ... 0xCFFF => {
@@ -120,10 +120,9 @@ impl Memory {
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
             0x0000 ... 0x3FFF => self.rom_bank_00[address as usize],
-            // TODO: Find why cartridge address as u16 is overflowing
-            0x4000 ... 0x7FFF => self.cartridge[(address - 0x4000 + self.current_rom_bank * consts::ROM_BANK_SIZE) as usize],
+            0x4000 ... 0x7FFF => self.cartridge[(address as u32 - 0x4000 as u32 + self.current_rom_bank as u32 * consts::ROM_BANK_SIZE as u32) as usize],
             0x8000 ... 0x9FFF => self.vram[(address - 0x8000) as usize],
-            0xA000 ... 0xBFFF => self.external_ram[(address - 0xA000 + self.current_ram_bank * consts::RAM_BANK_SIZE) as usize],
+            0xA000 ... 0xBFFF => self.external_ram[(address as u32 - 0xA000 as u32 + self.current_ram_bank as u32 * consts::RAM_BANK_SIZE as u32) as usize],
             0xC000 ... 0xCFFF => self.wram_bank_0[(address - 0xC000) as usize],
             0xD000 ... 0xDFFF => self.wram_bank_1_n[(address - 0xD000) as usize],
             0xE000 ... 0xFDFF => self.wram_echo[(address - 0xE000) as usize],
@@ -157,7 +156,6 @@ impl Memory {
                     self.change_rom_bank_9th_bit_mbc5(byte);
                 }
             },
-
             0x4000 ... 0x5FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 {
                     if self.rom_banking_enabled {
@@ -186,7 +184,6 @@ impl Memory {
         if self.cartridge_type == CartridgeType::Mbc2 && (util::is_bit_one(address, 3)) {
             return;
         }
-        
         let relevant_bits: u8 = byte & 0xF;
         match relevant_bits {
             0x0A => self.ram_banking_enabled = true,
@@ -200,15 +197,17 @@ impl Memory {
                 let lower_bits: u16 = byte as u16 & 0x1F;
                 self.current_rom_bank &= 0xE0;
                 self.current_rom_bank |= lower_bits;
-                if self.current_rom_bank == 0x0 || self.current_ram_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+                if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
                     self.current_rom_bank += 0x1;
                 }
             }, 
-            CartridgeType::Mbc2 => self.current_rom_bank = byte as u16 & 0xF,
+            CartridgeType::Mbc2 => {
+                self.current_rom_bank = byte as u16 & 0xF;
+                if self.current_rom_bank == 0x0 {
+                    self.current_rom_bank = 0x1;
+                }
+            },
             _ => panic!("Unsupported cartridge type."),
-        }
-        if self.current_rom_bank == 0x0 {
-            self.current_rom_bank = 0x1;
         }
     }
 
@@ -218,7 +217,7 @@ impl Memory {
             self.current_rom_bank &= 0xF00;
             self.current_rom_bank |= lower_bits;
         } else {
-            panic!("Tried to handle cartridge as MB5.");
+            panic!("Tried to handle cartridge as MBC5.");
         }
     }
 
@@ -228,7 +227,7 @@ impl Memory {
             self.current_rom_bank &= 0xFF;
             self.current_rom_bank |= upper_bit;
         } else {
-            panic!("Tried to handle cartridge as MB5.");
+            panic!("Tried to handle cartridge as MBC5.");
         }
     }
 
@@ -236,10 +235,9 @@ impl Memory {
         let upper_bits: u16 = byte as u16 & 0xE0;
         self.current_rom_bank &= 0x1F;
         self.current_rom_bank |= upper_bits;
-        if self.current_rom_bank == 0x0 || self.current_ram_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+        if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
             self.current_rom_bank += 0x1;
         }
-
     }
 
     pub fn change_ram_bank(&mut self, byte: u8) {
