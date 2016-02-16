@@ -32,8 +32,8 @@ impl Debugger {
             println!("##################################");
             println!("#     Gebemula Debug Console     #");
             println!("##################################");
-            println!("Game: {}", mem::cartridge::cartridge_type_str(mem));
-            println!("CType: {}", mem::cartridge::game_title_str(mem));
+            println!("Game: {}", mem::cartridge::game_title_str(mem));
+            println!("Cartridge Type: {}", mem::cartridge::cartridge_type_str(mem));
             println!("Type 'help' for the command list.");
             println!("----------------------------------");
             self.display_header = false;
