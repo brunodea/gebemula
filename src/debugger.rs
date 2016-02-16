@@ -43,7 +43,7 @@ impl Debugger {
                 Ok(v) => v,
                 Err(_) => "Undefined",
             };
-            println!("Current game: {}", game_title);
+            println!("game: {}", game_title);
             println!("--------------------------");
             self.display_header = false;
         }
