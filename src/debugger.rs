@@ -29,7 +29,7 @@ impl Debugger {
             return;
         }
         if let Some(addr) = self.break_addr {
-            if instruction.address >= addr { //>= because the provided address may point to an immediate, in which case == would never be true.
+            if instruction.address == addr {
                 println!("{}", instruction);
                 self.break_addr = None;
                 self.read_loop(instruction, cpu, mem, timer);
