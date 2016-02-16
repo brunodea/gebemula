@@ -1,18 +1,13 @@
 use std::fmt;
 use util::util;
 
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum CartridgeType {
     RomOnly,
     Mbc1,
     Mbc2,
     Mbc3,
     Mbc5,
-}
-
-impl PartialEq for CartridgeType {
-    fn eq(&self, other: &CartridgeType) -> bool {
-        self == other
-    }
 }
 
 pub struct Memory {

@@ -1,8 +1,10 @@
+use cpu;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
-use cpu::consts;
+use mem;
 use mem::mem::Memory;
 use std::io::{self, Write};
+use std::str;
 
 pub struct Debugger {
     break_addr: Option<u16>,
@@ -10,6 +12,7 @@ pub struct Debugger {
     run_debug: Option<u8>, //0b0000_0000 - bit 0: cpu, bit 1: human;
     break_debug: u8, //same as run_debug
     num_steps: u32,
+    display_header: bool,
 }
 
 impl Debugger {
@@ -20,10 +23,30 @@ impl Debugger {
             run_debug: None,
             break_debug: 0x00,
             num_steps: 0,
+            display_header: true,
         }
     }
 
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
+        if self.display_header {
+            println!("##########################");
+            println!("# Gebemula Debug Console #");
+            println!("##########################");
+            let game_title_u8: &mut Vec<u8> = &mut Vec::new();
+            for byte in mem::consts::GAME_TITLE_ADDR_START..(mem::consts::GAME_TITLE_ADDR_END + 1) {
+                if byte == 0 {
+                    break;
+                }
+                game_title_u8.push(mem.read_byte(byte));
+            }
+            let game_title: &str = match str::from_utf8(&game_title_u8) {
+                Ok(v) => v,
+                Err(_) => "Undefined",
+            };
+            println!("Current game: {}", game_title);
+            println!("--------------------------");
+            self.display_header = false;
+        }
         if self.run_debug != None {
             self.print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
@@ -57,7 +80,7 @@ impl Debugger {
     fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         loop {
             self.should_run_cpu = false;
-            print!("gbm> "); //gbm: gebemula
+            print!("gdc> "); //gbm: gebemula
             io::stdout().flush().unwrap();
             let mut input = String::new();
             match io::stdin().read_line(&mut input) {
@@ -200,12 +223,12 @@ impl Debugger {
                 println!("{}", cpu);
             },
             "ioregs" => {
-                let tima: u8 = mem.read_byte(consts::TIMA_REGISTER_ADDR);
-                let tma: u8 = mem.read_byte(consts::TMA_REGISTER_ADDR);
-                let tac: u8 = mem.read_byte(consts::TAC_REGISTER_ADDR);
-                let div: u8 = mem.read_byte(consts::DIV_REGISTER_ADDR);
-                let if_: u8 = mem.read_byte(consts::IF_REGISTER_ADDR);
-                let ie: u8 = mem.read_byte(consts::IE_REGISTER_ADDR);
+                let tima: u8 = mem.read_byte(cpu::consts::TIMA_REGISTER_ADDR);
+                let tma: u8 = mem.read_byte(cpu::consts::TMA_REGISTER_ADDR);
+                let tac: u8 = mem.read_byte(cpu::consts::TAC_REGISTER_ADDR);
+                let div: u8 = mem.read_byte(cpu::consts::DIV_REGISTER_ADDR);
+                let if_: u8 = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
+                let ie: u8 = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
 
                 println!("IF: {:#x} {:#b}", if_, if_);
                 println!("IE: {:#x} {:#b}", ie, ie);
