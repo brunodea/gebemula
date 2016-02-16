@@ -32,18 +32,7 @@ impl Debugger {
             println!("##################################");
             println!("#     Gebemula Debug Console     #");
             println!("##################################");
-            let game_title_u8: &mut Vec<u8> = &mut Vec::new();
-            for byte in mem::consts::GAME_TITLE_ADDR_START..(mem::consts::GAME_TITLE_ADDR_END + 1) {
-                if byte == 0 {
-                    break;
-                }
-                game_title_u8.push(mem.read_byte(byte));
-            }
-            let game_title: &str = match str::from_utf8(&game_title_u8) {
-                Ok(v) => v,
-                Err(_) => "Undefined",
-            };
-            println!("Game: {}", game_title);
+            self.display_info(mem);
             println!("Type 'help' for the command list.");
             println!("----------------------------------");
             self.display_header = false;
@@ -77,6 +66,10 @@ impl Debugger {
                 self.read_loop(instruction, cpu, mem, timer);
             }
         }
+    }
+    fn display_info(&self, mem: &Memory) {
+        println!("Game: {}", mem::cartridge::game_title_str(mem));
+        println!("Cartridge Type: {}", mem::cartridge::cartridge_type_str(mem));
     }
     fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         loop {
@@ -138,6 +131,9 @@ impl Debugger {
                 "run" => {
                     self.parse_run(&words[1..]);
                 },
+                "info" => {
+                    self.display_info(mem);
+                },
                 "" => {
                     //does nothing
                 },
@@ -160,6 +156,7 @@ impl Debugger {
                  \n\tIf cpu or human (or both) are set, print each instruction run.");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
                              \n\tIf set, information about cpu state or instruction (human friendly) or both (if both are set) will be printed.");
+        println!("- info\n\tDisplay information about the game rom.");
         println!("- help\n\tShow this.");
     }
 
