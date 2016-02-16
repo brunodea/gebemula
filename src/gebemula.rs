@@ -37,7 +37,7 @@ impl Gebemula {
         loop {
             let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
             if cfg!(debug_assertions) {
-                debugger.run(instruction, &self.cpu, &self.mem);
+                debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
             }
             self.timer.update(instruction.cycles, &mut self.mem);
             //Checks for interrupt requests should be made after *every* instruction is

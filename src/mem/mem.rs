@@ -36,39 +36,6 @@ pub struct Memory {
     ram_banking_enabled: bool,
 }
 
-impl fmt::Display for Memory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let columns: u8 = 16;
-
-        let mut res: String = "".to_owned();
-
-        let mut to: usize = 0xffff;
-        let mut from: usize = 0;
-
-        if let Some(fr) = f.width() {
-            from = fr;
-        }
-        if let Some(t) = f.precision() {
-            to = t;
-        }
-
-        let mut i: usize = 0;
-        while i >= from && i < to {
-            if i as u8 % columns == 0 {
-                res = res + &format!("\n{:01$x}: ", i, 8);
-            }
-            let lhs: u8 = self.read_byte(i as u16);
-            i += 1;
-            let rhs: u8 = self.read_byte(i as u16);
-            res = res + &format!("{:01$x}", lhs, 2);
-            res = res + &format!("{:01$x} ", rhs, 2);
-
-            i += 1;
-        }
-        write!(f, "{}", res)
-    }
-}
-
 impl Memory {
     pub fn new() -> Memory {
         Memory {
@@ -91,6 +58,38 @@ impl Memory {
             rom_banking_enabled: true,
             ram_banking_enabled: false,
         }
+    }
+
+    //returns a string with the memory data from min_addr to max_addr.
+    pub fn format(&self, min_addr: Option<u16>, max_addr: Option<u16>) -> String {
+        let columns: u8 = 16;
+
+        let mut res: String = "".to_owned();
+
+        let mut to: usize = 0xffff;
+        let mut from: usize = 0;
+
+        if let Some(fr) = min_addr {
+            from = fr as usize;
+        }
+        if let Some(t) = max_addr {
+            to = t as usize;
+        }
+
+        let mut i: usize = from;
+        while i >= from && i < to {
+            if i as u8 % columns == 0 {
+                res = res + &format!("\n{:01$x}: ", i, 8);
+            }
+            let lhs: u8 = self.read_byte(i as u16);
+            i += 1;
+            let rhs: u8 = self.read_byte(i as u16);
+            res = res + &format!("{:01$x}", lhs, 2);
+            res = res + &format!("{:01$x} ", rhs, 2);
+
+            i += 1;
+        }
+        format!("{}", res)
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {

@@ -2,14 +2,26 @@ use super::super::mem::mem;
 use cpu::interrupt;
 use cpu::consts;
 use std::thread;
-use std::time;
+use std::{time, fmt};
 
 struct Event {
-    cycles_counter: u32, 
+    cycles_counter: u32,
     cycles_rate: u32, //rate at which the event should happen
     cycles_duration: Option<u32>, //duration of the event, that is, number of cycles until the cycles counter starts again.
     cycles_duration_counter: u32,
     on_event: bool,
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, 
+               "cycles counter: {}\
+               \ncycles rate {}\
+               \ncycles duration: {:?}\
+               \ncycles duration counter: {}\
+               \non event: {:?}", self.cycles_counter, self.cycles_rate, self.cycles_duration,
+               self.cycles_duration_counter, self.on_event)
+    }
 }
 
 impl Event {
@@ -22,7 +34,7 @@ impl Event {
             on_event: false,
         }
     }
-    
+
     //return true if event happened.
     pub fn update(&mut self, cycles: u32) -> bool {
         if let Some(duration) = self.cycles_duration {
@@ -33,7 +45,11 @@ impl Event {
                     self.on_event = false;
                 }
             }
-        } else if !self.on_event {
+        } else {
+            self.on_event = false
+        }
+
+        if !self.on_event {
             self.cycles_counter += cycles;
             if self.cycles_counter >= self.cycles_rate {
                 self.cycles_counter = 0;
@@ -99,6 +115,15 @@ impl Timer {
             //TODO adjust duration to consider elapsed time since the last frame.
             thread::sleep(time::Duration::new(0, 16666666)); //~1/60 seconds
         }
+    }
+
+    pub fn events_to_str(&self) -> String {
+        let div = format!("DIV #########\n{}\n", self.div_event);
+        let tima = format!("TIMA #########\n{}\n", self.tima_event);
+        let vblank = format!("VBlank #########\n{}\n", self.vblank_interrupt_event);
+        let frame_rate = format!("FrameRate #########\n{}", self.frame_rate_event);
+
+        (div + &tima + &vblank + &frame_rate).to_owned()
     }
 }
 

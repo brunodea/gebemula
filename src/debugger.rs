@@ -1,4 +1,5 @@
 use cpu::cpu::{Cpu, Instruction};
+use cpu::timer::Timer;
 use cpu::consts;
 use mem::mem::Memory;
 use std::io::{self, Write};
@@ -22,7 +23,7 @@ impl Debugger {
         }
     }
 
-    pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
+    pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         if self.run_debug != 0x00 {
             self.print_cpu_human(self.run_debug, instruction, cpu);
             return;
@@ -31,7 +32,7 @@ impl Debugger {
             if instruction.address >= addr { //>= because the provided address may point to an immediate, in which case == would never be true.
                 println!("{}", instruction);
                 self.break_addr = None;
-                self.read_loop(instruction, cpu, mem);
+                self.read_loop(instruction, cpu, mem, timer);
             } else {
                 self.print_cpu_human(self.break_debug, instruction, cpu);
             }
@@ -49,11 +50,11 @@ impl Debugger {
                 },
             };
             if go_to_loop {
-                self.read_loop(instruction, cpu, mem);
+                self.read_loop(instruction, cpu, mem, timer);
             }
         }
     }
-    fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
+    fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         loop {
             self.should_run_cpu = false;
             print!("gbm> "); //gbm: gebemula
@@ -62,7 +63,7 @@ impl Debugger {
             match io::stdin().read_line(&mut input) {
                 Ok(_) => {
                     input.pop(); //removes the '\n'.
-                    self.parse(&input, instruction, cpu, mem);
+                    self.parse(&input, instruction, cpu, mem, timer);
                 },
                 Err(error) => println!("error: {}", error),
             }
@@ -85,7 +86,7 @@ impl Debugger {
         }
     }
 
-    fn parse(&mut self, command: &str, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
+    fn parse(&mut self, command: &str, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         let aux: &mut Vec<&str> = &mut command.trim().split(" ").collect();
         let mut words: Vec<&str> = Vec::new();
         for w in aux.iter().filter(|x| *x.to_owned() != "") {
@@ -95,7 +96,7 @@ impl Debugger {
         if !words.is_empty() {
             match words[0] {
                 "show" => {
-                    Debugger::parse_show(&words[1..], cpu, mem);
+                    Debugger::parse_show(&words[1..], cpu, mem, timer);
                 },
                 "step" => {
                     self.parse_step(&words[1..]);
@@ -127,7 +128,7 @@ impl Debugger {
         if error_msg != "" {
             println!("**ERROR: {}", error_msg);
         }
-        println!("- show [cpu|ioregs|memory]\n\tShow state of component.");
+        println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state of component.");
         println!("- step [num (decimal)]\n\tRun instruction pointed by PC and print it.\
                  \n\tIf a num is set, run step num times and print the last one.");
         println!("- last\n\tPrint last instruction.");
@@ -199,35 +200,46 @@ impl Debugger {
         Some(res)
     }
 
-    fn parse_show(parameters: &[&str], cpu: &Cpu, mem: &Memory) {
-        if parameters.len() != 1 {
-            Debugger::display_help(&format!("***ERROR: Invalid number of arguments for 'show'\n"));
-        } else {
-            match parameters[0] {
-                "cpu" => {
-                    println!("{}", cpu);
-                },
-                "ioregs" => {
-                    let tima: u8 = mem.read_byte(consts::TIMA_REGISTER_ADDR);
-                    let tma: u8 = mem.read_byte(consts::TMA_REGISTER_ADDR);
-                    let tac: u8 = mem.read_byte(consts::TAC_REGISTER_ADDR);
-                    let div: u8 = mem.read_byte(consts::DIV_REGISTER_ADDR);
-                    let if_: u8 = mem.read_byte(consts::IF_REGISTER_ADDR);
-                    let ie: u8 = mem.read_byte(consts::IE_REGISTER_ADDR);
+    fn parse_show(parameters: &[&str], cpu: &Cpu, mem: &Memory, timer: &Timer) {
+        match parameters[0] {
+            "cpu" => {
+                println!("{}", cpu);
+            },
+            "ioregs" => {
+                let tima: u8 = mem.read_byte(consts::TIMA_REGISTER_ADDR);
+                let tma: u8 = mem.read_byte(consts::TMA_REGISTER_ADDR);
+                let tac: u8 = mem.read_byte(consts::TAC_REGISTER_ADDR);
+                let div: u8 = mem.read_byte(consts::DIV_REGISTER_ADDR);
+                let if_: u8 = mem.read_byte(consts::IF_REGISTER_ADDR);
+                let ie: u8 = mem.read_byte(consts::IE_REGISTER_ADDR);
 
-                    println!("IF: {:#x} {:#b}", if_, if_);
-                    println!("IE: {:#x} {:#b}", ie, ie);
-                    println!("TIMA: {:#x} {:#b}", tima, tima);
-                    println!("TMA: {:#x} {:#b}", tma, tma);
-                    println!("TAC: {:#x} {:#b}", tac, tac);
-                    println!("DIV: {:#x} {:#b}", div, div);
-                },
-                "memory" => {
-                    println!("{}", mem);
-                },
-                _ => {
-                    Debugger::display_help(&format!("***ERROR: Invalid parameter for 'show': {}\n",parameters[0]));
-                },
+                println!("IF: {:#x} {:#b}", if_, if_);
+                println!("IE: {:#x} {:#b}", ie, ie);
+                println!("TIMA: {:#x} {:#b}", tima, tima);
+                println!("TMA: {:#x} {:#b}", tma, tma);
+                println!("TAC: {:#x} {:#b}", tac, tac);
+                println!("DIV: {:#x} {:#b}", div, div);
+            },
+            "memory" => {
+                Debugger::parse_show_memory(&parameters[1..], mem);
+            },
+            "events" => {
+                println!("{}", timer.events_to_str());
+            }
+            _ => {
+                Debugger::display_help(&format!("***ERROR: Invalid parameter for 'show': {}\n",parameters[0]));
+            },
+        }
+    }
+
+    fn parse_show_memory(parameters: &[&str], mem: &Memory) {
+        if parameters.len() != 2 {
+            Debugger::display_help(&format!("***ERROR: Invalid number of arguments for 'show memory'\n"));
+        } else {
+            let min_addr = Debugger::hex_from_str(parameters[0]);
+            let max_addr = Debugger::hex_from_str(parameters[1]);
+            if min_addr != None && max_addr != None {
+                println!("{}", mem.format(min_addr, max_addr));
             }
         }
     }
@@ -236,16 +248,11 @@ impl Debugger {
         if parameters.is_empty() || parameters.len() > 3 {
             Debugger::display_help(&format!("***ERROR: Invalid number of arguments for 'break'\n"));
         } else {
-            self.break_addr = match u16::from_str_radix(&parameters[0][2..], 16) {
-                Ok(value) => {
-                    self.should_run_cpu = true;
-                    Some(value)
-                },
-                Err(value) => {
-                    Debugger::display_help(&format!("***ERROR: Address is not a valid hex number: {}\n", value));
-                    None
-                },
-            };
+            if let Some(addr) = Debugger::hex_from_str(&parameters[0]) {
+                self.should_run_cpu = true;
+                self.break_addr = Some(addr);
+            }
+
             if parameters.len() >= 2 {
                 if let Some(value) = Debugger::cpu_human_in_params(&parameters[1..]) {
                     self.break_debug = value;
@@ -255,6 +262,21 @@ impl Debugger {
                     self.should_run_cpu = false;
                 }
             }
+        }
+    }
+
+    fn hex_from_str(mut str_hex: &str) -> Option<u16> {
+        if str_hex.len() > 2 && str_hex[..2].to_owned() == "0x" {
+            str_hex = &str_hex[2..];
+        }
+        match u16::from_str_radix(str_hex, 16) {
+            Ok(value) => {
+                Some(value)
+            },
+            Err(value) => {
+                Debugger::display_help(&format!("***ERROR: Address is not a valid hex number: {}\n", value));
+                None
+            },
         }
     }
 }
