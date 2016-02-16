@@ -43,11 +43,6 @@ impl Gebemula {
             //Checks for interrupt requests should be made after *every* instruction is
             //run.
             self.cpu.handle_interrupts(&mut self.mem);
-            //TODO before requesting an interrupt, we *have* to check if the interrupts
-            //are enabled. This way, only an interrupt code would allow interrupts.
-            //The problem is that an interrupt may happen during the execution code of
-            //some other interrupt, which could be a problem (unless the interrupt code
-            //executes EI).
         }
     }
 }
