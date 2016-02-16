@@ -29,9 +29,9 @@ impl Debugger {
 
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         if self.display_header {
-            println!("##########################");
-            println!("# Gebemula Debug Console #");
-            println!("##########################");
+            println!("##################################");
+            println!("#     Gebemula Debug Console     #");
+            println!("##################################");
             let game_title_u8: &mut Vec<u8> = &mut Vec::new();
             for byte in mem::consts::GAME_TITLE_ADDR_START..(mem::consts::GAME_TITLE_ADDR_END + 1) {
                 if byte == 0 {
@@ -45,7 +45,7 @@ impl Debugger {
             };
             println!("Game: {}", game_title);
             println!("Type 'help' for the command list.")
-            println!("---------------------------------");
+            println!("----------------------------------");
             self.display_header = false;
         }
         if self.run_debug != None {
