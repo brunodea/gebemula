@@ -202,7 +202,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xF9 => {
                 //LD SP,HL
-                format!("ld HL,SP+{:#x}", instruction.imm8.unwrap())
+                format!("ld SP,HL")
             },
             /*****************************************/
             /* 8 bit arithmetic/logical instructions */
