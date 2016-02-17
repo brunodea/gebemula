@@ -33,7 +33,7 @@ pub fn cartridge_type_str(memory: &Memory) -> String {
     
     let mut res: String = "".to_owned();
     if byte == 0x00 {
-        res = "ONLY ".to_owned();
+        res = " ONLY".to_owned();
     } else if byte <= 0x3 {
         res = mbc1.to_owned();
         if byte >= 0x2 {
