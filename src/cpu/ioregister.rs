@@ -3,10 +3,7 @@ use cpu::interrupt;
 use super::super::mem::mem;
 
 pub fn update_stat_reg_coincidence_flag(memory: &mut mem::Memory) {
-    let mut coincidence_flag: u8 = 0b000;
-    if memory.read_byte(consts::LY_REGISTER_ADDR) == memory.read_byte(consts::LYC_REGISTER_ADDR) {
-        coincidence_flag = 0b100;
-    }
+    let coincidence_flag: u8 = if stat_reg_coincidence_flag(memory) { 0b100 } else { 0b000 };
     let new_stat: u8 = 
         (memory.read_byte(consts::STAT_REGISTER_ADDR) & 0b1111_1011) | coincidence_flag;
     memory.write_byte(consts::STAT_REGISTER_ADDR, new_stat);
