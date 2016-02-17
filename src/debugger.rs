@@ -150,7 +150,7 @@ impl Debugger {
 
     fn display_help(error_msg: &str) {
         if error_msg != "" {
-            println!("**ERROR: {}", error_msg);
+            println!("***ERROR: {}", error_msg);
         }
         println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state of component.");
         println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print it.\
@@ -234,6 +234,7 @@ impl Debugger {
                 let div: u8 = mem.read_byte(cpu::consts::DIV_REGISTER_ADDR);
                 let if_: u8 = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
                 let ie: u8 = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
+                let ly: u8 = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
 
                 println!("IF: {:#x} {:#b}", if_, if_);
                 println!("IE: {:#x} {:#b}", ie, ie);
@@ -241,6 +242,7 @@ impl Debugger {
                 println!("TMA: {:#x} {:#b}", tma, tma);
                 println!("TAC: {:#x} {:#b}", tac, tac);
                 println!("DIV: {:#x} {:#b}", div, div);
+                println!("LY: {:#x} {:#b}", ly, ly);
             },
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);

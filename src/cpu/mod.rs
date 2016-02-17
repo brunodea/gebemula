@@ -4,3 +4,4 @@ pub mod interrupt;
 pub mod timer;
 mod opcodes;
 mod ioregister;
+mod lcd;

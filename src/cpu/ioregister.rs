@@ -31,7 +31,34 @@ pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     }
 }
 
-pub fn set_ly_reg(mut value: u8, memory: &mut mem::Memory) {
-    value = if value > 0x99 { 0 } else { value };
-    memory.write_byte(consts::LY_REGISTER_ADDR, value);
+pub struct LyRegister {
+    current_cycles: u32,
+}
+
+impl LyRegister {
+    pub fn new() -> LyRegister {
+        LyRegister {
+            current_cycles: 0,
+        }
+    }
+
+    //LY updates on different rates depending on its current value.
+    pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
+        self.current_cycles += cycles;
+        let current_value: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
+        let should_update: bool = match current_value {
+            0x0 => self.current_cycles >= 856,
+            0x1 ... 0x98 => self.current_cycles >= 456,
+            0x99 => self.current_cycles >= 56,
+            _ => {
+                self.current_cycles = 0;
+                memory.write_byte(consts::LY_REGISTER_ADDR, 0);
+                false
+            },
+        };
+        if should_update {
+            self.current_cycles = 0;
+            memory.write_byte(consts::LY_REGISTER_ADDR, current_value + 1);
+        }
+    }
 }

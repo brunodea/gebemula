@@ -1,16 +1,13 @@
 use super::super::mem::mem;
-use cpu::interrupt;
-use cpu::consts;
-use cpu::ioregister;
-use std::thread;
-use std::{time, fmt};
+use cpu::{interrupt, consts, ioregister, lcd};
+use std::{thread, time, fmt};
 
-struct Event {
+pub struct Event {
     cycles_counter: u32,
     cycles_rate: u32, //rate at which the event should happen
     cycles_duration: Option<u32>, //duration of the event, that is, number of cycles until the cycles counter starts again.
     cycles_duration_counter: u32,
-    on_event: bool,
+    pub on_event: bool,
 }
 
 impl fmt::Display for Event {
@@ -34,12 +31,6 @@ impl Event {
             cycles_duration_counter: 0,
             on_event: false,
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.cycles_counter = 0;
-        self.cycles_duration_counter = 0;
-        self.on_event = false;
     }
 
     //return true if event happened.
@@ -68,83 +59,10 @@ impl Event {
     }
 }
 
-struct ScreenRefreshEvent {
-    screen_refresh: Event,
-    vblank_event: Event,
-    ly_event: Event,
-    current_mode: u8,
-    current_duration_cycles: u32, //counter for the current mode duration in cycles.
-}
-
-impl fmt::Display for ScreenRefreshEvent {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\
-               Screen Refresh Event ##########\n\
-               {}\n\
-               ---------------------\n\
-               VBlank:\n{}\nLY:\n{}\n", self.screen_refresh, self.vblank_event,
-               self.ly_event)
-    }
-}
-
-impl ScreenRefreshEvent {
-    pub fn new() -> ScreenRefreshEvent {
-        ScreenRefreshEvent {
-            screen_refresh: Event::new(consts::SCREEN_REFRESH_RATE_CYCLES, Some(consts::SCREEN_REFRESH_DURATION_CYCLES)),
-            vblank_event: Event::new(consts::VBLANK_INTERRUPT_RATE_CYCLES, Some(consts::STAT_MODE_1_DURATION_CYCLES)),
-            ly_event: Event::new(consts::LY_REGISTER_UPDATE_RATE_CYCLES, None),
-            current_mode: 0b0,
-            current_duration_cycles: 0,
-        }
-    }
-
-    pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
-        self.screen_refresh.update(cycles);
-        if self.vblank_event.update(cycles) {
-            interrupt::request(interrupt::Interrupt::VBlank, memory);
-            self.current_duration_cycles = 0;
-            ioregister::update_stat_reg_mode_flag(0b01, memory);
-            self.current_mode = 0b10; //maybe it is not necessary to do this. If the sync is correct, current_mode should already be 0b10.
-            ioregister::set_ly_reg(144, memory);
-        } else if self.vblank_event.on_event {
-            if self.ly_event.update(cycles) {
-                let value: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
-                ioregister::set_ly_reg(value + 1, memory);
-            }
-        } else if self.screen_refresh.on_event {
-            ioregister::set_ly_reg(0, memory);
-            self.ly_event.reset();
-            self.current_duration_cycles += cycles;
-            match self.current_mode {
-                0b00 => {
-                    if self.current_duration_cycles >= consts::STAT_MODE_0_DURATION_CYCLES {
-                        self.current_mode = 0b10;
-                        self.current_duration_cycles = 0;
-                    }
-                },
-                0b10 => {
-                    if self.current_duration_cycles >= consts::STAT_MODE_2_DURATION_CYCLES {
-                        self.current_mode = 0b11;
-                        self.current_duration_cycles = 0;
-                    }
-                },
-                0b11 => {
-                    if self.current_duration_cycles >= consts::STAT_MODE_3_DURATION_CYCLES {
-                        self.current_mode = 0b00;
-                        self.current_duration_cycles = 0;
-                    }
-                },
-                _ => unreachable!(),
-            }
-            ioregister::update_stat_reg_mode_flag(self.current_mode, memory);
-        }
-    }
-}
-
 pub struct Timer {
     div_event: Event,
     tima_event: Event,
-    screen_refresh_event: ScreenRefreshEvent,
+    screen_refresh_event: lcd::ScreenRefreshEvent,
     frame_rate_event: Event,
     timer_started: bool,
 }
@@ -155,7 +73,7 @@ impl Timer {
         Timer {
             div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES, None),
             tima_event: Event::new(0, None),
-            screen_refresh_event: ScreenRefreshEvent::new(),
+            screen_refresh_event: lcd::ScreenRefreshEvent::new(),
             frame_rate_event: Event::new(cycles_from_hz(60), None),
             timer_started: false,
         }
