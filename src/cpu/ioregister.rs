@@ -31,3 +31,7 @@ pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     }
 }
 
+pub fn set_ly_reg(mut value: u8, memory: &mut mem::Memory) {
+    value = if value > 0x99 { 0 } else { value };
+    memory.write_byte(consts::LY_REGISTER_ADDR, value);
+}

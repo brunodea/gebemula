@@ -17,7 +17,7 @@ impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "cycles counter: {}\
-               \ncycles rate {}\
+               \ncycles rate: {}\
                \ncycles duration: {:?}\
                \ncycles duration counter: {}\
                \non event: {:?}", self.cycles_counter, self.cycles_rate, self.cycles_duration,
@@ -34,6 +34,12 @@ impl Event {
             cycles_duration_counter: 0,
             on_event: false,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.cycles_counter = 0;
+        self.cycles_duration_counter = 0;
+        self.on_event = false;
     }
 
     //return true if event happened.
@@ -65,6 +71,7 @@ impl Event {
 struct ScreenRefreshEvent {
     screen_refresh: Event,
     vblank_event: Event,
+    ly_event: Event,
     current_mode: u8,
     current_duration_cycles: u32, //counter for the current mode duration in cycles.
 }
@@ -75,7 +82,8 @@ impl fmt::Display for ScreenRefreshEvent {
                Screen Refresh Event ##########\n\
                {}\n\
                ---------------------\n\
-               VBlank:\n{}\n", self.screen_refresh, self.vblank_event)
+               VBlank:\n{}\nLY:\n{}\n", self.screen_refresh, self.vblank_event,
+               self.ly_event)
     }
 }
 
@@ -84,20 +92,28 @@ impl ScreenRefreshEvent {
         ScreenRefreshEvent {
             screen_refresh: Event::new(consts::SCREEN_REFRESH_RATE_CYCLES, Some(consts::SCREEN_REFRESH_DURATION_CYCLES)),
             vblank_event: Event::new(consts::VBLANK_INTERRUPT_RATE_CYCLES, Some(consts::STAT_MODE_1_DURATION_CYCLES)),
+            ly_event: Event::new(consts::LY_REGISTER_UPDATE_RATE_CYCLES, None),
             current_mode: 0b0,
             current_duration_cycles: 0,
         }
     }
 
     pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
+        self.screen_refresh.update(cycles);
         if self.vblank_event.update(cycles) {
             interrupt::request(interrupt::Interrupt::VBlank, memory);
             self.current_duration_cycles = 0;
             ioregister::update_stat_reg_mode_flag(0b01, memory);
             self.current_mode = 0b10; //maybe it is not necessary to do this. If the sync is correct, current_mode should already be 0b10.
-        }
-        self.screen_refresh.update(cycles);
-        if self.screen_refresh.on_event && !self.vblank_event.on_event {
+            ioregister::set_ly_reg(144, memory);
+        } else if self.vblank_event.on_event {
+            if self.ly_event.update(cycles) {
+                let value: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
+                ioregister::set_ly_reg(value + 1, memory);
+            }
+        } else if self.screen_refresh.on_event {
+            ioregister::set_ly_reg(0, memory);
+            self.ly_event.reset();
             self.current_duration_cycles += cycles;
             match self.current_mode {
                 0b00 => {

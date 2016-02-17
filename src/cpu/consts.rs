@@ -25,8 +25,9 @@ pub const STAT_MODE_1_DURATION_CYCLES: u32 = 4560; //V-Blank period
 pub const STAT_MODE_2_DURATION_CYCLES: u32 = 77; //77~83 oam being used
 pub const STAT_MODE_3_DURATION_CYCLES: u32 = 169; //169~175 oam and ram being used
 
-
 pub const SCREEN_REFRESH_RATE_CYCLES: u32 = 70224;
 pub const SCREEN_REFRESH_DURATION_CYCLES: u32 = 
     STAT_MODE_0_DURATION_CYCLES + STAT_MODE_1_DURATION_CYCLES +
     STAT_MODE_2_DURATION_CYCLES + STAT_MODE_3_DURATION_CYCLES;
+
+pub const LY_REGISTER_UPDATE_RATE_CYCLES: u32 = STAT_MODE_1_DURATION_CYCLES / 10; //divide by 10, because it will only update during vblank from 144 to 153 (0x90 to 0x99)
