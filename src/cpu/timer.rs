@@ -94,6 +94,7 @@ impl ScreenRefreshEvent {
             interrupt::request(interrupt::Interrupt::VBlank, memory);
             self.current_duration_cycles = 0;
             ioregister::update_stat_reg_mode_flag(0b01, memory);
+            self.current_mode = 0b10; //maybe it is not necessary to do this. If the sync is correct, current_mode should already be 0b10.
         }
         self.screen_refresh.update(cycles);
         if self.screen_refresh.on_event && !self.vblank_event.on_event {
