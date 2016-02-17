@@ -10,6 +10,7 @@ pub struct Debugger {
     should_run_cpu: bool,
     run_debug: Option<u8>, //0b0000_0000 - bit 0: cpu, bit 1: human;
     break_debug: u8, //same as run_debug
+    steps_debug: u8, //same as run_debug
     num_steps: u32,
     display_header: bool,
 }
@@ -20,7 +21,8 @@ impl Debugger {
             break_addr: None,
             should_run_cpu: false,
             run_debug: None,
-            break_debug: 0x00,
+            break_debug: 0b0,
+            steps_debug: 0b0,
             num_steps: 0,
             display_header: true,
         }
@@ -53,8 +55,11 @@ impl Debugger {
                 0 => true,
                 _ => {
                     self.num_steps -= 1;
+                    self.print_cpu_human(self.steps_debug, instruction, cpu);
                     if self.num_steps == 0 {
-                        println!("{}", instruction); //prints the instruction run after step.
+                        if self.steps_debug == 0 {
+                            println!("{}", instruction);
+                        }
                         true
                     } else {
                         false
@@ -148,13 +153,14 @@ impl Debugger {
             println!("**ERROR: {}", error_msg);
         }
         println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state of component.");
-        println!("- step [num (decimal)]\n\tRun instruction pointed by PC and print it.\
-                 \n\tIf a num is set, run step num times and print the last one.");
+        println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print it.\
+                 \n\tIf a number is set, run step num times and print the last one.\
+                 \n\tIf a number is set and cpu or human or both, then it will print all the instructions until the n'th instruction.");
         println!("- last\n\tPrint last instruction.");
         println!("- break <address in hex> [cpu|human]\n\tRun instructions until the instruction at the provided address is run.\
-                 \n\tIf cpu or human (or both) are set, print each instruction run.");
+                 \n\tIf cpu or human or both are set, print each instruction run.");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
-                             \n\tIf set, information about cpu state or instruction (human friendly) or both (if both are set) will be printed.");
+                             \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
         println!("- info\n\tDisplay information about the game rom.");
         println!("- help\n\tShow this.");
     }
@@ -162,15 +168,17 @@ impl Debugger {
     fn parse_step(&mut self, parameters: &[&str]) {
         if parameters.is_empty() {
             self.num_steps = 1;
-        } else if parameters.len() == 1 {
-            let steps = match parameters[0].parse::<u32>() {
-                Ok(s) => s,
-                Err(e) => {
-                    Debugger::display_help(&format!("Couldn't parse number of steps: {}", e));
-                    0
-                },
-            };
-            self.num_steps = steps;
+        } else if parameters.len() >= 1 {
+            if let Ok(s) = parameters[0].parse::<u32>() {
+                self.num_steps = s;
+            } else {
+                Debugger::display_help(&format!("Couldn't parse number of steps."));
+                self.num_steps = 0;
+                return;
+            }
+            if let Some(value) = Debugger::cpu_human_in_params(&parameters[1..]) {
+                self.steps_debug = value;
+            }
         } else {
             Debugger::display_help("Too many parameters for the command `step`.");
         }

@@ -952,6 +952,7 @@ impl Cpu {
 
             let mut addr: u16 = self.reg16(Reg::PC);
             if util::is_neg16(imm) {
+                let aux: u16 = util::twos_complement(imm);
                 addr = addr - util::twos_complement(imm);
             } else {
                 addr = addr + imm;
