@@ -298,10 +298,11 @@ impl Cpu {
     }
 
     //function for having control of memory writes
-    fn mem_write(&self, address: u16, mut value: u8, memory: &mut mem::Memory) {
-        if address == consts::DIV_REGISTER_ADDR {
-            value = 0;
-        }
+    fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
+        let value: u8 = match address {
+            consts::DIV_REGISTER_ADDR | consts::LY_REGISTER_ADDR => 0,
+            _ => value,
+        };
         memory.write_byte(address, value);
     }
 
