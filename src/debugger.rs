@@ -4,7 +4,6 @@ use cpu::timer::Timer;
 use mem;
 use mem::mem::Memory;
 use std::io::{self, Write};
-use std::str;
 
 pub struct Debugger {
     break_addr: Option<u16>,
