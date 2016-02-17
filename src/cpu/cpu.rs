@@ -1190,7 +1190,6 @@ impl Cpu {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
-        let rhs_val: u8 = self.reg8(reg_rhs);
 
         let cycles: u32;
         if reg_rhs == Reg::HL {
@@ -1199,9 +1198,11 @@ impl Cpu {
             cycles = 8;
         } else if reg_lhs == Reg::HL {
             let addr: u16 = self.reg16(Reg::HL);
+            let rhs_val: u8 = self.reg8(reg_rhs);
             self.mem_write(addr, rhs_val, memory);
             cycles = 8;
         } else {
+            let rhs_val: u8 = self.reg8(reg_rhs);
             self.reg_set8(reg_lhs, rhs_val);
             cycles = 4;
         }
