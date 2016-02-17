@@ -93,7 +93,7 @@ impl ScreenRefreshEvent {
         if self.vblank_event.update(cycles) {
             interrupt::request(interrupt::Interrupt::VBlank, memory);
             self.current_duration_cycles = 0;
-            ioregister::update_stat_reg_flags(0b01, memory);
+            ioregister::update_stat_reg_mode_flag(0b01, memory);
         }
         self.screen_refresh.update(cycles);
         if self.screen_refresh.on_event && !self.vblank_event.on_event {
@@ -119,7 +119,7 @@ impl ScreenRefreshEvent {
                 },
                 _ => unreachable!(),
             }
-            ioregister::update_stat_reg_flags(self.current_mode, memory);
+            ioregister::update_stat_reg_mode_flag(self.current_mode, memory);
         }
     }
 }
