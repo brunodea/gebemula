@@ -481,16 +481,22 @@ impl Cpu {
                 instruction.cycles = 20;
                 instruction.imm16 = Some(addr);
             },
-            0xC1 | 0xD1 | 0xE1 => {
+            0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 //POP rr
-                let reg: Reg = Reg::pair_from_dd(byte >> 4);
+                let mut reg: Reg = Reg::pair_from_dd(byte >> 4);
+                if reg == Reg::SP {
+                    reg = Reg::AF;
+                }
                 let sp_val: u16 = self.pop_sp16(memory);
                 self.reg_set16(reg, sp_val);
                 instruction.cycles = 12;
             },
-            0xC5 | 0xD5 | 0xE5 => {
+            0xC5 | 0xD5 | 0xE5 | 0xF5 => {
                 //PUSH rr
-                let reg: Reg = Reg::pair_from_dd(byte >> 4);
+                let mut reg: Reg = Reg::pair_from_dd(byte >> 4);
+                if reg == Reg::SP {
+                    reg = Reg::AF;
+                }
                 let val = self.reg16(reg);
                 self.push_sp16(val, memory);
                 instruction.cycles = 16;
