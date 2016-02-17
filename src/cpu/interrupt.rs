@@ -84,19 +84,3 @@ pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
 pub fn is_enabled(interrupt: Interrupt, memory: &mem::Memory) -> bool {
     is_set_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory)
 }
-
-pub fn enable(interrupt: Interrupt, memory: &mut mem::Memory) {
-    set_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory);
-}
-
-pub fn disable(interrupt: Interrupt, memory: &mut mem::Memory) {
-    unset_bit(bit(interrupt), consts::IE_REGISTER_ADDR, memory);
-}
-
-pub fn disable_all(memory: &mut mem::Memory) {
-    memory.write_byte(consts::IE_REGISTER_ADDR, 0x00);
-}
-
-pub fn enable_all(memory: &mut mem::Memory) {
-    memory.write_byte(consts::IE_REGISTER_ADDR, 0x01);
-}

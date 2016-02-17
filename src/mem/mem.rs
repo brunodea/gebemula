@@ -1,4 +1,3 @@
-use std::fmt;
 use util::util;
 use mem::consts;
 

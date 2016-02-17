@@ -18,10 +18,6 @@ pub fn update_stat_reg_mode_flag(mode_flag: u8, memory: &mut mem::Memory) {
     memory.write_byte(consts::STAT_REGISTER_ADDR, new_stat);
 }
 
-pub fn stat_reg_mode_flag(memory: &mem::Memory) -> u8 {
-    memory.read_byte(consts::STAT_REGISTER_ADDR) & 0b11
-}
-
 pub fn stat_reg_coincidence_flag(memory: &mem::Memory) -> bool {
     memory.read_byte(consts::LY_REGISTER_ADDR) == memory.read_byte(consts::LYC_REGISTER_ADDR)
 }
