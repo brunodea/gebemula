@@ -1,6 +1,7 @@
 use super::super::mem::mem;
 use cpu::interrupt;
 use cpu::consts;
+use cpu::ioregister;
 use std::thread;
 use std::{time, fmt};
 
@@ -14,7 +15,7 @@ struct Event {
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, 
+        write!(f,
                "cycles counter: {}\
                \ncycles rate {}\
                \ncycles duration: {:?}\
@@ -61,10 +62,72 @@ impl Event {
     }
 }
 
+struct ScreenRefreshEvent {
+    screen_refresh: Event,
+    vblank_event: Event,
+    current_mode: u8,
+    current_duration_cycles: u32, //counter for the current mode duration in cycles.
+}
+
+impl fmt::Display for ScreenRefreshEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\
+               Screen Refresh Event ##########\n\
+               {}\n\
+               ---------------------\n\
+               VBlank:\n{}\n", self.screen_refresh, self.vblank_event)
+    }
+}
+
+impl ScreenRefreshEvent {
+    pub fn new() -> ScreenRefreshEvent {
+        ScreenRefreshEvent {
+            screen_refresh: Event::new(consts::SCREEN_REFRESH_RATE_CYCLES, Some(consts::SCREEN_REFRESH_DURATION_CYCLES)),
+            vblank_event: Event::new(consts::VBLANK_INTERRUPT_RATE_CYCLES, Some(consts::STAT_MODE_1_DURATION_CYCLES)),
+            current_mode: 0b0,
+            current_duration_cycles: 0,
+        }
+    }
+
+    pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
+        if self.vblank_event.update(cycles) {
+            interrupt::request(interrupt::Interrupt::VBlank, memory);
+            self.current_duration_cycles = 0;
+            ioregister::update_stat_reg_flags(0b01, memory);
+        }
+        self.screen_refresh.update(cycles);
+        if self.screen_refresh.on_event && !self.vblank_event.on_event {
+            self.current_duration_cycles += cycles;
+            match self.current_mode {
+                0b00 => {
+                    if self.current_duration_cycles >= consts::STAT_MODE_0_DURATION_CYCLES {
+                        self.current_mode = 0b10;
+                        self.current_duration_cycles = 0;
+                    }
+                },
+                0b10 => {
+                    if self.current_duration_cycles >= consts::STAT_MODE_2_DURATION_CYCLES {
+                        self.current_mode = 0b11;
+                        self.current_duration_cycles = 0;
+                    }
+                },
+                0b11 => {
+                    if self.current_duration_cycles >= consts::STAT_MODE_3_DURATION_CYCLES {
+                        self.current_mode = 0b00;
+                        self.current_duration_cycles = 0;
+                    }
+                },
+                _ => unreachable!(),
+            }
+            ioregister::update_stat_reg_flags(self.current_mode, memory);
+        }
+    }
+}
+
 pub struct Timer {
     div_event: Event,
     tima_event: Event,
-    vblank_interrupt_event: Event,
+    screen_refresh_event: ScreenRefreshEvent,
     frame_rate_event: Event,
     timer_started: bool,
 }
@@ -75,7 +138,7 @@ impl Timer {
         Timer {
             div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES, None),
             tima_event: Event::new(0, None),
-            vblank_interrupt_event: Event::new(consts::VBLANK_INTERRUPT_RATE_CYCLES, Some(consts::VBLANK_DURATION_CYCLES)),
+            screen_refresh_event: ScreenRefreshEvent::new(),
             frame_rate_event: Event::new(cycles_from_hz(60), None),
             timer_started: false,
         }
@@ -107,9 +170,9 @@ impl Timer {
             self.timer_started = false;
         }
 
-        if self.vblank_interrupt_event.update(cycles) {
-            interrupt::request(interrupt::Interrupt::VBlank, memory);
-        }
+        self.screen_refresh_event.update(cycles, memory);
+
+        ioregister::lcdc_stat_interrupt(memory); //verifies and request LCDC interrupt
 
         if self.frame_rate_event.update(cycles) {
             //TODO adjust duration to consider elapsed time since the last frame.
@@ -118,12 +181,13 @@ impl Timer {
     }
 
     pub fn events_to_str(&self) -> String {
+        let line = "---------------------\n";
         let div = format!("DIV #########\n{}\n", self.div_event);
         let tima = format!("TIMA #########\n{}\n", self.tima_event);
-        let vblank = format!("VBlank #########\n{}\n", self.vblank_interrupt_event);
+        let screen = format!("{}", self.screen_refresh_event);
         let frame_rate = format!("FrameRate #########\n{}", self.frame_rate_event);
 
-        (div + &tima + &vblank + &frame_rate).to_owned()
+        (div + line + &tima + line + &screen + line + &frame_rate).to_owned()
     }
 }
 
