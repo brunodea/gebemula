@@ -334,14 +334,16 @@ impl Debugger {
                 let if_: u8 = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
                 let ie: u8 = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
                 let ly: u8 = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let lcdc: u8 = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
 
                 println!("IF: {:#x} {:#b}", if_, if_);
                 println!("IE: {:#x} {:#b}", ie, ie);
+                println!("DIV: {:#x} {:#b}", div, div);
+                println!("LY: {:#x} {:#b}", ly, ly);
+                println!("LCDC: {:#x} {:#b}", lcdc, lcdc);
                 println!("TIMA: {:#x} {:#b}", tima, tima);
                 println!("TMA: {:#x} {:#b}", tma, tma);
                 println!("TAC: {:#x} {:#b}", tac, tac);
-                println!("DIV: {:#x} {:#b}", div, div);
-                println!("LY: {:#x} {:#b}", ly, ly);
             },
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);

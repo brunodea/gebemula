@@ -119,10 +119,9 @@ impl Timer {
         let line = "---------------------\n";
         let div = format!("DIV #########\n{}\n", self.div_event);
         let tima = format!("TIMA #########\n{}\n", self.tima_event);
-        let screen = format!("{}", self.screen_refresh_event);
         let frame_rate = format!("FrameRate #########\n{}", self.frame_rate_event);
 
-        (div + line + &tima + line + &screen + line + &frame_rate).to_owned()
+        (div + line + &tima + line + &frame_rate).to_owned()
     }
 }
 

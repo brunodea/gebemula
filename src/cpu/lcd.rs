@@ -1,50 +1,37 @@
 use super::super::mem::mem;
-use cpu::{interrupt, consts, ioregister, timer};
-use std::fmt;
+use cpu::{consts, ioregister};
 
 pub struct ScreenRefreshEvent {
-    screen_refresh: timer::Event,
-    vblank_event: timer::Event,
-    ly_register: ioregister::LyRegister,
+    ly_register: ioregister::LYRegister,
     current_mode: u8,
     current_duration_cycles: u32, //counter for the current mode duration in cycles.
-}
-
-impl fmt::Display for ScreenRefreshEvent {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\
-               Screen Refresh timer::Event ##########\n\
-               {}\n\
-               ---------------------\n\
-               VBlank:\n{}\n", self.screen_refresh, self.vblank_event)
-    }
 }
 
 impl ScreenRefreshEvent {
     pub fn new() -> ScreenRefreshEvent {
         ScreenRefreshEvent {
-            screen_refresh: timer::Event::new(consts::SCREEN_REFRESH_RATE_CYCLES, Some(consts::SCREEN_REFRESH_DURATION_CYCLES)),
-            vblank_event: timer::Event::new(consts::VBLANK_INTERRUPT_RATE_CYCLES, Some(consts::STAT_MODE_1_DURATION_CYCLES)),
-            ly_register: ioregister::LyRegister::new(),
-            current_mode: 0b0,
+            ly_register: ioregister::LYRegister::new(),
+            current_mode: 0b10,
             current_duration_cycles: 0,
         }
     }
 
     pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
-        self.ly_register.update(cycles, memory);
-        self.screen_refresh.update(cycles);
-        if self.vblank_event.update(cycles) {
-            interrupt::request(interrupt::Interrupt::VBlank, memory);
-            self.current_duration_cycles = 0;
-            ioregister::update_stat_reg_mode_flag(0b01, memory);
-            self.current_mode = 0b10; //maybe it is not necessary to do this. If the sync is correct, current_mode should already be 0b10.
-        }
-        if !self.vblank_event.on_event && self.screen_refresh.on_event {
+        if ioregister::LCDCRegister::is_lcd_display_enable(memory) {
             self.current_duration_cycles += cycles;
+            self.ly_register.update(cycles, memory);
+            if ioregister::LYRegister::value(memory) >= 0x90 {
+                self.current_mode = 0b01;
+            }
             match self.current_mode {
                 0b00 => {
                     if self.current_duration_cycles >= consts::STAT_MODE_0_DURATION_CYCLES {
+                        self.current_mode = 0b10;
+                        self.current_duration_cycles = 0;
+                    }
+                },
+                0b01 => {
+                    if ioregister::LYRegister::value(memory) < 0x90 {
                         self.current_mode = 0b10;
                         self.current_duration_cycles = 0;
                     }

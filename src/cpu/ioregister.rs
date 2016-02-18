@@ -31,15 +31,19 @@ pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     }
 }
 
-pub struct LyRegister {
+pub struct LYRegister {
     current_cycles: u32,
 }
 
-impl LyRegister {
-    pub fn new() -> LyRegister {
-        LyRegister {
+impl LYRegister {
+    pub fn new() -> LYRegister {
+        LYRegister {
             current_cycles: 0,
         }
+    }
+
+    pub fn value(memory: &mem::Memory) -> u8 {
+        memory.read_byte(consts::LY_REGISTER_ADDR)
     }
 
     //LY updates on different rates depending on its current value.
@@ -50,15 +54,23 @@ impl LyRegister {
             0x0 => self.current_cycles >= 856,
             0x1 ... 0x98 => self.current_cycles >= 456,
             0x99 => self.current_cycles >= 56,
-            _ => {
-                self.current_cycles = 0;
-                memory.write_byte(consts::LY_REGISTER_ADDR, 0);
-                false
-            },
+            _ => unreachable!(),
         };
         if should_update {
             self.current_cycles = 0;
-            memory.write_byte(consts::LY_REGISTER_ADDR, current_value + 1);
+            let new_value = if current_value == 0x99 { 0x0 } else { current_value + 1 };
+            memory.write_byte(consts::LY_REGISTER_ADDR, new_value);
+            if new_value == 0x90 {
+                interrupt::request(interrupt::Interrupt::VBlank, memory);
+            }
         }
+    }
+}
+
+pub struct LCDCRegister;
+
+impl LCDCRegister {
+    pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
+        (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> 7) & 0b1 == 0b1
     }
 }

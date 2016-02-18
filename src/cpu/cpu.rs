@@ -172,7 +172,7 @@ impl Cpu {
         self.reg_set16(reg, value as u16);
     }
 
-    fn reg16(&self, reg: Reg) -> u16 {
+    pub fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
             self.regs[index] as u16
