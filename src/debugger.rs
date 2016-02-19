@@ -51,6 +51,7 @@ impl BreakCommand {
     fn parse(&mut self, params: &[&str]) -> bool {
         if params.is_empty() {
             Debugger::display_help("Invalid number of arguments for 'break'\n");
+            return false;
         }
         let mut should_run_cpu: bool = false;
         let mut has_cpu_human: bool = false;
