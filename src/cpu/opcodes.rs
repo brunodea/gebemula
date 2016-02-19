@@ -341,7 +341,18 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("dec {:?}", reg)
             },
             0x09 | 0x19 | 0x29 | 0x39 => {
-                //ADD HL,rr let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4); format!("add HL,{:?}", reg) }, 0xE8 => { ADD SP,n format!("add SP,{:#x}", instruction.imm8.unwrap()) }, *****************************************/ /*            Jumps/Calls                 */ *****************************************/ 0x18 => { JR n
+                //ADD HL,rr
+                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                format!("add HL,{:?}", reg) },
+            0xE8 => {
+                //ADD SP,n
+                format!("add SP,{:#x}", instruction.imm8.unwrap())
+            },
+            /*****************************************/
+            /*            Jumps/Calls                */
+            /*****************************************/
+            0x18 => {
+                //JR n
                 format!("jr {:#x}", instruction.imm8.unwrap())
             },
             0x20 => {

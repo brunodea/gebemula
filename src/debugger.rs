@@ -29,6 +29,8 @@ impl BreakCommand {
             if instruction.address == addr {
                 println!("{}", instruction);
                 self.break_addr = None;
+                self.break_reg = None;
+                self.break_reg_value = 0;
                 go_to_read_loop = true;
             } else {
                 Debugger::print_cpu_human(self.break_debug, instruction, cpu);
@@ -36,6 +38,7 @@ impl BreakCommand {
         } else if let Some(reg) = self.break_reg {
             if cpu.reg16(reg) == self.break_reg_value {
                 println!("{}", instruction);
+                self.break_addr = None;
                 self.break_reg = None;
                 self.break_reg_value = 0;
                 go_to_read_loop = true;
@@ -96,6 +99,7 @@ impl BreakCommand {
                     has_cpu_human = params.len() >= 3;
                 } else {
                     Debugger::display_help(&format!("Invalid register value: {}", params[1]));
+                    should_run_cpu = false;
                 }
 
             }
