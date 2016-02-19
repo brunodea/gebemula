@@ -1,7 +1,7 @@
 use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
-use cpu::{interrupt, opcodes, consts};
+use cpu::{ioregister, interrupt, opcodes, consts};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -301,6 +301,10 @@ impl Cpu {
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value: u8 = match address {
             consts::DIV_REGISTER_ADDR | consts::LY_REGISTER_ADDR => 0,
+            consts::DMA_REGISTER_ADDR => {
+                ioregister::dma_transfer(value, memory);
+                value
+            }
             _ => value,
         };
         memory.write_byte(address, value);

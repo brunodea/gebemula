@@ -12,6 +12,7 @@ pub const STAT_REGISTER_ADDR: u16 = 0xFF41; //LCDC Status
 pub const LY_REGISTER_ADDR: u16 = 0xFF44;
 pub const LYC_REGISTER_ADDR: u16 = 0xFF45;
 pub const LCDC_REGISTER_ADDR: u16 = 0xFF40;
+pub const DMA_REGISTER_ADDR: u16 = 0xFF46;
 
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 

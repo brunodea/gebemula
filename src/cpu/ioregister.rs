@@ -31,6 +31,24 @@ pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     }
 }
 
+//TODO duration of dma transfer: 160 microseconds
+//TODO change hex by consts
+pub fn dma_transfer(start_address: u8, memory: &mut mem::Memory) {
+    let source_address: u16 = (start_address as u16) << 8;
+    match source_address {
+        //internal rom or ram
+        0x0000 ... 0xF19F => {
+            //only 0xA0 bytes are transfered, which is the OAM data size.
+            for i in 0x0..0xA0 {
+                //0XFE00 = start of OAM address.
+                let byte: u8 = memory.read_byte(source_address + i);
+                memory.write_byte(0xFE00 + i, byte);
+            }
+        },
+        _ => unreachable!(),
+    }
+}
+
 pub struct LYRegister {
     current_cycles: u32,
 }

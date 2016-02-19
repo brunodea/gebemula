@@ -3,5 +3,5 @@ pub mod consts;
 pub mod interrupt;
 pub mod timer;
 mod opcodes;
-mod ioregister;
+pub mod ioregister;
 mod lcd;
