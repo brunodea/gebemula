@@ -1,4 +1,8 @@
+pub const DISPLAY_HEIGHT_PX: u32 = 160;
+pub const DISPLAY_WIDTH_PX: u32 = 144;
+
 pub const TILE_SIZE_BYTES: usize = 16;
+pub const TILE_SIZE_PIXELS: usize = 8;
 
 pub const TILE_DATA_TABLE_0_ADDR_START: u16 = 0x8000;
 pub const TILE_DATA_TABLE_0_ADDR_END: u16 = 0x8FFF;
