@@ -1,6 +1,7 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
+mod graphic;
 mod debugger;
 mod cpu;
 mod mem;

@@ -14,6 +14,9 @@ pub const LYC_REGISTER_ADDR: u16 = 0xFF45;
 pub const LCDC_REGISTER_ADDR: u16 = 0xFF40;
 pub const DMA_REGISTER_ADDR: u16 = 0xFF46;
 
+/*Graphics registers*/
+pub const BGP_REGISTER_ADDR: u16 = 0xFF47;
+
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 
 pub const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;

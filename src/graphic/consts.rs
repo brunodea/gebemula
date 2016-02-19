@@ -1,0 +1,13 @@
+pub const TILE_SIZE_BYTES: usize = 16;
+
+pub const TILE_DATA_TABLE_0_ADDR_START: u16 = 0x8000;
+pub const TILE_DATA_TABLE_0_ADDR_END: u16 = 0x8FFF;
+pub const TILE_DATA_TABLE_1_ADDR_START: u16 = 0x8800;
+pub const TILE_DATA_TABLE_1_ADDR_END: u16 = 0x97FF;
+
+pub const BG_MAP_TILE_SIZE: usize = 32*32;
+
+pub const BG_NORMAL_ADDR_START: u16 = 0x9800;
+pub const BG_NORMAL_ADDR_END: u16 = 0x9BFF;
+pub const BG_WINDOW_ADDR_START: u16 = 0x9C00;
+pub const BG_WINDOW_ADDR_END: u16 = 0x9FFF;

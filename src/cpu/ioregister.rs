@@ -4,13 +4,13 @@ use super::super::mem::mem;
 
 pub fn update_stat_reg_coincidence_flag(memory: &mut mem::Memory) {
     let coincidence_flag: u8 = if stat_reg_coincidence_flag(memory) { 0b100 } else { 0b000 };
-    let new_stat: u8 = 
+    let new_stat: u8 =
         (memory.read_byte(consts::STAT_REGISTER_ADDR) & 0b1111_1011) | coincidence_flag;
     memory.write_byte(consts::STAT_REGISTER_ADDR, new_stat);
 }
 
 pub fn update_stat_reg_mode_flag(mode_flag: u8, memory: &mut mem::Memory) {
-    let new_stat: u8 = 
+    let new_stat: u8 =
         (memory.read_byte(consts::STAT_REGISTER_ADDR) & 0b1111_1100) | mode_flag;
     memory.write_byte(consts::STAT_REGISTER_ADDR, new_stat);
 }
@@ -88,7 +88,21 @@ impl LYRegister {
 pub struct LCDCRegister;
 
 impl LCDCRegister {
-    pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
-        (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> 7) & 0b1 == 0b1
+    fn is_bit_set(bit: u8, memory: &mem::Memory) -> bool {
+        (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> bit) & 0b1 == 0b1
     }
+    pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
+        LCDCRegister::is_bit_set(7, memory)
+    }
+    pub fn is_bg_tile_map_display_normal(memory: &mem::Memory) -> bool {
+        !LCDCRegister::is_bit_set(3, memory)
+    }
+    pub fn is_tile_data_0(memory: &mem::Memory) -> bool {
+        !LCDCRegister::is_bit_set(4, memory)
+    }
+}
+
+//pixel_data has to have a value from 0 to 3.
+pub fn bg_window_palette(pixel_data: u8, memory: &mem::Memory) -> u8 {
+    (memory.read_byte(consts::BGP_REGISTER_ADDR) >> (pixel_data * 2)) & 0b11
 }
