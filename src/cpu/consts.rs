@@ -16,6 +16,8 @@ pub const DMA_REGISTER_ADDR: u16 = 0xFF46;
 
 /*Graphics registers*/
 pub const BGP_REGISTER_ADDR: u16 = 0xFF47;
+pub const SCY_REGISTER_ADDR: u16 = 0xFF42;
+pub const SCX_REGISTER_ADDR: u16 = 0xFF43;
 
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 

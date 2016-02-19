@@ -1,2 +1,2 @@
 pub mod graphics;
-mod consts;
+pub mod consts;

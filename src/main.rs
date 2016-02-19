@@ -1,6 +1,8 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
+extern crate sdl2;
+
 mod graphics;
 mod debugger;
 mod cpu;
@@ -26,7 +28,7 @@ fn main() {
         let gebemula: &mut Gebemula = &mut Gebemula::new();
         gebemula.load_game_rom(&game_data);
         gebemula.load_bootstrap_rom(&bootstrap_data);
-        gebemula.run();
+        gebemula.run_sdl();
     } else {
         println!("Invalid number of arguments.");
     }
