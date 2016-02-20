@@ -30,16 +30,7 @@ impl Tile {
         let mut res: Vec<u8> = Vec::with_capacity(consts::TILE_SIZE_PIXELS*consts::TILE_SIZE_PIXELS);
         for i in 0..consts::TILE_SIZE_PIXELS {
             for j in 0..consts::TILE_SIZE_PIXELS {
-                let (r,g,b) = match ioregister::bg_window_palette(self.pixel_data(i, j), memory) {
-                    0b00 => (255, 255, 255),
-                    0b01 => (128, 128, 128),
-                    0b10 => (64, 64, 64),
-                    0b11 => (0, 0, 0),
-                    _ => unreachable!(),
-                };
-                res.push(r);
-                res.push(g);
-                res.push(b);
+                res.push(ioregister::bg_window_palette(self.pixel_data(i, j), memory));
             }
         }
         res
@@ -48,6 +39,7 @@ impl Tile {
 
 pub struct BackgroundMap {
     bg_last_addr: u16,
+    bg_addr_start: u16,
     bg_addr_end: u16,
     tile_table_addr_pattern_0: u16,
     is_tile_number_signed: bool,
@@ -68,8 +60,9 @@ impl BackgroundMap {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
         BackgroundMap {
-            bg_addr_end: bg_addr_end,
             bg_last_addr: bg_addr_start,
+            bg_addr_start: bg_addr_start,
+            bg_addr_end: bg_addr_end,
             tile_table_addr_pattern_0: tile_table_addr_pattern_0,
             is_tile_number_signed: is_signed,
         }
@@ -77,9 +70,10 @@ impl BackgroundMap {
 
     pub fn next_tile(&mut self, memory: &Memory) -> Option<Tile> {
         if self.bg_last_addr == self.bg_addr_end {
+            //TODO use circularity?
+            //self.bg_last_addr = self.bg_addr_start;
             None
         } else {
-            self.bg_last_addr += 1;
             let tile_number: u8 = memory.read_byte(self.bg_last_addr);
             let tile_location: u16 =
                 if self.is_tile_number_signed {
@@ -92,6 +86,7 @@ impl BackgroundMap {
                 } else {
                     self.tile_table_addr_pattern_0 + (tile_number as u16)
                 };
+            self.bg_last_addr += 1;
             let mut tile_data: [u8; consts::TILE_SIZE_BYTES] = [0; consts::TILE_SIZE_BYTES];
             for i in 0..consts::TILE_SIZE_BYTES {
                 tile_data[i] = memory.read_byte(tile_location + i as u16);
@@ -102,7 +97,9 @@ impl BackgroundMap {
 
     pub fn background_rgb(memory: &Memory) -> Vec<u8> {
         let mut bg_map: BackgroundMap = BackgroundMap::new(memory);
-        let mut image: Vec<u8> = Vec::with_capacity(160*144);
+        //bg map has 32x32 tiles and each tile has 8x8 pixels.
+        let mut image: Vec<u8> = Vec::with_capacity(
+            consts::BG_MAP_SIZE_TILES*consts::TILE_SIZE_PIXELS*consts::TILE_SIZE_PIXELS);
         while let Some(tile) = bg_map.next_tile(memory) {
             for pixel in tile.rgb(memory) {
                 image.push(pixel);

@@ -9,7 +9,8 @@ pub const TILE_DATA_TABLE_0_ADDR_END: u16 = 0x97FF;
 pub const TILE_DATA_TABLE_1_ADDR_START: u16 = 0x8000;
 pub const TILE_DATA_TABLE_1_ADDR_END: u16 = 0x8FFF;
 
-pub const BG_MAP_TILE_SIZE: usize = 32*32;
+pub const BG_MAP_SIZE_TILES: usize = 32*32;
+pub const BG_MAP_SIZE_PIXELS: usize = 256;
 
 pub const BG_NORMAL_ADDR_START: u16 = 0x9800;
 pub const BG_NORMAL_ADDR_END: u16 = 0x9BFF;
