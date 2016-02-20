@@ -100,6 +100,9 @@ impl LCDCRegister {
     pub fn is_tile_data_0(memory: &mem::Memory) -> bool {
         !LCDCRegister::is_bit_set(4, memory)
     }
+    pub fn is_bg_window_display_on(memory: &mem::Memory) -> bool {
+        LCDCRegister::is_bit_set(0, memory)
+    }
 }
 
 //pixel_data has to have a value from 0 to 3.
