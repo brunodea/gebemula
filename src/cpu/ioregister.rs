@@ -94,11 +94,17 @@ impl LCDCRegister {
     pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(7, memory)
     }
-    pub fn is_bg_tile_map_display_normal(memory: &mem::Memory) -> bool {
-        !LCDCRegister::is_bit_set(3, memory)
+    pub fn is_window_tile_map_display_normal(memory: &mem::Memory) -> bool {
+        !LCDCRegister::is_bit_set(6, memory)
+    }
+    pub fn is_window_display_on(memory: &mem::Memory) -> bool {
+        LCDCRegister::is_bit_set(5, memory)
     }
     pub fn is_tile_data_0(memory: &mem::Memory) -> bool {
         !LCDCRegister::is_bit_set(4, memory)
+    }
+    pub fn is_bg_tile_map_display_normal(memory: &mem::Memory) -> bool {
+        !LCDCRegister::is_bit_set(3, memory)
     }
     pub fn is_bg_window_display_on(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(0, memory)

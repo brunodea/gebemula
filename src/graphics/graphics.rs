@@ -27,11 +27,11 @@ impl Tile {
         (lhs << 1) | rhs
     }
 
-    pub fn rgb(&self, memory: &Memory) -> Vec<u8> {
+    pub fn indexed_pixels(&self, memory: &Memory) -> Vec<u8> {
         let mut res: Vec<u8> = Vec::with_capacity(consts::TILE_SIZE_PIXELS*consts::TILE_SIZE_PIXELS);
         for i in 0..consts::TILE_SIZE_PIXELS {
             for j in 0..consts::TILE_SIZE_PIXELS {
-                res.push(ioregister::bg_window_palette(self.pixel_data(i, j), memory));
+                res.push(ioregister::bg_window_palette(self.pixel_data(i,j), memory));
             }
         }
         res
@@ -72,7 +72,7 @@ impl BackgroundMap {
     pub fn next_tile(&mut self, memory: &Memory) -> Option<Tile> {
         if self.bg_last_addr == self.bg_addr_end {
             //TODO use circularity?
-            //self.bg_last_addr = self.bg_addr_start;
+            self.bg_last_addr = self.bg_addr_start;
             None
         } else {
             let tile_number: u8 = memory.read_byte(self.bg_last_addr);
@@ -97,21 +97,35 @@ impl BackgroundMap {
     }
 
     //returns list of indexes to pallet with the size of the display.
-    pub fn display_rgb(&self, memory: &Memory) -> Vec<u8> {
-        let bg_line: usize = memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize;
-        let bg_column: usize = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize;
+    pub fn display_rgb(&mut self, memory: &Memory) -> Vec<u8> {
+        //let start: usize = (bg_line * consts::BG_MAP_SIZE_PIXELS as usize) + bg_column;
+        let mut res: Vec<u8> = Vec::with_capacity(
+            (consts::DISPLAY_WIDTH_PX*consts::DISPLAY_HEIGHT_PX) as usize);
+        let mut line: usize = 0;//memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize;
+        let mut column: usize = 0;//memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize;
 
-        let start: usize = (bg_line * consts::BG_MAP_SIZE_PIXELS as usize) + bg_column;
-        BackgroundMap::background_rgb(memory)[start..(start+consts::DISPLAY_PIXELS)].to_vec()
+        let bg: Vec<u8> = self.background_rgb(memory);
+        for _ in 0..(consts::DISPLAY_HEIGHT_PX*consts::DISPLAY_WIDTH_PX) {
+            res.push(bg[(line*consts::BG_MAP_SIZE_PIXELS as usize) + column]);
+            column += 1;
+            if column == consts::BG_MAP_SIZE_PIXELS as usize {
+                column = 0;
+                line += 1;
+                if line == consts::BG_MAP_SIZE_PIXELS as usize {
+                    line = 0;
+                }
+            }
+        }
+        res
     }
 
-    pub fn background_rgb(memory: &Memory) -> Vec<u8> {
+    pub fn background_rgb(&mut self, memory: &Memory) -> Vec<u8> {
         let mut bg_map: BackgroundMap = BackgroundMap::new(memory);
         //bg map has 32x32 tiles and each tile has 8x8 pixels.
         let mut image: Vec<u8> = Vec::with_capacity(
             consts::BG_MAP_SIZE_TILES*consts::TILE_SIZE_PIXELS*consts::TILE_SIZE_PIXELS);
-        while let Some(tile) = bg_map.next_tile(memory) {
-            for pixel in tile.rgb(memory) {
+        while let Some(tile) = self.next_tile(memory) {
+            for pixel in tile.indexed_pixels(memory) {
                 image.push(pixel);
             }
         }

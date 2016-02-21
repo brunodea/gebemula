@@ -257,8 +257,8 @@ impl Debugger {
         println!("- last\n\tPrint last instruction.");
         println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\
             \tBreak when addr is hit or reg has value.\n\
-            \tIf cpu, human or both are set, every instruction until the break point will be displayed.\
-            \tAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC");
+            \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
+            \ttAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
                              \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
         println!("- info\n\tDisplay information about the game rom.");

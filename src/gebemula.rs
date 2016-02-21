@@ -72,9 +72,10 @@ impl Gebemula {
         renderer.set_draw_color(Color::RGBA(255, 255, 255, 255));
         renderer.clear();
         renderer.present();
-        let mut texture = renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
-                                                            (graphics::consts::DISPLAY_WIDTH_PX,
-                                                             graphics::consts::DISPLAY_HEIGHT_PX)).unwrap();
+        let mut texture = renderer.create_texture_streaming(
+            PixelFormatEnum::ABGR8888,
+            (graphics::consts::DISPLAY_WIDTH_PX,
+             graphics::consts::DISPLAY_HEIGHT_PX)).unwrap();
 
         let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -83,7 +84,8 @@ impl Gebemula {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
-                    Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    Event::Quit {..} | 
+                    Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running
                     },
                     _ => {}
@@ -93,8 +95,10 @@ impl Gebemula {
                 ioregister::LCDCRegister::is_bg_window_display_on(&self.mem) {
 
                 texture.with_lock(None, |buffer: &mut [u8], _| {
-                    let bg_map: BackgroundMap = BackgroundMap::new(&self.mem);
-                    for (i, value) in apply_palette(&bg_map.display_rgb(&self.mem)).iter().enumerate() {
+                    let mut bg_map: BackgroundMap = 
+                        BackgroundMap::new(&self.mem);
+                    for (i, value) in apply_palette(
+                        &bg_map.display_rgb(&self.mem)).iter().enumerate() {
                         buffer[i] = *value;
                     }
                 }).unwrap();
@@ -102,12 +106,12 @@ impl Gebemula {
                 renderer.copy(&texture, None, None);
                 renderer.present();
                 fps += 1;
-                let now = time::now();
-                if now - last_time >= time::Duration::seconds(1) {
-                    last_time = now;
-                    renderer.window_mut().unwrap().set_title(&format!("{}", fps));
-                    fps = 0;
-                }
+            }
+            let now = time::now();
+            if now - last_time >= time::Duration::seconds(1) {
+                last_time = now;
+                renderer.window_mut().unwrap().set_title(&format!("{}", fps));
+                fps = 0;
             }
             self.step();
         }
