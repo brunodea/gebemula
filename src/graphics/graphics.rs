@@ -2,6 +2,7 @@ use graphics::consts;
 use super::super::util::util;
 use super::super::mem::mem::Memory;
 use super::super::cpu::ioregister;
+use super::super::cpu;
 
 pub struct Tile {
     data: [u8; consts::TILE_SIZE_BYTES],
@@ -95,6 +96,15 @@ impl BackgroundMap {
         }
     }
 
+    //returns list of indexes to pallet with the size of the display.
+    pub fn display_rgb(&self, memory: &Memory) -> Vec<u8> {
+        let bg_line: usize = memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize;
+        let bg_column: usize = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize;
+
+        let start: usize = (bg_line * consts::BG_MAP_SIZE_PIXELS as usize) + bg_column;
+        BackgroundMap::background_rgb(memory)[start..(start+consts::DISPLAY_PIXELS)].to_vec()
+    }
+
     pub fn background_rgb(memory: &Memory) -> Vec<u8> {
         let mut bg_map: BackgroundMap = BackgroundMap::new(memory);
         //bg map has 32x32 tiles and each tile has 8x8 pixels.
@@ -108,3 +118,24 @@ impl BackgroundMap {
         image
     }
 }
+
+
+pub fn apply_palette(indexed_image: &[u8]) -> Vec<u8> {
+    //*4 because it is RGBA
+    let mut res: Vec<u8> = Vec::with_capacity(indexed_image.len()*4);
+    for color_index in indexed_image {
+        let (r,g,b) = match *color_index {
+            0b00 => (255,255,255),
+            0b01 => (127,127,127),
+            0b10 => (63,63,63),
+            0b11 => (0,0,0),
+            _ => unreachable!(),
+        };
+        res.push(r);
+        res.push(g);
+        res.push(b);
+        res.push(255); //alpha
+    }
+    res
+}
+
