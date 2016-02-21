@@ -10,8 +10,6 @@ use sdl2;
 use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::surface::Surface;
-use sdl2::render::Renderer;
 
 pub struct Gebemula {
     cpu: Cpu,
