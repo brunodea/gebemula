@@ -11,6 +11,8 @@ use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+use time;
+
 pub struct Gebemula {
     cpu: Cpu,
     mem: Memory,
@@ -61,7 +63,6 @@ impl Gebemula {
             "Gebemula Emulator",
             graphics::consts::DISPLAY_WIDTH_PX,
             graphics::consts::DISPLAY_HEIGHT_PX)
-            .position_centered()
             .opengl()
             .build()
             .unwrap();
@@ -77,6 +78,8 @@ impl Gebemula {
 
         let mut event_pump = sdl_context.event_pump().unwrap();
 
+        let mut fps: u32 = 0;
+        let mut last_time = time::now();
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
@@ -89,16 +92,23 @@ impl Gebemula {
             if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) &&
                 ioregister::LCDCRegister::is_bg_window_display_on(&self.mem) {
 
-                    texture.with_lock(None, |buffer: &mut [u8], _| {
-                        let bg_map: BackgroundMap = BackgroundMap::new(&self.mem);
-                        for (i, value) in apply_palette(&bg_map.display_rgb(&self.mem)).iter().enumerate() {
-                            buffer[i] = *value;
-                        }
-                    }).unwrap();
-                    renderer.clear();
-                    renderer.copy(&texture, None, None);
-                    renderer.present();
+                texture.with_lock(None, |buffer: &mut [u8], _| {
+                    let bg_map: BackgroundMap = BackgroundMap::new(&self.mem);
+                    for (i, value) in apply_palette(&bg_map.display_rgb(&self.mem)).iter().enumerate() {
+                        buffer[i] = *value;
+                    }
+                }).unwrap();
+                renderer.clear();
+                renderer.copy(&texture, None, None);
+                renderer.present();
+                fps += 1;
+                let now = time::now();
+                if now - last_time >= time::Duration::seconds(1) {
+                    last_time = now;
+                    renderer.window_mut().unwrap().set_title(&format!("{}", fps));
+                    fps = 0;
                 }
+            }
             self.step();
         }
     }

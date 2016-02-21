@@ -2,6 +2,7 @@
 #![plugin(clippy)]
 
 extern crate sdl2;
+extern crate time;
 
 mod graphics;
 mod debugger;
