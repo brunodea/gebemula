@@ -95,10 +95,11 @@ impl Gebemula {
                 ioregister::LCDCRegister::is_bg_window_display_on(&self.mem) {
 
                 texture.with_lock(None, |buffer: &mut [u8], _| {
+                    //TODO usar Window(X|Y) aqui!
                     let mut bg_map: BackgroundMap = 
                         BackgroundMap::new(&self.mem);
                     for (i, value) in apply_palette(
-                        &bg_map.display_rgb(&self.mem)).iter().enumerate() {
+                        &bg_map.resize_to_display(&self.mem)).iter().enumerate() {
                         buffer[i] = *value;
                     }
                 }).unwrap();

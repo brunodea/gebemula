@@ -97,14 +97,14 @@ impl BackgroundMap {
     }
 
     //returns list of indexes to pallet with the size of the display.
-    pub fn display_rgb(&mut self, memory: &Memory) -> Vec<u8> {
+    pub fn resize_to_display(&mut self, memory: &Memory) -> Vec<u8> {
         //let start: usize = (bg_line * consts::BG_MAP_SIZE_PIXELS as usize) + bg_column;
         let mut res: Vec<u8> = Vec::with_capacity(
             (consts::DISPLAY_WIDTH_PX*consts::DISPLAY_HEIGHT_PX) as usize);
         let mut line: usize = 0;//memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize;
         let mut column: usize = 0;//memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize;
 
-        let bg: Vec<u8> = self.background_rgb(memory);
+        let bg: Vec<u8> = self.indexed_pixels(memory);
         for _ in 0..(consts::DISPLAY_HEIGHT_PX*consts::DISPLAY_WIDTH_PX) {
             res.push(bg[(line*consts::BG_MAP_SIZE_PIXELS as usize) + column]);
             column += 1;
@@ -119,7 +119,7 @@ impl BackgroundMap {
         res
     }
 
-    pub fn background_rgb(&mut self, memory: &Memory) -> Vec<u8> {
+    pub fn indexed_pixels(&mut self, memory: &Memory) -> Vec<u8> {
         let mut bg_map: BackgroundMap = BackgroundMap::new(memory);
         //bg map has 32x32 tiles and each tile has 8x8 pixels.
         let mut image: Vec<u8> = Vec::with_capacity(
