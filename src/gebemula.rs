@@ -1,9 +1,10 @@
+use cpu;
 use cpu::ioregister;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 use mem::mem::Memory;
 use graphics;
-use graphics::graphics::{BackgroundMap, apply_palette};
+use graphics::graphics::{BGWindowLayer, apply_palette};
 use debugger::Debugger;
 
 use sdl2;
@@ -84,25 +85,51 @@ impl Gebemula {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
-                    Event::Quit {..} | 
+                    Event::Quit {..} |
                     Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running
                     },
                     _ => {}
                 }
             }
-            if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) &&
-                ioregister::LCDCRegister::is_bg_window_display_on(&self.mem) {
+            if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+                let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
+                let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
 
-                texture.with_lock(None, |buffer: &mut [u8], _| {
-                    //TODO usar Window(X|Y) aqui!
-                    let mut bg_map: BackgroundMap = 
-                        BackgroundMap::new(&self.mem);
-                    for (i, value) in apply_palette(
-                        &bg_map.resize_to_display(&self.mem)).iter().enumerate() {
-                        buffer[i] = *value;
-                    }
-                }).unwrap();
+                if bg_on || wn_on {
+                    texture.with_lock(None, |buffer: &mut [u8], _| {
+                        if bg_on {
+                            let mut bg_map: BGWindowLayer =
+                                BGWindowLayer::new(true, &self.mem);
+                            for (i, value) in apply_palette(
+                                &bg_map.resize_to_display(&self.mem)).iter().enumerate() {
+                                buffer[i] = *value;
+                            }
+                        }
+                        if wn_on {
+                            let mut window: BGWindowLayer =
+                                BGWindowLayer::new(false, &self.mem);
+                            let mut x: u32 = (self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR)-7) as u32;
+                            let mut y: u32 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR) as u32;
+                            if x < graphics::consts::DISPLAY_WIDTH_PX+7 &&
+                                y < graphics::consts::DISPLAY_HEIGHT_PX {
+                                for (_, value) in apply_palette(
+                                    &window.resize_to_display(&self.mem)).iter().enumerate() {
+                                    let pos: usize = ((y*graphics::consts::DISPLAY_WIDTH_PX) + x) as usize;
+                                    buffer[pos] = *value;
+                                    x += 1;
+                                    if x > graphics::consts::DISPLAY_WIDTH_PX {
+                                        x = 0;
+                                        y += 1;
+                                        if y > graphics::consts::DISPLAY_HEIGHT_PX {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }).unwrap();
+                }
                 renderer.clear();
                 renderer.copy(&texture, None, None);
                 renderer.present();

@@ -38,21 +38,30 @@ impl Tile {
     }
 }
 
-pub struct BackgroundMap {
-    bg_last_addr: u16,
-    bg_addr_start: u16,
-    bg_addr_end: u16,
+pub struct BGWindowLayer {
+    last_addr: u16,
+    addr_start: u16,
+    addr_end: u16,
     tile_table_addr_pattern_0: u16,
     is_tile_number_signed: bool,
+    is_background: bool,
 }
 
-impl BackgroundMap {
-    pub fn new(memory: &Memory) -> BackgroundMap {
-        let (bg_addr_start, bg_addr_end) =
-            if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
-                (consts::BG_NORMAL_ADDR_START, consts::BG_NORMAL_ADDR_END)
+impl BGWindowLayer {
+    pub fn new(is_background: bool, memory: &Memory) -> BGWindowLayer {
+        let (addr_start, addr_end) =
+            if is_background {
+                if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
+                    (consts::BG_NORMAL_ADDR_START, consts::BG_NORMAL_ADDR_END)
+                } else {
+                    (consts::BG_WINDOW_ADDR_START, consts::BG_WINDOW_ADDR_END)
+                }
             } else {
-                (consts::BG_WINDOW_ADDR_START, consts::BG_WINDOW_ADDR_END)
+                if ioregister::LCDCRegister::is_window_tile_map_display_normal(&memory) {
+                    (consts::BG_NORMAL_ADDR_START, consts::BG_NORMAL_ADDR_END)
+                } else {
+                    (consts::BG_WINDOW_ADDR_START, consts::BG_WINDOW_ADDR_END)
+                }
             };
         let (tile_table_addr_pattern_0, is_signed) =
             if ioregister::LCDCRegister::is_tile_data_0(&memory) {
@@ -60,22 +69,23 @@ impl BackgroundMap {
             } else {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
-        BackgroundMap {
-            bg_last_addr: bg_addr_start,
-            bg_addr_start: bg_addr_start,
-            bg_addr_end: bg_addr_end,
+        BGWindowLayer {
+            last_addr: addr_start,
+            addr_start: addr_start,
+            addr_end: addr_end,
             tile_table_addr_pattern_0: tile_table_addr_pattern_0,
             is_tile_number_signed: is_signed,
+            is_background: is_background,
         }
     }
 
     pub fn next_tile(&mut self, memory: &Memory) -> Option<Tile> {
-        if self.bg_last_addr == self.bg_addr_end {
+        if self.last_addr == self.addr_end {
             //TODO use circularity?
-            self.bg_last_addr = self.bg_addr_start;
+            self.last_addr = self.addr_start;
             None
         } else {
-            let tile_number: u8 = memory.read_byte(self.bg_last_addr);
+            let tile_number: u8 = memory.read_byte(self.last_addr);
             let tile_location: u16 =
                 if self.is_tile_number_signed {
                     let tile_number16: u16 = util::sign_extend(tile_number);
@@ -87,7 +97,7 @@ impl BackgroundMap {
                 } else {
                     self.tile_table_addr_pattern_0 + (tile_number as u16)
                 };
-            self.bg_last_addr += 1;
+            self.last_addr += 1;
             let mut tile_data: [u8; consts::TILE_SIZE_BYTES] = [0; consts::TILE_SIZE_BYTES];
             for i in 0..consts::TILE_SIZE_BYTES {
                 tile_data[i] = memory.read_byte(tile_location + i as u16);
@@ -101,17 +111,27 @@ impl BackgroundMap {
         //let start: usize = (bg_line * consts::BG_MAP_SIZE_PIXELS as usize) + bg_column;
         let mut res: Vec<u8> = Vec::with_capacity(
             (consts::DISPLAY_WIDTH_PX*consts::DISPLAY_HEIGHT_PX) as usize);
-        let mut line: usize = 0;//memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize;
-        let mut column: usize = 0;//memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize;
+        let mut line: usize = 
+            if self.is_background {
+                memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as usize
+            } else {
+                0
+            };
+        let mut column: usize = 
+            if self.is_background {
+                memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as usize
+            } else {
+                0
+            };
 
         let bg: Vec<u8> = self.indexed_pixels(memory);
         for _ in 0..(consts::DISPLAY_HEIGHT_PX*consts::DISPLAY_WIDTH_PX) {
-            res.push(bg[(line*consts::BG_MAP_SIZE_PIXELS as usize) + column]);
+            res.push(bg[(line*consts::DISPLAY_WIDTH_PX as usize) + column]);
             column += 1;
-            if column == consts::BG_MAP_SIZE_PIXELS as usize {
+            if column == consts::DISPLAY_WIDTH_PX as usize {
                 column = 0;
                 line += 1;
-                if line == consts::BG_MAP_SIZE_PIXELS as usize {
+                if line == consts::DISPLAY_HEIGHT_PX as usize {
                     line = 0;
                 }
             }
@@ -120,7 +140,6 @@ impl BackgroundMap {
     }
 
     pub fn indexed_pixels(&mut self, memory: &Memory) -> Vec<u8> {
-        let mut bg_map: BackgroundMap = BackgroundMap::new(memory);
         //bg map has 32x32 tiles and each tile has 8x8 pixels.
         let mut image: Vec<u8> = Vec::with_capacity(
             consts::BG_MAP_SIZE_TILES*consts::TILE_SIZE_PIXELS*consts::TILE_SIZE_PIXELS);
