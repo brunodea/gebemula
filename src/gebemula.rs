@@ -1,10 +1,9 @@
-use cpu;
 use cpu::ioregister;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 use mem::mem::Memory;
 use graphics;
-use graphics::graphics::{BGWindowLayer, apply_palette};
+use graphics::graphics::BGWindowLayer;
 use debugger::Debugger;
 
 use sdl2;
@@ -85,7 +84,6 @@ impl Gebemula {
 
         let mut fps: u32 = 0;
         let mut last_time = time::now();
-        //TODO use consts
 
         'running: loop {
             for event in event_pump.poll_iter() {
@@ -102,18 +100,15 @@ impl Gebemula {
                 let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
 
                 let mut texture_updated: bool = false;
-                let mut line: i32 = 0;
                 if bg_on {
                     let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
                     let mut buffer: &mut [u8] = &mut [0; 160*4];
                     if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
-                        line = curr_line as i32;
-                        //TODO use consts
                         texture.update(Rect::new(
-                                0, line,
-                                160, 1
+                                0, curr_line as i32,
+                                graphics::consts::DISPLAY_WIDTH_PX, 1
                                 ).unwrap(), 
-                            buffer, 160*4).unwrap();
+                            buffer, graphics::consts::DISPLAY_WIDTH_PX*4).unwrap();
                         texture_updated = true;
                     }
                 }

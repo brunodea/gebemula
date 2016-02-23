@@ -110,13 +110,3 @@ impl BGWindowLayer {
         Some(curr_line)
     }
 }
-
-
-pub fn apply_palette(indexed_image: &[u8]) -> Vec<u8> {
-    //*4 because it is RGBA
-    let mut res: Vec<u8> = Vec::with_capacity(indexed_image.len()*4);
-    for color_index in indexed_image {
-    }
-    res
-}
-
