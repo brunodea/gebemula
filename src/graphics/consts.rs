@@ -1,5 +1,5 @@
-pub const DISPLAY_HEIGHT_PX: u32 = 144;
-pub const DISPLAY_WIDTH_PX: u32 = 160;
+pub const DISPLAY_HEIGHT_PX: u8 = 144;
+pub const DISPLAY_WIDTH_PX: u8 = 160;
 pub const DISPLAY_PIXELS: usize = (DISPLAY_WIDTH_PX*DISPLAY_HEIGHT_PX) as usize;
 
 pub const TILE_SIZE_BYTES: usize = 16;

@@ -62,8 +62,8 @@ impl Gebemula {
 
         let window = vide_subsystem.window(
             "Gebemula Emulator",
-            graphics::consts::DISPLAY_WIDTH_PX,
-            graphics::consts::DISPLAY_HEIGHT_PX)
+            graphics::consts::DISPLAY_WIDTH_PX as u32,
+            graphics::consts::DISPLAY_HEIGHT_PX as u32)
             .opengl()
             .build()
             .unwrap();
@@ -73,8 +73,8 @@ impl Gebemula {
 
         let mut texture = renderer.create_texture_streaming(
             PixelFormatEnum::ABGR8888,
-            (graphics::consts::DISPLAY_WIDTH_PX,
-             graphics::consts::DISPLAY_HEIGHT_PX)).unwrap();
+            (graphics::consts::DISPLAY_WIDTH_PX as u32,
+             graphics::consts::DISPLAY_HEIGHT_PX as u32)).unwrap();
 
 
         renderer.clear();
@@ -106,9 +106,9 @@ impl Gebemula {
                     if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
                         texture.update(Rect::new(
                                 0, curr_line as i32,
-                                graphics::consts::DISPLAY_WIDTH_PX, 1
+                                graphics::consts::DISPLAY_WIDTH_PX as u32, 1
                                 ).unwrap(), 
-                            buffer, (graphics::consts::DISPLAY_WIDTH_PX*4) as usize).unwrap();
+                            buffer, graphics::consts::DISPLAY_WIDTH_PX as usize*4).unwrap();
                         texture_updated = true;
                     }
                 }
