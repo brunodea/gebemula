@@ -105,9 +105,6 @@ impl Gebemula {
                 let mut line: i32 = 0;
                 if bg_on {
                     let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
-                    //texture.with_lock(None, |buffer: &mut [u8], _| {
-                    //    texture_updated = bg.update_buffer(buffer, &self.mem) != None;
-                    //});
                     let mut buffer: &mut [u8] = &mut [0; 160*4];
                     if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
                         line = curr_line as i32;
@@ -123,9 +120,6 @@ impl Gebemula {
                 if texture_updated {
                     renderer.clear();
                     renderer.copy(&texture, None, None);
-                    //renderer.copy(&texture, Rect::new(
-                    //        0, line,
-                    //        160, 144).unwrap(), None);
                     renderer.present();
                 }
 
