@@ -8,6 +8,7 @@ use graphics::graphics::{BGWindowLayer, apply_palette};
 use debugger::Debugger;
 
 use sdl2;
+use sdl2::rect::Rect;
 use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -68,20 +69,25 @@ impl Gebemula {
             .build()
             .unwrap();
 
-
         let mut renderer = window.renderer().build().unwrap();
-        renderer.set_draw_color(Color::RGBA(255, 255, 255, 255));
-        renderer.clear();
-        renderer.present();
+        renderer.set_draw_color(Color::RGBA(0,0,0,255));
+
         let mut texture = renderer.create_texture_streaming(
             PixelFormatEnum::ABGR8888,
             (graphics::consts::DISPLAY_WIDTH_PX,
              graphics::consts::DISPLAY_HEIGHT_PX)).unwrap();
 
+
+        renderer.clear();
+        renderer.present();
+
         let mut event_pump = sdl_context.event_pump().unwrap();
 
         let mut fps: u32 = 0;
         let mut last_time = time::now();
+        //TODO use consts
+        let mut buffer: &mut [u8] = &mut [0; 160*144*4];
+
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
@@ -96,43 +102,30 @@ impl Gebemula {
                 let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
                 let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
 
-                if bg_on || wn_on {
-                    texture.with_lock(None, |buffer: &mut [u8], _| {
-                        if bg_on {
-                            let mut bg_map: BGWindowLayer =
-                                BGWindowLayer::new(true, &self.mem);
-                            for (i, value) in apply_palette(
-                                &bg_map.resize_to_display(&self.mem)).iter().enumerate() {
-                                buffer[i] = *value;
-                            }
-                        }
-                        if wn_on {
-                            let mut window: BGWindowLayer =
-                                BGWindowLayer::new(false, &self.mem);
-                            let mut x: u32 = (self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR)-7) as u32;
-                            let mut y: u32 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR) as u32;
-                            if x < graphics::consts::DISPLAY_WIDTH_PX+7 &&
-                                y < graphics::consts::DISPLAY_HEIGHT_PX {
-                                for (_, value) in apply_palette(
-                                    &window.resize_to_display(&self.mem)).iter().enumerate() {
-                                    let pos: usize = ((y*graphics::consts::DISPLAY_WIDTH_PX) + x) as usize;
-                                    buffer[pos] = *value;
-                                    x += 1;
-                                    if x > graphics::consts::DISPLAY_WIDTH_PX {
-                                        x = 0;
-                                        y += 1;
-                                        if y > graphics::consts::DISPLAY_HEIGHT_PX {
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }).unwrap();
+                let mut texture_updated: bool = false;
+                let mut line: i32 = 0;
+                if bg_on {
+                    let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
+                    if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
+                        line = curr_line as i32;
+                        //TODO use consts
+                        texture.update(Rect::new(
+                                0, line,
+                                160*4, 1
+                                ).unwrap(), 
+                            &buffer, 160*4).unwrap();
+                        texture_updated = true;
+                    }
                 }
-                renderer.clear();
-                renderer.copy(&texture, None, None);
-                renderer.present();
+                if texture_updated {
+                    renderer.clear();
+                    renderer.copy(&texture, None, None);
+                    //renderer.copy(&texture, Rect::new(
+                    //        0, line,
+                    //        160, 144).unwrap(), None);
+                    renderer.present();
+                }
+
                 fps += 1;
             }
             let now = time::now();
