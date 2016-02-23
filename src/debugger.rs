@@ -340,6 +340,8 @@ impl Debugger {
                 let ie: u8 = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
                 let ly: u8 = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 let lcdc: u8 = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
+                let scx: u8 = mem.read_byte(cpu::consts::SCX_REGISTER_ADDR);
+                let scy: u8 = mem.read_byte(cpu::consts::SCY_REGISTER_ADDR);
 
                 println!("IF: {:#x} {:#b}", if_, if_);
                 println!("IE: {:#x} {:#b}", ie, ie);
@@ -349,6 +351,8 @@ impl Debugger {
                 println!("TIMA: {:#x} {:#b}", tima, tima);
                 println!("TMA: {:#x} {:#b}", tma, tma);
                 println!("TAC: {:#x} {:#b}", tac, tac);
+                println!("SCX: {:#x} {:#b}", scx, scx);
+                println!("SCY: {:#x} {:#b}", scy, scy);
             },
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);
