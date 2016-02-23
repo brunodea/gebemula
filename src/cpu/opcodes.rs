@@ -186,12 +186,12 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 //LD (nn), SP
                 format!("ld {:#x},SP", instruction.imm16.unwrap())
             },
-            0xC1 | 0xD1 | 0xE1 => {
+            0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 //POP rr
                 let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("pop {:?}", reg)
             },
-            0xC5 | 0xD5 | 0xE5 => {
+            0xC5 | 0xD5 | 0xE5 | 0xF5 => {
                 //PUSH rr
                 let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("push {:?}", reg)

@@ -575,12 +575,26 @@ impl Cpu {
             },
             0x37 => {
                 //SCF
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
+                self.flag_set(true, Flag::C);
+                instruction.cycles = 4;
             },
             0x2F => {
                 //CPL
+                let val: u8 = self.reg8(Reg::A);
+                self.reg_set8(Reg::A, !val);
+                self.flag_set(true, Flag::N);
+                self.flag_set(true, Flag::H);
+                instruction.cycles = 4;
             },
             0x3F => {
                 //CCF
+                let c: bool = self.flag_is_set(Flag::C);
+                self.flag_set(true, Flag::N);
+                self.flag_set(true, Flag::H);
+                self.flag_set(!c, Flag::C);
+                instruction.cycles = 4;
             },
             /******************************************/
             /* 16 bit arithmetic/logical instructions */
@@ -639,6 +653,11 @@ impl Cpu {
             0xC7 | 0xCF | 0xD7 | 0xDF |
             0xE7 | 0xEF | 0xF7 | 0xFF => {
                 //RST
+                let pc: u16 = self.reg16(Reg::PC);
+                self.push_sp16(pc, memory);
+                let imm: u16 = self.mem_next8(memory) as u16;
+                self.reg_set16(Reg::PC, imm);
+                instruction.cycles = 32;
             },
             _ => panic!("Unknown instruction: {:#x}", byte),
         }
@@ -647,6 +666,7 @@ impl Cpu {
             panic!("Unknown instruction: {:#x}", byte);
         }
         instruction.address = addr;
+        self.last_instruction = instruction;
         instruction
     }
 
@@ -863,9 +883,6 @@ impl Cpu {
                 self.flag_set(true, Flag::H);
 
                 should_change_reg = false;
-                if reg == Reg::HL {
-                    cycles = 12;
-                }
             },
             0x80 ... 0xBF => {
                 //RES b,r; RES b,(HL)
@@ -1036,14 +1053,16 @@ impl Cpu {
             cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);
         }
-        match ((opcode >> 3) as u8, opcode % 0o10) {
-            (0o0 ... 0o7, 0o4) => {
+        match opcode {
+            0x04 | 0x14 | 0x24 | 0x34 |
+            0x0C | 0x1C | 0x2C | 0x3C => {
                 //INC
                 result = reg_val.wrapping_add(1);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_carry_on_bit(3, reg_val, 1), Flag::H);
             },
-            (0o0 ... 0o7, 0o5) => {
+            0x05 | 0x15 | 0x25 | 0x35 |
+            0x0D | 0x1D | 0x2D | 0x3D => {
                 //DEC
                 result = (reg_val as i16 - 1) as u8;
                 self.flag_set(true, Flag::N);
@@ -1221,7 +1240,6 @@ impl Cpu {
     fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
-
 
         let cycles: u32;
         if reg_rhs == Reg::HL {

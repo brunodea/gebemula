@@ -91,6 +91,22 @@ impl LCDCRegister {
     fn is_bit_set(bit: u8, memory: &mem::Memory) -> bool {
         (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> bit) & 0b1 == 0b1
     }
+    fn set_bit(bit: u8, set: bool, memory: &mut mem::Memory) {
+        let val: u8 = memory.read_byte(consts::LCDC_REGISTER_ADDR);
+        let res: u8 =
+            if set {
+                val | (1 << bit)
+            } else {
+                val & !(1 << bit)
+            };
+        memory.write_byte(consts::LCDC_REGISTER_ADDR, res);
+    }
+    pub fn enable_lcd(memory: &mut mem::Memory) {
+        LCDCRegister::set_bit(7, true, memory);
+    }
+    pub fn disable_lcd(memory: &mut mem::Memory) {
+        LCDCRegister::set_bit(7, false, memory);
+    }
     pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(7, memory)
     }
