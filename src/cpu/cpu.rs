@@ -44,7 +44,7 @@ impl Reg {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Instruction {
     pub prefix: Option<u8>,
     pub opcode: u8,
@@ -100,6 +100,9 @@ pub struct Cpu {
     regs: [u8; 12],
     ime_flag: bool, //interrupt master enable flag
     halt_flag: bool, //cpu doesn't run until an interrupt occurs.
+    last_instruction: Instruction,
+    disable_interrupts: bool,
+    enable_interrupts: bool,
 }
 
 impl fmt::Display for Cpu {
@@ -126,6 +129,9 @@ impl Cpu {
             regs: [0; 12],
             ime_flag: true,
             halt_flag: false,
+            last_instruction: Instruction::new(),
+            disable_interrupts: false,
+            enable_interrupts: false,
         }
     }
 
@@ -334,6 +340,23 @@ impl Cpu {
             instruction.cycles = 4;
             return instruction.clone(); //TODO make sure 4 cycles from the HALT instruction is correct.
         }
+
+        //Actually performs DI and EI at the right time.
+        //The order of these if's *has* to be like this.
+        if self.disable_interrupts {
+            self.ime_flag = false;
+            self.disable_interrupts = false;
+        } else if self.enable_interrupts {
+            self.ime_flag = true;
+            self.enable_interrupts = false;
+        }
+        if self.last_instruction.opcode == 0xF3 {
+            self.disable_interrupts = true;
+        } else if self.last_instruction.opcode == 0xFB {
+            self.enable_interrupts = true;
+        }
+        /************************************************/
+
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
         let mut instruction: Instruction = Instruction::new();
