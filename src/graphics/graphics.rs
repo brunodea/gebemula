@@ -52,20 +52,27 @@ impl BGWindowLayer {
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
         let mut ypos: u16 = curr_line as u16;
+        let wy: usize = memory.read_byte(cpu::consts::WY_REGISTER_ADDR) as usize;
+        let wx: usize = memory.read_byte(cpu::consts::WX_REGISTER_ADDR) as usize;
+        let mut startx: u8 = 0;
+
         if self.is_background {
             ypos += memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
         } else {
-            ypos -= memory.read_byte(cpu::consts::WY_REGISTER_ADDR) as u16;
+            if curr_line < wy as u8 {
+                return None;
+            }
+            startx = (wx - 7) as u8;
         }
         //*32: each row has 32 bytes.
         let tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
         let tile_line: u16 = (ypos % 8)*2;
-        for i in 0..consts::DISPLAY_WIDTH_PX {
+        for i in startx..consts::DISPLAY_WIDTH_PX {
             let xpos: u8 =
                 if self.is_background {
                     scx + i
                 } else {
-                    i - memory.read_byte(cpu::consts::WX_REGISTER_ADDR)
+                    i
                 };
 
             let tile_col: u16 = (xpos as u16)/8; //TODO xpos >> 3 is faster?
@@ -99,8 +106,8 @@ impl BGWindowLayer {
                 _ => unreachable!(),
             };
 
-            //*4.
             let pos: usize = i as usize * 4;
+
             buffer[pos] = r;
             buffer[pos+1] = g;
             buffer[pos+2] = b;

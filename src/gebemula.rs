@@ -1,9 +1,12 @@
+use cpu;
 use cpu::ioregister;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
-use mem::mem::Memory;
+
 use graphics;
 use graphics::graphics::BGWindowLayer;
+
+use mem::mem::Memory;
 use debugger::Debugger;
 
 use sdl2;
@@ -20,6 +23,7 @@ pub struct Gebemula {
     timer: Timer,
     debugger: Debugger,
     game_rom: Vec<u8>,
+    cycles_per_sec: u64,
 }
 
 impl Gebemula {
@@ -30,6 +34,7 @@ impl Gebemula {
             timer: Timer::new(),
             debugger: Debugger::new(),
             game_rom: Vec::new(),
+            cycles_per_sec: 0,
         }
     }
 
@@ -61,6 +66,7 @@ impl Gebemula {
         //Checks for interrupt requests should be made after *every* instruction is
         //run.
         self.cpu.handle_interrupts(&mut self.mem);
+        self.cycles_per_sec += instruction.cycles as u64;
     }
 
     pub fn run_sdl(&mut self) {
@@ -91,7 +97,6 @@ impl Gebemula {
 
         let mut event_pump = sdl_context.event_pump().unwrap();
 
-        let mut fps: u32 = 0;
         let mut last_time = time::now();
 
         //*4 to support RGBA.
@@ -117,9 +122,25 @@ impl Gebemula {
                         texture.update(Rect::new(
                                 0, curr_line as i32,
                                 graphics::consts::DISPLAY_WIDTH_PX as u32, 1
-                                ).unwrap(), 
+                                ).unwrap(),
                             buffer, buffer.len()).unwrap();
                         texture_updated = true;
+                    }
+                }
+                if wn_on {
+                    let wy: u8 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
+                    let wx: u8 = self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
+                    if wy < graphics::consts::DISPLAY_HEIGHT_PX &&
+                        wx < graphics::consts::DISPLAY_WIDTH_PX + 7 {
+                        let wn: BGWindowLayer = BGWindowLayer::new(false, &self.mem);
+                        if let Some(curr_line) = wn.update_line_buffer(buffer, &self.mem) {
+                            texture.update(Rect::new(
+                                    0, curr_line as i32,
+                                    graphics::consts::DISPLAY_WIDTH_PX as u32, 1
+                                    ).unwrap(),
+                                buffer, buffer.len()).unwrap();
+                            texture_updated = true;
+                        }
                     }
                 }
                 if texture_updated {
@@ -127,14 +148,11 @@ impl Gebemula {
                     renderer.copy(&texture, None, None);
                     renderer.present();
                 }
-
-                fps += 1;
             }
             let now = time::now();
             if now - last_time >= time::Duration::seconds(1) {
                 last_time = now;
-                renderer.window_mut().unwrap().set_title(&format!("{}", fps));
-                fps = 0;
+                renderer.window_mut().unwrap().set_title(&format!("{}", self.cycles_per_sec));
             }
             self.step();
         }
