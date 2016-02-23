@@ -104,7 +104,7 @@ impl Gebemula {
                 let mut texture_updated: bool = false;
                 if bg_on {
                     let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
-                    if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
+                    if let Some(curr_line) = bg.update_line_buffer(buffer, &self.mem) {
                         texture.update(Rect::new(
                                 0, curr_line as i32,
                                 graphics::consts::DISPLAY_WIDTH_PX as u32, 1

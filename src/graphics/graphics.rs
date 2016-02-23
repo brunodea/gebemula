@@ -44,7 +44,7 @@ impl BGWindowLayer {
     }
 
     //returns updated line
-    pub fn update_buffer(&self, buffer: &mut [u8], memory: &Memory) -> Option<u8> {
+    pub fn update_line_buffer(&self, buffer: &mut [u8], memory: &Memory) -> Option<u8> {
         //TODO verify all window stuff.
         let curr_line: u8 = ioregister::LYRegister::value(memory);
         if curr_line >= consts::DISPLAY_HEIGHT_PX {
@@ -67,6 +67,7 @@ impl BGWindowLayer {
                 } else {
                     i - memory.read_byte(cpu::consts::WX_REGISTER_ADDR)
                 };
+
             let tile_col: u16 = (xpos as u16)/8; //TODO xpos >> 3 is faster?
             let tile_addr: u16 = self.addr_start + tile_row + tile_col;
             let tile_number: u8 = memory.read_byte(tile_addr);
