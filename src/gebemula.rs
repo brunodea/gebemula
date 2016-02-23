@@ -86,7 +86,6 @@ impl Gebemula {
         let mut fps: u32 = 0;
         let mut last_time = time::now();
         //TODO use consts
-        let mut buffer: &mut [u8] = &mut [0; 160*144*4];
 
         'running: loop {
             for event in event_pump.poll_iter() {
@@ -106,14 +105,18 @@ impl Gebemula {
                 let mut line: i32 = 0;
                 if bg_on {
                     let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
+                    //texture.with_lock(None, |buffer: &mut [u8], _| {
+                    //    texture_updated = bg.update_buffer(buffer, &self.mem) != None;
+                    //});
+                    let mut buffer: &mut [u8] = &mut [0; 160*4];
                     if let Some(curr_line) = bg.update_buffer(buffer, &self.mem) {
                         line = curr_line as i32;
                         //TODO use consts
                         texture.update(Rect::new(
                                 0, line,
-                                160*4, 1
+                                160, 1
                                 ).unwrap(), 
-                            &buffer, 160*4).unwrap();
+                            buffer, 160*4).unwrap();
                         texture_updated = true;
                     }
                 }

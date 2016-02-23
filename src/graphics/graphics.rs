@@ -71,14 +71,14 @@ impl BGWindowLayer {
             //each tile uses 16 bytes.
             let tile_location: u16 =
                 if self.is_tile_number_signed {
-                    let tile_number16: u16 = util::sign_extend(tile_number*16);
+                    let tile_number16: u16 = util::sign_extend(tile_number)*16;
                     if util::is_neg16(tile_number16) {
                         self.tile_table_addr_pattern_0 - util::twos_complement(tile_number16)
                     } else {
                         self.tile_table_addr_pattern_0 + tile_number16
                     }
                 } else {
-                    self.tile_table_addr_pattern_0 + ((tile_number*16) as u16)
+                    self.tile_table_addr_pattern_0 + ((tile_number as u16)*16)
                 };
             let tile_line: u16 = ypos % 8;
             let tile_col: u8 = (xpos % 8) as u8;
@@ -98,8 +98,9 @@ impl BGWindowLayer {
             };
 
             //*4 and +4 because of rgba.
-            let pos: usize =
-                ((curr_line as u32 * consts::DISPLAY_WIDTH_PX * 4) + (i*4)) as usize;
+            //let pos: usize =
+            //    ((curr_line as u32 * consts::DISPLAY_WIDTH_PX * 4) + (i*4)) as usize;
+            let pos: usize = (i*4) as usize;
             buffer[pos] = r;
             buffer[pos+1] = g;
             buffer[pos+2] = b;
