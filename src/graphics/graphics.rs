@@ -47,25 +47,27 @@ impl BGWindowLayer {
     pub fn update_buffer(&self, buffer: &mut [u8], memory: &Memory) -> Option<u8> {
         //TODO verify all window stuff.
         let curr_line: u8 = ioregister::LYRegister::value(memory);
-        if curr_line > 0x90 {
+        if curr_line >= consts::DISPLAY_HEIGHT_PX {
             return None;
         }
-        let scx: u32 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as u32;
+        let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
         let mut ypos: u16 = curr_line as u16;
         if self.is_background {
             ypos += memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
         } else {
             ypos -= memory.read_byte(cpu::consts::WY_REGISTER_ADDR) as u16;
         }
+        //*32: each row has 32 bytes.
         let tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
+        let tile_line: u16 = (ypos % 8)*2;
         for i in 0..consts::DISPLAY_WIDTH_PX {
-            let xpos: u16 =
+            let xpos: u8 =
                 if self.is_background {
-                    (scx + i) as u16
+                    scx + i
                 } else {
-                    (i - memory.read_byte(cpu::consts::WX_REGISTER_ADDR) as u32) as u16
+                    i - memory.read_byte(cpu::consts::WX_REGISTER_ADDR)
                 };
-            let tile_col: u16 = xpos/8; //TODO xpos >> 3 is faster?
+            let tile_col: u16 = (xpos as u16)/8; //TODO xpos >> 3 is faster?
             let tile_addr: u16 = self.addr_start + tile_row + tile_col;
             let tile_number: u8 = memory.read_byte(tile_addr);
             //each tile uses 16 bytes.
@@ -80,7 +82,6 @@ impl BGWindowLayer {
                 } else {
                     self.tile_table_addr_pattern_0 + ((tile_number as u16)*16)
                 };
-            let tile_line: u16 = ypos % 8;
             let tile_col: u8 = (xpos % 8) as u8;
             //two bytes representing 8 pixel indexes
             let lhs: u8 = memory.read_byte(tile_location + tile_line) >> (7 - tile_col);
@@ -100,7 +101,7 @@ impl BGWindowLayer {
             //*4 and +4 because of rgba.
             //let pos: usize =
             //    ((curr_line as u32 * consts::DISPLAY_WIDTH_PX * 4) + (i*4)) as usize;
-            let pos: usize = (i*4) as usize;
+            let pos: usize = i as usize * 4;
             buffer[pos] = r;
             buffer[pos+1] = g;
             buffer[pos+2] = b;
