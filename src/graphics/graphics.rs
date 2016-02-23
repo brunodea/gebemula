@@ -47,10 +47,10 @@ impl BGWindowLayer {
     pub fn update_buffer(&self, buffer: &mut [u8], memory: &Memory) -> Option<u8> {
         //TODO verify all window stuff.
         let curr_line: u8 = ioregister::LYRegister::value(memory);
-        if curr_line > 143 {
+        if curr_line > 0x90 {
             return None;
         }
-        let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
+        let scx: u32 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR) as u32;
         let mut ypos: u16 = curr_line as u16;
         if self.is_background {
             ypos += memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
@@ -61,7 +61,7 @@ impl BGWindowLayer {
         for i in 0..consts::DISPLAY_WIDTH_PX {
             let xpos: u16 =
                 if self.is_background {
-                    ((scx as u32) + i) as u16
+                    (scx + i) as u16
                 } else {
                     (i - memory.read_byte(cpu::consts::WX_REGISTER_ADDR) as u32) as u16
                 };
