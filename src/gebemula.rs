@@ -19,6 +19,7 @@ pub struct Gebemula {
     mem: Memory,
     timer: Timer,
     debugger: Debugger,
+    game_rom: Vec<u8>,
 }
 
 impl Gebemula {
@@ -28,6 +29,7 @@ impl Gebemula {
             mem: Memory::new(),
             timer: Timer::new(),
             debugger: Debugger::new(),
+            game_rom: Vec::new(),
         }
     }
 
@@ -36,6 +38,9 @@ impl Gebemula {
     }
 
     pub fn load_game_rom(&mut self, game_rom: &[u8]) {
+        for byte in game_rom {
+            self.game_rom.push(*byte);
+        }
         self.mem.load_game_rom(game_rom);
     }
 
@@ -45,6 +50,10 @@ impl Gebemula {
 
     fn step(&mut self) {
         let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
+        if instruction.address == 0x100 {
+            //Disable bootstrap rom.
+            self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+        }
         if cfg!(debug_assertions) {
             self.debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
         }

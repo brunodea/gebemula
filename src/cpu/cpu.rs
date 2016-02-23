@@ -385,15 +385,10 @@ impl Cpu {
             },
             0xF3 => {
                 //DI
-                //TODO on the manual it says that it should disable only after the
-                //instruction after DI (same for EI).
-                self.ime_flag = false;
                 instruction.cycles = 4;
             },
             0xFB => {
                 //EI
-                //interrupt::enable_all(memory)?
-                self.ime_flag = true;
                 instruction.cycles = 4;
             },
             0xCB => {
