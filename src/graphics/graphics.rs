@@ -88,7 +88,7 @@ impl BGWindowLayer {
             let lhs: u8 = memory.read_byte(tile_location + tile_line) >> (7 - tile_col);
             let rhs: u8 = memory.read_byte(tile_location + tile_line + 1) >> (7 - tile_col);
             let pixel_index: u8 =
-                ioregister::bg_window_palette(((rhs << 1) | lhs) & 0b11, memory);
+                ioregister::bg_window_palette(((lhs << 1) | rhs) & 0b11, memory);
 
             //Apply palette
             let (r,g,b) = match pixel_index {
