@@ -108,7 +108,7 @@ impl Gebemula {
                                 0, curr_line as i32,
                                 graphics::consts::DISPLAY_WIDTH_PX, 1
                                 ).unwrap(), 
-                            buffer, graphics::consts::DISPLAY_WIDTH_PX*4).unwrap();
+                            buffer, (graphics::consts::DISPLAY_WIDTH_PX*4) as usize).unwrap();
                         texture_updated = true;
                     }
                 }
