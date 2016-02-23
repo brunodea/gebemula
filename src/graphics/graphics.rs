@@ -98,9 +98,7 @@ impl BGWindowLayer {
                 _ => unreachable!(),
             };
 
-            //*4 and +4 because of rgba.
-            //let pos: usize =
-            //    ((curr_line as u32 * consts::DISPLAY_WIDTH_PX * 4) + (i*4)) as usize;
+            //*4.
             let pos: usize = i as usize * 4;
             buffer[pos] = r;
             buffer[pos+1] = g;

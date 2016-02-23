@@ -85,7 +85,8 @@ impl Gebemula {
         let mut fps: u32 = 0;
         let mut last_time = time::now();
 
-        let mut buffer: &mut [u8] = &mut [0; 160*4];
+        //*4 to support RGBA.
+        let mut buffer: &mut [u8] = &mut [0; graphics::consts::DISPLAY_WIDTH_PX as usize * 4];
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
@@ -108,7 +109,7 @@ impl Gebemula {
                                 0, curr_line as i32,
                                 graphics::consts::DISPLAY_WIDTH_PX as u32, 1
                                 ).unwrap(), 
-                            buffer, graphics::consts::DISPLAY_WIDTH_PX as usize*4).unwrap();
+                            buffer, buffer.len()).unwrap();
                         texture_updated = true;
                     }
                 }
