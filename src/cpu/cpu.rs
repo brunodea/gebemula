@@ -372,6 +372,11 @@ impl Cpu {
             },
             0x10 => {
                 //STOP
+                //TODO enable things back after a button press.
+                //commented so it panics if this instruction is used.
+                //self.halt_flag = true;
+                //instruction.cycles = 4;
+                //ioregister::LCDCRegister::disable_lcd(memory);
             },
             0x76 => {
                 //HALT
