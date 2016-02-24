@@ -153,6 +153,7 @@ impl Gebemula {
             if now - last_time >= time::Duration::seconds(1) {
                 last_time = now;
                 renderer.window_mut().unwrap().set_title(&format!("{}", self.cycles_per_sec));
+                self.cycles_per_sec = 0;
             }
             self.step();
         }
