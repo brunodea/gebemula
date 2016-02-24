@@ -100,7 +100,7 @@ pub struct Cpu {
     regs: [u8; 12],
     ime_flag: bool, //interrupt master enable flag
     halt_flag: bool, //cpu doesn't run until an interrupt occurs.
-    last_instruction: Instruction,
+    last_instruction: Option<Box<Instruction>>,
     disable_interrupts: bool,
     enable_interrupts: bool,
 }
@@ -129,7 +129,7 @@ impl Cpu {
             regs: [0; 12],
             ime_flag: true,
             halt_flag: false,
-            last_instruction: Instruction::new(),
+            last_instruction: None,
             disable_interrupts: false,
             enable_interrupts: false,
         }
@@ -333,12 +333,12 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> Instruction {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> Box<Instruction> {
         if self.halt_flag {
-            let instruction: &mut Instruction = &mut Instruction::new();
+            let mut instruction: Instruction = Instruction::new();
             instruction.opcode = 0x76;
             instruction.cycles = 4;
-            return instruction.clone(); //TODO make sure 4 cycles from the HALT instruction is correct.
+            return Box::new(instruction);
         }
 
         //Actually performs DI and EI at the right time.
@@ -350,16 +350,24 @@ impl Cpu {
             self.ime_flag = true;
             self.enable_interrupts = false;
         }
-        if self.last_instruction.opcode == 0xF3 {
-            self.disable_interrupts = true;
-        } else if self.last_instruction.opcode == 0xFB {
-            self.enable_interrupts = true;
+        if let Some(ref last_instr) = self.last_instruction {
+            match last_instr.opcode {
+                0xF3 => {
+                    //DI
+                    self.disable_interrupts = true;
+                },
+                0xFB => {
+                    //EI
+                    self.enable_interrupts = true;
+                },
+                _ => (),
+            }
         }
         /************************************************/
 
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
-        let mut instruction: Instruction = Instruction::new();
+        let mut instruction: Box<Instruction> = Box::new(Instruction::new());
         instruction.opcode = byte;
         //instr, instruction type
         match byte {
@@ -667,7 +675,7 @@ impl Cpu {
 
     /*Instructions execution codes*/
 
-    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
+    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> Box<Instruction> {
         let should_return: bool;
         let mut cycles: u32 = 20;
         match opcode {
@@ -707,14 +715,14 @@ impl Cpu {
         } else {
             cycles = 8;
         }
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_rotates_shifts(&mut self, opcode: u8) -> Instruction {
+    fn exec_rotates_shifts(&mut self, opcode: u8) -> Box<Instruction> {
         let mut value: u8 = self.reg8(Reg::A);
 
         let bit_7: u8 = (value >> 7) & 0b1;
@@ -751,14 +759,14 @@ impl Cpu {
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = 4;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         //push next instruction onto stack
         let immediate: u16 = self.mem_next16(memory);
         let should_jump: bool;
@@ -793,15 +801,15 @@ impl Cpu {
             self.reg_set16(Reg::PC, immediate);
             cycles = 24;
         }
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm16 = Some(immediate);
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> Instruction {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> Box<Instruction> {
         let opcode = self.mem_next8(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -904,15 +912,15 @@ impl Cpu {
             self.flag_set(false, Flag::H);
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.prefix = Some(0xCB);
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let should_jump: bool;
         let mut jump_to_hl: bool = false;
         match opcode {
@@ -961,15 +969,15 @@ impl Cpu {
             cycles = 12;
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm16 = imm16;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let should_jump: bool;
         match opcode {
             0x18 => {
@@ -1013,15 +1021,15 @@ impl Cpu {
             cycles = 8;
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = Some(imm8);
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_add_hl_rr(&mut self, opcode: u8) -> Instruction {
+    fn exec_add_hl_rr(&mut self, opcode: u8) -> Box<Instruction> {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let value: u16 = self.reg16(reg);
 
@@ -1032,14 +1040,14 @@ impl Cpu {
         self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
         self.flag_set(util::has_carry_on_bit16(15, hl, value), Flag::C);
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let mut reg_val: u8 = self.reg8(reg);
         let result: u8;
@@ -1074,14 +1082,14 @@ impl Cpu {
             self.reg_set8(reg, result);
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
+    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> Box<Instruction> {
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
@@ -1169,15 +1177,15 @@ impl Cpu {
             self.reg_set8(Reg::A, result);
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = imm8;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1185,14 +1193,14 @@ impl Cpu {
         let val: u8 = self.mem_at_reg(reg, memory);
         self.reg_set8(Reg::A, val);
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1201,14 +1209,14 @@ impl Cpu {
         let val: u8 = self.reg8(Reg::A);
         self.mem_write(addr, val, memory);
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let immediate: u8 = self.mem_next8(memory);
 
@@ -1224,15 +1232,15 @@ impl Cpu {
             cycles = 8
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = Some(immediate);
 
-        instr.clone()
+        Box::new(instr)
     }
 
-    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
@@ -1252,10 +1260,10 @@ impl Cpu {
             cycles = 4;
         }
 
-        let instr: &mut Instruction = &mut Instruction::new();
+        let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        instr.clone()
+        Box::new(instr)
     }
 }
