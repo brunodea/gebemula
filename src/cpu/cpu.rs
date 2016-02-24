@@ -627,8 +627,8 @@ impl Cpu {
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
                 //TODO: make sure flags are right
-                self.flag_set(util::has_carry_on_bit16(7, val, imm), Flag::H);
-                self.flag_set(util::has_carry_on_bit16(15, val, imm), Flag::C);
+                self.flag_set(util::has_carry_on_bit16(3, val, imm), Flag::H);
+                self.flag_set(util::has_carry_on_bit16(7, val, imm), Flag::C);
                 instruction.cycles = 16;
                 instruction.imm8 = Some(imm as u8);
             },
