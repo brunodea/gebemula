@@ -100,7 +100,7 @@ pub struct Cpu {
     regs: [u8; 12],
     ime_flag: bool, //interrupt master enable flag
     halt_flag: bool, //cpu doesn't run until an interrupt occurs.
-    last_instruction: Option<Box<Instruction>>,
+    last_instruction: Option<Instruction>,
     disable_interrupts: bool,
     enable_interrupts: bool,
 }
@@ -333,12 +333,12 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> Box<Instruction> {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> Instruction {
         if self.halt_flag {
             let mut instruction: Instruction = Instruction::new();
             instruction.opcode = 0x76;
             instruction.cycles = 4;
-            return Box::new(instruction);
+            return instruction;
         }
 
         //Actually performs DI and EI at the right time.
@@ -367,7 +367,7 @@ impl Cpu {
 
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
-        let mut instruction: Box<Instruction> = Box::new(Instruction::new());
+        let mut instruction: Instruction =Instruction::new();
         instruction.opcode = byte;
         //instr, instruction type
         match byte {
@@ -669,13 +669,13 @@ impl Cpu {
             panic!("Unknown instruction: {:#x}", byte);
         }
         instruction.address = addr;
-        self.last_instruction = Some(Box::new(*instruction));
+        self.last_instruction = Some(instruction);
         instruction
     }
 
     /*Instructions execution codes*/
 
-    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> Box<Instruction> {
+    fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
         let should_return: bool;
         let mut cycles: u32 = 20;
         match opcode {
@@ -719,10 +719,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_rotates_shifts(&mut self, opcode: u8) -> Box<Instruction> {
+    fn exec_rotates_shifts(&mut self, opcode: u8) -> Instruction {
         let mut value: u8 = self.reg8(Reg::A);
 
         let bit_7: u8 = (value >> 7) & 0b1;
@@ -763,10 +763,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = 4;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         //push next instruction onto stack
         let immediate: u16 = self.mem_next16(memory);
         let should_jump: bool;
@@ -806,10 +806,10 @@ impl Cpu {
         instr.cycles = cycles;
         instr.imm16 = Some(immediate);
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> Instruction {
         let opcode = self.mem_next8(memory);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -917,10 +917,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let should_jump: bool;
         let mut jump_to_hl: bool = false;
         match opcode {
@@ -974,10 +974,10 @@ impl Cpu {
         instr.cycles = cycles;
         instr.imm16 = imm16;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let should_jump: bool;
         match opcode {
             0x18 => {
@@ -1026,10 +1026,10 @@ impl Cpu {
         instr.cycles = cycles;
         instr.imm8 = Some(imm8);
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_add_hl_rr(&mut self, opcode: u8) -> Box<Instruction> {
+    fn exec_add_hl_rr(&mut self, opcode: u8) -> Instruction {
         let reg: Reg = Reg::pair_from_dd(opcode >> 4);
         let value: u16 = self.reg16(reg);
 
@@ -1044,10 +1044,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let result: u8;
         let mut cycles: u32 = 4;
@@ -1088,10 +1088,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> Box<Instruction> {
+    fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
         let reg_a_val: u8 = self.reg8(Reg::A);
         let reg: Reg = Reg::pair_from_ddd(opcode);
         let value: u8;
@@ -1184,10 +1184,10 @@ impl Cpu {
         instr.cycles = cycles;
         instr.imm8 = imm8;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1199,10 +1199,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1215,10 +1215,10 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = 8;
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let immediate: u8 = self.mem_next8(memory);
 
@@ -1239,10 +1239,10 @@ impl Cpu {
         instr.cycles = cycles;
         instr.imm8 = Some(immediate);
 
-        Box::new(instr)
+        instr
     }
 
-    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
+    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
         let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
 
@@ -1266,6 +1266,6 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        Box::new(instr)
+        instr
     }
 }
