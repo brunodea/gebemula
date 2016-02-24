@@ -1049,12 +1049,14 @@ impl Cpu {
 
     fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Box<Instruction> {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
-        let mut reg_val: u8 = self.reg8(reg);
         let result: u8;
         let mut cycles: u32 = 4;
+        let mut reg_val: u8;
         if reg == Reg::HL {
             cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);
+        } else {
+            reg_val = self.reg8(reg);
         }
         match opcode {
             0x04 | 0x14 | 0x24 | 0x34 |
