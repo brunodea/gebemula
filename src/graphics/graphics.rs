@@ -6,7 +6,6 @@ use super::super::cpu;
 
 pub struct BGWindowLayer {
     addr_start: u16,
-    addr_end: u16,
     tile_table_addr_pattern_0: u16,
     is_tile_number_signed: bool,
     is_background: bool,
@@ -14,18 +13,18 @@ pub struct BGWindowLayer {
 
 impl BGWindowLayer {
     pub fn new(is_background: bool, memory: &Memory) -> BGWindowLayer {
-        let (addr_start, addr_end) =
+        let addr_start =
             if is_background {
                 if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
-                    (consts::BG_NORMAL_ADDR_START, consts::BG_NORMAL_ADDR_END)
+                    consts::BG_NORMAL_ADDR_START
                 } else {
-                    (consts::BG_WINDOW_ADDR_START, consts::BG_WINDOW_ADDR_END)
+                    consts::BG_WINDOW_ADDR_START
                 }
             } else {
                 if ioregister::LCDCRegister::is_window_tile_map_display_normal(&memory) {
-                    (consts::BG_NORMAL_ADDR_START, consts::BG_NORMAL_ADDR_END)
+                    consts::BG_NORMAL_ADDR_START
                 } else {
-                    (consts::BG_WINDOW_ADDR_START, consts::BG_WINDOW_ADDR_END)
+                    consts::BG_WINDOW_ADDR_START
                 }
             };
         let (tile_table_addr_pattern_0, is_signed) =
@@ -36,7 +35,6 @@ impl BGWindowLayer {
             };
         BGWindowLayer {
             addr_start: addr_start,
-            addr_end: addr_end,
             tile_table_addr_pattern_0: tile_table_addr_pattern_0,
             is_tile_number_signed: is_signed,
             is_background: is_background,
@@ -44,11 +42,11 @@ impl BGWindowLayer {
     }
 
     //returns updated line
-    pub fn update_line_buffer(&self, buffer: &mut [u8], memory: &Memory) -> Option<u8> {
+    pub fn update_line_buffer(&self, buffer: &mut [u8; 160*144*4], memory: &Memory) {
         //TODO verify all window stuff.
-        let curr_line: u8 = ioregister::LYRegister::value(memory);
+        let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
         if curr_line >= consts::DISPLAY_HEIGHT_PX {
-            return None;
+            return;
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
         let mut ypos: u16 = curr_line as u16;
@@ -60,7 +58,7 @@ impl BGWindowLayer {
             ypos += memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
         } else {
             if curr_line < wy as u8 {
-                return None;
+                return;
             }
             startx = (wx - 7) as u8;
         }
@@ -78,17 +76,18 @@ impl BGWindowLayer {
             let tile_col: u16 = (xpos as u16)/8; //TODO xpos >> 3 is faster?
             let tile_addr: u16 = self.addr_start + tile_row + tile_col;
             let tile_number: u8 = memory.read_byte(tile_addr);
-            //each tile uses 16 bytes.
             let tile_location: u16 =
                 if self.is_tile_number_signed {
-                    let tile_number16: u16 = util::sign_extend(tile_number)*16;
+                    let tile_number16: u16 = util::sign_extend(tile_number) * 
+                        consts::TILE_SIZE_BYTES as u16;
                     if util::is_neg16(tile_number16) {
                         self.tile_table_addr_pattern_0 - util::twos_complement(tile_number16)
                     } else {
                         self.tile_table_addr_pattern_0 + tile_number16
                     }
                 } else {
-                    self.tile_table_addr_pattern_0 + ((tile_number as u16)*16)
+                    self.tile_table_addr_pattern_0 + ((tile_number as u16) *
+                                                      consts::TILE_SIZE_BYTES as u16)
                 };
             let tile_col: u8 = (xpos % 8) as u8;
             //two bytes representing 8 pixel indexes
@@ -106,14 +105,13 @@ impl BGWindowLayer {
                 _ => unreachable!(),
             };
 
-            let pos: usize = i as usize * 4;
+            let pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize * 4) +
+                (i as usize * 4);
 
             buffer[pos] = r;
             buffer[pos+1] = g;
             buffer[pos+2] = b;
             buffer[pos+3] = 255; //alpha
         }
-
-        Some(curr_line)
     }
 }

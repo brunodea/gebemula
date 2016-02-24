@@ -2,7 +2,7 @@ use std::fmt;
 use super::super::mem::mem;
 use super::super::util::util;
 use super::super::debugger;
-use cpu::{ioregister, interrupt, opcodes, consts};
+use cpu::{ioregister, interrupt, consts};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -822,7 +822,7 @@ impl Cpu {
         let bit: u8 = opcode >> 3 & 0b111;
         let mut should_change_reg: bool = true;
 
-        let mut cycles: u32 = if reg == Reg::HL { 16 } else { 8 };
+        let cycles: u32 = if reg == Reg::HL { 16 } else { 8 };
         match opcode {
             0x00 ... 0x07 => {
                 //RLC b
@@ -1052,7 +1052,7 @@ impl Cpu {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let result: u8;
         let mut cycles: u32 = 4;
-        let mut reg_val: u8;
+        let reg_val: u8;
         if reg == Reg::HL {
             cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);

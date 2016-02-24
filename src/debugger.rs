@@ -223,6 +223,7 @@ impl Debugger {
                 },
                 "last" => {
                     println!("{}", instruction);
+                    self.should_run_cpu = false;
                 },
                 "break" => {
                     self.should_run_cpu = self.break_command.parse(&words[1..]);

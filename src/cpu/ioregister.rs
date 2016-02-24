@@ -49,63 +49,11 @@ pub fn dma_transfer(start_address: u8, memory: &mut mem::Memory) {
     }
 }
 
-pub struct LYRegister {
-    current_cycles: u32,
-}
-
-impl LYRegister {
-    pub fn new() -> LYRegister {
-        LYRegister {
-            current_cycles: 0,
-        }
-    }
-
-    pub fn value(memory: &mem::Memory) -> u8 {
-        memory.read_byte(consts::LY_REGISTER_ADDR)
-    }
-
-    //LY updates on different rates depending on its current value.
-    pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
-        self.current_cycles += cycles;
-        let current_value: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
-        let should_update: bool = match current_value {
-            0x0 => self.current_cycles >= 856,
-            0x1 ... 0x98 => self.current_cycles >= 456,
-            0x99 => self.current_cycles >= 56,
-            _ => unreachable!(),
-        };
-        if should_update {
-            self.current_cycles = 0;
-            let new_value = if current_value == 0x99 { 0x0 } else { current_value + 1 };
-            memory.write_byte(consts::LY_REGISTER_ADDR, new_value);
-            if new_value == 0x90 {
-                interrupt::request(interrupt::Interrupt::VBlank, memory);
-            }
-        }
-    }
-}
-
 pub struct LCDCRegister;
 
 impl LCDCRegister {
     fn is_bit_set(bit: u8, memory: &mem::Memory) -> bool {
         (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> bit) & 0b1 == 0b1
-    }
-    fn set_bit(bit: u8, set: bool, memory: &mut mem::Memory) {
-        let val: u8 = memory.read_byte(consts::LCDC_REGISTER_ADDR);
-        let res: u8 =
-            if set {
-                val | (1 << bit)
-            } else {
-                val & !(1 << bit)
-            };
-        memory.write_byte(consts::LCDC_REGISTER_ADDR, res);
-    }
-    pub fn enable_lcd(memory: &mut mem::Memory) {
-        LCDCRegister::set_bit(7, true, memory);
-    }
-    pub fn disable_lcd(memory: &mut mem::Memory) {
-        LCDCRegister::set_bit(7, false, memory);
     }
     pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(7, memory)

@@ -1,6 +1,6 @@
 use super::super::mem::mem;
-use cpu::{interrupt, consts, ioregister, lcd};
-use std::{thread, time, fmt};
+use cpu::{interrupt, consts};
+use std::fmt;
 
 pub struct Event {
     cycles_counter: u32,
@@ -62,8 +62,6 @@ impl Event {
 pub struct Timer {
     div_event: Event,
     tima_event: Event,
-    screen_refresh_event: lcd::ScreenRefreshEvent,
-    frame_rate_event: Event,
     timer_started: bool,
 }
 
@@ -73,8 +71,6 @@ impl Timer {
         Timer {
             div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES, None),
             tima_event: Event::new(0, None),
-            screen_refresh_event: lcd::ScreenRefreshEvent::new(),
-            frame_rate_event: Event::new(cycles_from_hz(60), None),
             timer_started: false,
         }
     }
@@ -104,24 +100,14 @@ impl Timer {
         } else {
             self.timer_started = false;
         }
-
-        self.screen_refresh_event.update(cycles, memory);
-
-        ioregister::lcdc_stat_interrupt(memory); //verifies and request LCDC interrupt
-
-        if self.frame_rate_event.update(cycles) {
-            //TODO adjust duration to consider elapsed time since the last frame.
-            thread::sleep(time::Duration::new(0, 16666666)); //~1/60 seconds
-        }
     }
 
     pub fn events_to_str(&self) -> String {
         let line = "---------------------\n";
         let div = format!("DIV #########\n{}\n", self.div_event);
         let tima = format!("TIMA #########\n{}\n", self.tima_event);
-        let frame_rate = format!("FrameRate #########\n{}", self.frame_rate_event);
 
-        (div + line + &tima + line + &frame_rate).to_owned()
+        (div + line + &tima).to_owned()
     }
 }
 

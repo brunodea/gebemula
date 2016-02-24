@@ -1,5 +1,6 @@
 use cpu;
 use cpu::ioregister;
+use cpu::lcd::ScreenRefreshEvent;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 
@@ -10,18 +11,20 @@ use mem::mem::Memory;
 use debugger::Debugger;
 
 use sdl2;
-use sdl2::rect::Rect;
 use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
 use time;
 
+//display width * display height * 4 (rgba)
 pub struct Gebemula {
     cpu: Cpu,
     mem: Memory,
     timer: Timer,
     debugger: Debugger,
+    screen_refresh_event: ScreenRefreshEvent,
+    screen_buffer: [u8; 160*144*4],
     game_rom: Vec<u8>,
     cycles_per_sec: u64,
 }
@@ -33,6 +36,8 @@ impl Gebemula {
             mem: Memory::new(),
             timer: Timer::new(),
             debugger: Debugger::new(),
+            screen_refresh_event: ScreenRefreshEvent::new(),
+            screen_buffer: [0; 160*144*4],
             game_rom: Vec::new(),
             cycles_per_sec: 0,
         }
@@ -61,6 +66,25 @@ impl Gebemula {
         }
         if cfg!(debug_assertions) {
             self.debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
+        }
+        if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+            self.screen_refresh_event.update(instruction.cycles, &mut self.mem);
+            let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
+            let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
+            if bg_on && self.screen_refresh_event.is_scan_line {
+                let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
+                bg.update_line_buffer(&mut self.screen_buffer, &self.mem);
+            }
+            if wn_on {
+                let wy: u8 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
+                let wx: u8 = self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
+                if wy < graphics::consts::DISPLAY_HEIGHT_PX &&
+                    wx < graphics::consts::DISPLAY_WIDTH_PX + 7 {
+
+                    let wn: BGWindowLayer = BGWindowLayer::new(false, &self.mem);
+                    wn.update_line_buffer(&mut self.screen_buffer, &self.mem);
+                }
+            }
         }
         self.timer.update(instruction.cycles, &mut self.mem);
         //Checks for interrupt requests should be made after *every* instruction is
@@ -96,11 +120,9 @@ impl Gebemula {
         renderer.present();
 
         let mut event_pump = sdl_context.event_pump().unwrap();
-
         let mut last_time = time::now();
 
         //*4 to support RGBA.
-        let mut buffer: &mut [u8] = &mut [0; graphics::consts::DISPLAY_WIDTH_PX as usize * 4];
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
@@ -111,43 +133,13 @@ impl Gebemula {
                     _ => {}
                 }
             }
-            if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
-                let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
-                let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
 
-                let mut texture_updated: bool = false;
-                if bg_on {
-                    let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
-                    if let Some(curr_line) = bg.update_line_buffer(buffer, &self.mem) {
-                        texture.update(Rect::new(
-                                0, curr_line as i32,
-                                graphics::consts::DISPLAY_WIDTH_PX as u32, 1
-                                ).unwrap(),
-                            buffer, buffer.len()).unwrap();
-                        texture_updated = true;
-                    }
-                }
-                if wn_on {
-                    let wy: u8 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
-                    let wx: u8 = self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
-                    if wy < graphics::consts::DISPLAY_HEIGHT_PX &&
-                        wx < graphics::consts::DISPLAY_WIDTH_PX + 7 {
-                        let wn: BGWindowLayer = BGWindowLayer::new(false, &self.mem);
-                        if let Some(curr_line) = wn.update_line_buffer(buffer, &self.mem) {
-                            texture.update(Rect::new(
-                                    0, curr_line as i32,
-                                    graphics::consts::DISPLAY_WIDTH_PX as u32, 1
-                                    ).unwrap(),
-                                buffer, buffer.len()).unwrap();
-                            texture_updated = true;
-                        }
-                    }
-                }
-                if texture_updated {
-                    renderer.clear();
-                    renderer.copy(&texture, None, None);
-                    renderer.present();
-                }
+            if self.screen_refresh_event.is_display_buffer {
+                texture.update(None, &self.screen_buffer, 
+                               graphics::consts::DISPLAY_WIDTH_PX as usize * 4).unwrap();
+                renderer.clear();
+                renderer.copy(&texture, None, None);
+                renderer.present();
             }
             let now = time::now();
             if now - last_time >= time::Duration::seconds(1) {

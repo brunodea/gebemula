@@ -28,5 +28,6 @@ pub const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;
 pub const DIV_REGISTER_UPDATE_RATE_CYCLES: u32 = CPU_FREQUENCY_HZ / DIV_REGISTER_UPDATE_RATE_HZ;
 
 pub const STAT_MODE_0_DURATION_CYCLES: u32 = 201; //201~207 - H-Blank period
+pub const STAT_MODE_1_DURATION_CYCLES: u32 = 456; //77~83 oam being used
 pub const STAT_MODE_2_DURATION_CYCLES: u32 = 77; //77~83 oam being used
 pub const STAT_MODE_3_DURATION_CYCLES: u32 = 169; //169~175 oam and ram being used
