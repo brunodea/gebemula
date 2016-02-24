@@ -669,7 +669,7 @@ impl Cpu {
             panic!("Unknown instruction: {:#x}", byte);
         }
         instruction.address = addr;
-        self.last_instruction = instruction;
+        self.last_instruction = Some(Box::new(*instruction));
         instruction
     }
 
