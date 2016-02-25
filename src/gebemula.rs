@@ -26,7 +26,7 @@ pub struct Gebemula {
     screen_refresh_event: ScreenRefreshEvent,
     screen_buffer: [u8; 160*144*4],
     game_rom: Vec<u8>,
-    cycles_per_sec: u64,
+    cycles_per_sec: u32,
 }
 
 impl Gebemula {
@@ -90,7 +90,7 @@ impl Gebemula {
         //Checks for interrupt requests should be made after *every* instruction is
         //run.
         self.cpu.handle_interrupts(&mut self.mem);
-        self.cycles_per_sec += instruction.cycles as u64;
+        self.cycles_per_sec += instruction.cycles;
     }
 
     pub fn run_sdl(&mut self) {
@@ -135,16 +135,17 @@ impl Gebemula {
             }
 
             if self.screen_refresh_event.is_display_buffer {
+                renderer.clear();
                 texture.update(None, &self.screen_buffer, 
                                graphics::consts::DISPLAY_WIDTH_PX as usize * 4).unwrap();
-                renderer.clear();
                 renderer.copy(&texture, None, None);
                 renderer.present();
             }
+
             let now = time::now();
             if now - last_time >= time::Duration::seconds(1) {
                 last_time = now;
-                renderer.window_mut().unwrap().set_title(&format!("{}", self.cycles_per_sec));
+                println!("{}", self.cycles_per_sec);
                 self.cycles_per_sec = 0;
             }
             self.step();
