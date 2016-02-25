@@ -41,9 +41,7 @@ impl BGWindowLayer {
         }
     }
 
-    //returns updated line
     pub fn update_line_buffer(&self, buffer: &mut [u8; 160*144*4], memory: &Memory) {
-        //TODO verify all window stuff.
         let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
         if curr_line >= consts::DISPLAY_HEIGHT_PX {
             return;

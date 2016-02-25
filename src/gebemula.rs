@@ -122,7 +122,6 @@ impl Gebemula {
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut last_time = time::now();
 
-        //*4 to support RGBA.
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
