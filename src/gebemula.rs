@@ -37,7 +37,7 @@ impl Gebemula {
             timer: Timer::new(),
             debugger: Debugger::new(),
             screen_refresh_event: ScreenRefreshEvent::new(),
-            screen_buffer: [0; 160*144*4],
+            screen_buffer: [255; 160*144*4],
             game_rom: Vec::new(),
             cycles_per_sec: 0,
         }
