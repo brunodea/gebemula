@@ -25,7 +25,7 @@ impl ScreenRefreshEvent {
         self.current_duration_cycles += cycles;
         let mut mode_changed: bool = false;
         match self.current_mode {
-            0b00 => {
+            0b00 => { //Hblank
                 if self.current_duration_cycles >= consts::STAT_MODE_0_DURATION_CYCLES {
                     let mut ly: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
                     ly += 1;
@@ -35,6 +35,7 @@ impl ScreenRefreshEvent {
                         interrupt::request(interrupt::Interrupt::VBlank, memory);
                         self.is_display_buffer = true;
                     } else {
+                        //Scanline accessing OAM
                         self.current_mode = 0b10;
                     }
                     self.current_duration_cycles = 0;
@@ -42,28 +43,33 @@ impl ScreenRefreshEvent {
                     memory.write_byte(consts::LY_REGISTER_ADDR, ly);
                 }
             },
-            0b01 => {
+            0b01 => { //VBlank
                 if self.current_duration_cycles >= consts::STAT_MODE_1_DURATION_CYCLES {
+                    //VBlank uses the time of 10 lines: from 144 to 153, inclusive.
                     self.current_duration_cycles = 0;
                     let mut ly: u8 = memory.read_byte(consts::LY_REGISTER_ADDR);
-                    ly += 1;
-                    if ly > graphics::consts::DISPLAY_HEIGHT_PX + 9 {
+                    if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
+                        //VBlank over
                         self.current_mode = 0b10;
+                        mode_changed = true;
                         ly = 0;
+                    } else {
+                        ly += 1;
                     }
-                    mode_changed = true;
                     memory.write_byte(consts::LY_REGISTER_ADDR, ly);
                 }
             },
-            0b10 => {
+            0b10 => { //Scanling accessing OAM
                 if self.current_duration_cycles >= consts::STAT_MODE_2_DURATION_CYCLES {
+                    //Scanline accessing VRAM
                     self.current_mode = 0b11;
                     self.current_duration_cycles = 0;
                     mode_changed = true;
                 }
             },
-            0b11 => {
+            0b11 => { //Scanline accessing VRAM
                 if self.current_duration_cycles >= consts::STAT_MODE_3_DURATION_CYCLES {
+                    //HBlank
                     self.current_mode = 0b00;
                     self.current_duration_cycles = 0;
                     mode_changed = true;
