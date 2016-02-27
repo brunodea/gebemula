@@ -144,7 +144,7 @@ impl Gebemula {
             let now = time::now();
             if now - last_time >= time::Duration::seconds(1) {
                 last_time = now;
-                println!("{}", self.cycles_per_sec);
+                renderer.window_mut().unwrap().set_title(&format!("Gebemula - {}", self.cycles_per_sec));
                 self.cycles_per_sec = 0;
             }
             self.step();
