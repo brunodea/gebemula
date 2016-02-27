@@ -1066,8 +1066,7 @@ impl Cpu {
                 //DEC
                 result = (reg_val as i16 - 1) as u8;
                 self.flag_set(true, Flag::N);
-                let minus_one: i8 = -1;
-                self.flag_set(util::has_borrow(reg_val, minus_one as u8), Flag::H);
+                self.flag_set(util::has_borrow(reg_val, result), Flag::H);
             },
             _ => unreachable!(),
         }
