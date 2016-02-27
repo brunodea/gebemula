@@ -549,7 +549,7 @@ impl Cpu {
             0xF9 => {
                 //LD SP,HL
                 let hl: u16 = self.reg16(Reg::HL);
-                self.push_sp16(hl, memory);
+                self.reg_set16(Reg::SP, hl);
                 instruction.cycles = 8;
             },
             /*****************************************/
