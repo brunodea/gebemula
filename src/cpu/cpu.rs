@@ -154,10 +154,10 @@ impl Cpu {
     fn reg_is8(reg: Reg) -> bool {
         match reg {
             Reg::A | Reg::F |
-                Reg::B | Reg::C |
-                Reg::D | Reg::E |
-                Reg::H | Reg::L => true,
-                _ => false,
+            Reg::B | Reg::C |
+            Reg::D | Reg::E |
+            Reg::H | Reg::L => true,
+            _ => false,
         }
     }
 
