@@ -101,8 +101,8 @@ impl Gebemula {
 
         let window = vide_subsystem.window(
             "Gebemula Emulator",
-            graphics::consts::DISPLAY_WIDTH_PX as u32,
-            graphics::consts::DISPLAY_HEIGHT_PX as u32)
+            graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
+            graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
             .opengl()
             .build()
             .unwrap();
