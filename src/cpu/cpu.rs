@@ -627,8 +627,8 @@ impl Cpu {
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
                 //TODO: make sure flags are right
-                self.flag_set(util::has_carry_on_bit16(3, val, imm), Flag::H);
-                self.flag_set(util::has_carry_on_bit16(7, val, imm), Flag::C);
+                self.flag_set(util::has_half_carry16(val, imm), Flag::H);
+                self.flag_set(util::has_carry16(val, imm), Flag::C);
                 instruction.cycles = 16;
                 instruction.imm8 = Some(imm as u8);
             },
@@ -1038,8 +1038,8 @@ impl Cpu {
         self.reg_set16(Reg::HL, hl.wrapping_add(value));
 
         self.flag_set(false, Flag::N);
-        self.flag_set(util::has_carry_on_bit16(11, hl, value), Flag::H);
-        self.flag_set(util::has_carry_on_bit16(15, hl, value), Flag::C);
+        self.flag_set(util::has_half_carry16(hl, value), Flag::H);
+        self.flag_set(util::has_carry16(hl, value), Flag::C);
 
         let mut instr: Instruction = Instruction::new();
         instr.opcode = opcode;
@@ -1065,7 +1065,7 @@ impl Cpu {
                 //INC
                 result = reg_val.wrapping_add(1);
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_carry_on_bit(3, reg_val, 1), Flag::H);
+                self.flag_set(util::has_half_carry(reg_val, 1), Flag::H);
             },
             0x05 | 0x15 | 0x25 | 0x35 |
             0x0D | 0x1D | 0x2D | 0x3D => {
@@ -1073,7 +1073,7 @@ impl Cpu {
                 result = (reg_val as i16 - 1) as u8;
                 self.flag_set(true, Flag::N);
                 let minus_one: i8 = -1;
-                self.flag_set(!util::has_borrow_on_bit(4, reg_val, minus_one as u8), Flag::H);
+                self.flag_set(util::has_borrow(reg_val, minus_one as u8), Flag::H);
             },
             _ => unreachable!(),
         }
@@ -1108,7 +1108,7 @@ impl Cpu {
             value = self.reg8(reg);
             cycles = 4;
         }
-        let mut result: u8;
+        let result: u8;
         let mut unchange_a: bool = false;
 
         match ((opcode >> 3) as u8, opcode % 0o10) {
@@ -1116,32 +1116,31 @@ impl Cpu {
                 //ADD
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
-                self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
+                self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
+                self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
             },
             (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
+                let value: u8 = if self.flag_is_set(Flag::C) { value + 1 } else { value };
                 result = reg_a_val.wrapping_add(value);
-                if self.flag_is_set(Flag::C) {
-                    result |= 0b1;
-                }
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_carry_on_bit(3, reg_a_val, value), Flag::H);
-                self.flag_set(util::has_carry_on_bit(7, reg_a_val, value), Flag::C);
+                self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
+                self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
             },
             (0o22, 0o0 ... 0o7) | (0o32, 0o6) => {
                 //SUB
                 result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
-                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
-                self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
+                self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
+                self.flag_set(value > reg_a_val, Flag::C);
             },
             (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
                 //SBC
+                let value: u8 = if self.flag_is_set(Flag::C) { value + 1 } else { value };
                 result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
-                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
-                self.flag_set(!util::has_borrow_on_any(reg_a_val, value), Flag::C);
+                self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
+                self.flag_set(value > reg_a_val, Flag::C);
             },
             (0o24, 0o0 ... 0o7) | (0o34, 0o6) => {
                 //AND
@@ -1168,7 +1167,7 @@ impl Cpu {
                 //CP
                 result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);
-                self.flag_set(!util::has_borrow_on_bit(4, reg_a_val, value), Flag::H);
+                self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(reg_a_val < value, Flag::C);
                 unchange_a = true;
             },

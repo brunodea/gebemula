@@ -76,8 +76,8 @@ impl BGWindowLayer {
             let tile_number: u8 = memory.read_byte(tile_addr);
             let tile_location: u16 =
                 if self.is_tile_number_signed {
-                    let tile_number16: u16 = util::sign_extend(tile_number) * 
-                        consts::TILE_SIZE_BYTES as u16;
+                    let tile_number16: u16 = (util::sign_extend(tile_number) as usize *
+                        consts::TILE_SIZE_BYTES) as u16;
                     if util::is_neg16(tile_number16) {
                         self.tile_table_addr_pattern_0 - util::twos_complement(tile_number16)
                     } else {

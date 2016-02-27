@@ -1,39 +1,28 @@
-
-//TODO make sure both has_carry and has_borrow are correctly implemented.
-
-pub fn has_carry_on_bit(bit: u8, lhs: u8, rhs: u8) -> bool {
-    has_carry_on_bit16(bit, lhs as u16, rhs as u16)
+fn has_carry_on_bit(bit: u8, lhs: u16, rhs: u16) -> bool {
+    let c: u32 = 1 << (bit as u32 + 1);
+    let f: u32 = c - 1;
+    ((lhs as u32 & f) + (rhs as u32 & f)) & c == c
 }
-pub fn has_carry_on_bit16(bit: u8, lhs: u16, rhs: u16) -> bool {
-    let mut carry: bool = false;
-    for i in 0..(bit+1) {
-        let lhs_bit_one: bool = (lhs >> i) & 0b1 == 1;
-        let rhs_bit_one: bool = (rhs >> i) & 0b1 == 1;
-        carry = (lhs_bit_one && rhs_bit_one) || (carry && (lhs_bit_one || rhs_bit_one));
-    }
-    carry
+
+pub fn has_carry(lhs: u8, rhs: u8) -> bool {
+    has_carry_on_bit(7, lhs as u16, rhs as u16)
 }
+
+pub fn has_half_carry(lhs: u8, rhs: u8) -> bool {
+    has_carry_on_bit(3, lhs as u16, rhs as u16)
+}
+
+pub fn has_carry16(lhs: u16, rhs: u16) -> bool {
+    has_carry_on_bit(15, lhs, rhs)
+}
+
+pub fn has_half_carry16(lhs: u16, rhs: u16) -> bool {
+    has_carry_on_bit(11, lhs, rhs)
+}
+
 #[inline]
-pub fn has_borrow_on_bit(bit: u8, lhs: u8, rhs: u8) -> bool {
-    let mut carry: bool = false;
-    for i in 0..(bit+1) {
-        let lhs_bit_one: bool = (lhs >> i) & 0b1 == 1;
-        let rhs_bit_one: bool = (rhs >> i) & 0b1 == 1;
-        carry = (!lhs_bit_one && rhs_bit_one) || (carry && rhs_bit_one);
-    }
-    carry
-//    ((lhs >> bit) & 0b1 == 0) && ((rhs >> bit) & 0b1 == 1)
-}
-pub fn has_borrow_on_any(lhs: u8, rhs: u8) -> bool {
-    let mut has = false;
-    for i in 0..8 {
-        has = has_borrow_on_bit(i, lhs, rhs);
-        if has {
-            break;
-        }
-    }
-
-    has
+pub fn has_borrow(lhs: u8, rhs: u8) -> bool {
+    lhs & 0xF < rhs & 0xF
 }
 
 #[inline]
