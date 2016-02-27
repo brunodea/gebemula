@@ -137,13 +137,15 @@ impl Memory {
     pub fn handle_banking(&mut self, address: u16, byte: u8) {
         match address {
             0x000 ... 0x1FFF => {
-                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 || self.cartridge_type == CartridgeType::Mbc5 {
+                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 ||self.cartridge_type == CartridgeType::Mbc3 ||  self.cartridge_type == CartridgeType::Mbc5 {
                     self.enable_ram_banking(address, byte);
                 }
             },
             0x2000 ... 0x2FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 {
                     self.change_rom_bank_lower_bits(byte);
+                } else if self.cartridge_type == CartridgeType::Mbc3 {
+                    self.change_rom_bank_mbc3(byte);
                 } else if self.cartridge_type == CartridgeType::Mbc5 {
                     self.change_rom_bank_lower_bits_mbc5(byte);
                 }
@@ -151,12 +153,14 @@ impl Memory {
             0x3000 ... 0x3FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc2 {
                     self.change_rom_bank_lower_bits(byte);
+                } else if self.cartridge_type == CartridgeType::Mbc3 {
+                    self.change_rom_bank_mbc3(byte);
                 } else if self.cartridge_type == CartridgeType::Mbc5 {
                     self.change_rom_bank_9th_bit_mbc5(byte);
                 }
             },
             0x4000 ... 0x5FFF => {
-                if self.cartridge_type == CartridgeType::Mbc1 {
+                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc3 {
                     if self.rom_banking_enabled {
                         self.change_rom_bank_upper_bits(byte);
                     } else {
@@ -171,8 +175,8 @@ impl Memory {
                 }
             },
             0x6000 ... 0x7FFF => {
-                if self.cartridge_type == CartridgeType::Mbc1 {
-                    self.handle_mbc1_mode(byte);
+                if self.cartridge_type == CartridgeType::Mbc1 || self.cartridge_type == CartridgeType::Mbc3 {
+                    self.handle_mbc1_mbc3_mode(byte);
                 }
             },
             _ => panic!("Address {:#X} is not valid for memory bank handling.", address),
@@ -239,11 +243,15 @@ impl Memory {
         }
     }
 
+    pub fn change_rom_bank_mbc3(&mut self, byte: u8) {
+        self.current_rom_bank = byte as u16 & 0x7F;
+    }
+
     pub fn change_ram_bank(&mut self, byte: u8) {
         self.current_ram_bank = byte as u16 & 0x3;
     }
     
-    pub fn handle_mbc1_mode(&mut self, byte: u8) {
+    pub fn handle_mbc1_mbc3_mode(&mut self, byte: u8) {
         let memory_mode_bit: u16 = byte as u16 & 0x1;
         if memory_mode_bit == 0x0 {
             self.rom_banking_enabled = true;
@@ -273,6 +281,7 @@ impl Memory {
                 0x0 => self.cartridge_type = CartridgeType::RomOnly,
                 0x1 ... 0x3 => self.cartridge_type = CartridgeType::Mbc1,
                 0x5 ... 0x6 => self.cartridge_type = CartridgeType::Mbc2,
+                0x11 ... 0x13 => self.cartridge_type = CartridgeType::Mbc3,
                 0x19 ... 0x1E => self.cartridge_type = CartridgeType::Mbc5,
                 _ => panic!("Cartridges of type {:#X} are not yet supported.", self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize]),
             }
