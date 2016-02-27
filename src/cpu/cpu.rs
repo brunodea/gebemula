@@ -669,6 +669,9 @@ impl Cpu {
         if instruction.cycles == 0 {
             panic!("Unknown instruction: {:#x}", byte);
         }
+        if instruction.prefix == None {
+            instruction.opcode = byte;
+        }
         instruction.address = addr;
         self.last_instruction = Some(instruction);
         instruction
