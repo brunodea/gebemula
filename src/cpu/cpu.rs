@@ -717,7 +717,6 @@ impl Cpu {
             cycles = 8;
         }
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
 
         instr
@@ -761,7 +760,6 @@ impl Cpu {
         self.flag_set(false, Flag::H);
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = 4;
 
         instr
@@ -803,7 +801,6 @@ impl Cpu {
             cycles = 24;
         }
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm16 = Some(immediate);
 
@@ -971,7 +968,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm16 = imm16;
 
@@ -1023,7 +1019,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = Some(imm8);
 
@@ -1042,7 +1037,6 @@ impl Cpu {
         self.flag_set(util::has_carry16(hl, value), Flag::C);
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = 8;
 
         instr
@@ -1086,7 +1080,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
 
         instr
@@ -1180,7 +1173,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = imm8;
 
@@ -1196,7 +1188,6 @@ impl Cpu {
         self.reg_set8(Reg::A, val);
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = 8;
 
         instr
@@ -1212,7 +1203,6 @@ impl Cpu {
         self.mem_write(addr, val, memory);
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = 8;
 
         instr
@@ -1235,7 +1225,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
         instr.imm8 = Some(immediate);
 
@@ -1263,7 +1252,6 @@ impl Cpu {
         }
 
         let mut instr: Instruction = Instruction::new();
-        instr.opcode = opcode;
         instr.cycles = cycles;
 
         instr
