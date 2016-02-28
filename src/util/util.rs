@@ -32,7 +32,7 @@ pub fn is_neg16(value: u16) -> bool {
 
 pub fn twos_complement(mut value: u16) -> u16 {
     if is_neg16(value) {
-        value = (!value) + 1;
+        value = !value + 1;
     }
 
     value

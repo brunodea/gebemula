@@ -1,11 +1,9 @@
-use cpu;
 use cpu::ioregister;
 use cpu::lcd::ScreenRefreshEvent;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 
 use graphics;
-use graphics::graphics::BGWindowLayer;
 
 use mem::mem::Memory;
 use debugger::Debugger;
@@ -71,19 +69,8 @@ impl Gebemula {
             self.screen_refresh_event.update(instruction.cycles, &mut self.mem);
             let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
             let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
-            if bg_on && self.screen_refresh_event.is_scan_line {
-                let bg: BGWindowLayer = BGWindowLayer::new(true, &self.mem);
-                bg.update_line_buffer(&mut self.screen_buffer, &self.mem);
-            }
-            if wn_on {
-                let wy: u8 = self.mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
-                let wx: u8 = self.mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
-                if wy < graphics::consts::DISPLAY_HEIGHT_PX &&
-                    wx < graphics::consts::DISPLAY_WIDTH_PX + 7 {
-
-                    let wn: BGWindowLayer = BGWindowLayer::new(false, &self.mem);
-                    wn.update_line_buffer(&mut self.screen_buffer, &self.mem);
-                }
+            if (bg_on || wn_on) && self.screen_refresh_event.is_scan_line {
+                graphics::graphics::update_line_buffer(&mut self.screen_buffer, &self.mem);
             }
         }
         self.timer.update(instruction.cycles, &mut self.mem);
