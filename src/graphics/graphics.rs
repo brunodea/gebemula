@@ -13,13 +13,13 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
     let mut ypos: u16 =
         curr_line as u16 + memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
     let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
-    let wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR) - 7;
+    let wx: i16 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR) as i16 - 7;
 
     let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(memory);
     let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(memory);
     let mut is_window: bool = false;
 
-    let startx: u8 = if bg_on { 0 } else { wx };
+    let startx: i16 = if bg_on { 0 } else { wx };
 
     let (tile_table_addr_pattern_0, is_tile_number_signed) =
         if ioregister::LCDCRegister::is_tile_data_0(&memory) {
@@ -30,8 +30,8 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
 
     let mut tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
     let mut tile_line: u16 = (ypos % 8)*2;
-    for i in startx..consts::DISPLAY_WIDTH_PX {
-        if wn_on && wx < consts::DISPLAY_WIDTH_PX + 7 && i >= wx && !is_window {
+    for i in startx..consts::DISPLAY_WIDTH_PX as i16 {
+        if wn_on && wx < consts::DISPLAY_WIDTH_PX as i16 + 7 && i >= wx && !is_window {
             //Display Window
             if curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
                 is_window = true;
@@ -42,9 +42,9 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         }
         let xpos: u8 =
             if !is_window {
-                scx + i
+                scx + (i as u8)
             } else {
-                i - wx
+                (i - wx) as u8
             };
 
         let addr_start =
