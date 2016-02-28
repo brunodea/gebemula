@@ -20,7 +20,8 @@ pub const SCY_REGISTER_ADDR: u16 = 0xFF42;
 pub const SCX_REGISTER_ADDR: u16 = 0xFF43;
 pub const WY_REGISTER_ADDR: u16 = 0xFF4A;
 pub const WX_REGISTER_ADDR: u16 = 0xFF4B;
-
+pub const OBP_0_REGISTER_ADDR: u16 = 0xFF48;
+pub const OBP_1_REGISTER_ADDR: u16 = 0xFF49;
 
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 

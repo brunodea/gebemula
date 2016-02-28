@@ -72,6 +72,10 @@ impl Gebemula {
             if (bg_on || wn_on) && self.screen_refresh_event.is_scan_line {
                 graphics::graphics::update_line_buffer(&mut self.screen_buffer, &self.mem);
             }
+            if ioregister::LCDCRegister::is_sprite_display_on(&self.mem) &&
+                self.screen_refresh_event.is_scan_line {
+                graphics::graphics::draw_sprites(&mut self.screen_buffer, &self.mem);
+            }
         }
         self.timer.update(instruction.cycles, &mut self.mem);
         //Checks for interrupt requests should be made after *every* instruction is

@@ -70,6 +70,12 @@ impl LCDCRegister {
     pub fn is_bg_tile_map_display_normal(memory: &mem::Memory) -> bool {
         !LCDCRegister::is_bit_set(3, memory)
     }
+    pub fn is_sprite_8_16_on(memory: &mem::Memory) -> bool {
+        LCDCRegister::is_bit_set(2, memory)
+    }
+    pub fn is_sprite_display_on(memory: &mem::Memory) -> bool {
+        LCDCRegister::is_bit_set(1, memory)
+    }
     pub fn is_bg_window_display_on(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(0, memory)
     }
@@ -78,4 +84,13 @@ impl LCDCRegister {
 //pixel_data has to have a value from 0 to 3.
 pub fn bg_window_palette(pixel_data: u8, memory: &mem::Memory) -> u8 {
     (memory.read_byte(consts::BGP_REGISTER_ADDR) >> (pixel_data * 2)) & 0b11
+}
+pub fn sprite_palette(obp0: bool, pixel_data: u8, memory: &mem::Memory) -> u8 {
+    let addr: u16 =
+        if obp0 {
+            consts::OBP_0_REGISTER_ADDR
+        } else {
+            consts::OBP_1_REGISTER_ADDR
+        };
+    (memory.read_byte(addr) >> (pixel_data * 2)) & 0b11
 }

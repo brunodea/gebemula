@@ -100,3 +100,95 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         buffer[pos+3] = 255; //alpha
     }
 }
+
+pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
+    let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
+    if curr_line >= consts::DISPLAY_HEIGHT_PX {
+        return;
+    }
+    let mut index: u16 = 39 * 4;
+    while index > 0 {
+        let sprite_8_16: bool = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
+        let height: u8 = if sprite_8_16 { 16 } else { 8 };
+        //TODO draw sprites based on X priority.
+        let y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) - 16; //y = 0 || y >= 160 hides the sprite
+        if (curr_line < y) || (curr_line > y + height) {
+            //outside sprite
+            index -= 4;
+            continue;
+        }
+        let x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) - 8; //x = 0 || x >= 168 hides the sprite
+        let tile_number: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
+
+        let mut tile_location: u16 = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+            (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
+
+        let flags: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3);
+        let above_bg: bool = (flags >> 7) & 0b1 == 0b1;
+        let y_flip: bool = (flags >> 6) & 0b1 == 0b1;
+        let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
+        let obp0: bool = (flags >> 4) & 0b1 == 0b0;
+
+        let num_bits: u8 = if sprite_8_16 { 8*8 } else { 8*16 };
+        for i in 0..num_bits {
+            let tile_col: u8 = i % 8;
+            let tile_line: u8 = i / 8;
+
+            if sprite_8_16 {
+                if tile_line < 8 {
+                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+                        ((tile_number & 0xFE) as u16 * consts::TILE_SIZE_BYTES as u16);
+                } else {
+                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+                        ((tile_number | 0x01) as u16 * consts::TILE_SIZE_BYTES as u16);
+                }
+            }
+
+            //tile_line*2 because each tile uses 2 bytes per line.
+            let lhs: u8 = memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col);
+            let rhs: u8 = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >> (7 - tile_col);
+            let pixel_data: u8 = ((rhs << 1) & 0b10) | (lhs & 0b01);
+            if pixel_data == 0 {
+                continue;
+            }
+            let pixel_index: u8 =
+                ioregister::sprite_palette(obp0, pixel_data, memory);
+            let (r,g,b,a) = match pixel_index {
+                0b00 => (255,255,255,255),
+                0b01 => (192,192,192,255),
+                0b10 => (96,96,96,255),
+                0b11 => (0,0,0,255),
+                _ => unreachable!(),
+            };
+
+            let mut pos: usize;
+
+            if y_flip {
+                pos =
+                    if sprite_8_16 {
+                        (y + 15 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4
+                    } else {
+                        (y + 7 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4
+                    };
+            } else {
+                pos = (y + tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4;
+            }
+
+            if x_flip {
+                pos += (x + 7 - tile_col) as usize * 4;
+            } else {
+                pos += (x + tile_col) as usize * 4;
+            }
+
+            //if above_bg {
+            }
+                buffer[pos] = r;
+                buffer[pos+1] = g;
+                buffer[pos+2] = b;
+                buffer[pos+3] = a;
+            }
+        }
+
+        index -= 4;
+    }
+}
