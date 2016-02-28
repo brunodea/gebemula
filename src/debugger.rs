@@ -176,7 +176,7 @@ impl Debugger {
     fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         loop {
             self.should_run_cpu = false;
-            print!("gdc> "); //gbm: gebemula
+            print!("gdc> "); //gdc: gebemula debugger console
             io::stdout().flush().unwrap();
             let mut input = String::new();
             match io::stdin().read_line(&mut input) {
@@ -216,6 +216,7 @@ impl Debugger {
             match words[0] {
                 "show" => {
                     Debugger::parse_show(&words[1..], cpu, mem, timer);
+                    self.should_run_cpu = false;
                 },
                 "step" => {
                     self.parse_step(&words[1..]);
