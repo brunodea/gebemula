@@ -277,11 +277,21 @@ impl Cpu {
     }
     fn decrement_reg(&mut self, reg: Reg) {
         if Cpu::reg_is8(reg) {
-            let val: u8 = self.reg8(reg);
-            self.reg_set8(reg, val - 1);
+            let mut val: u8 = self.reg8(reg);
+            if val == 0x0 {
+                val = 0xFF;
+            } else {
+                val = val - 1;
+            }
+            self.reg_set8(reg, val);
         } else {
-            let val: u16 = self.reg16(reg);
-            self.reg_set16(reg, val - 1);
+            let mut val: u16 = self.reg16(reg);
+            if val == 0x0 {
+                val = 0xFFFF;
+            } else {
+                val = val - 1;
+            }
+            self.reg_set16(reg, val);
         }
     }
 
@@ -542,7 +552,7 @@ impl Cpu {
                 //LD HL,SP+n
                 let immediate: u8 = self.mem_next8(memory);
                 let sp: u16 = self.reg16(Reg::SP);
-                self.reg_set16(Reg::HL, (immediate as u16) + sp);
+                self.reg_set16(Reg::HL, sp.wrapping_add(immediate as u16));
                 instruction.cycles = 12;
                 instruction.imm8 = Some(immediate);
             },
@@ -623,7 +633,7 @@ impl Cpu {
                 //ADD SP,n
                 let imm: u16 = self.mem_next8(memory) as u16;
                 let val: u16 = self.reg16(Reg::SP);
-                self.reg_set16(Reg::SP, val + imm);
+                self.reg_set16(Reg::SP, val.wrapping_add(imm));
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
                 //TODO: make sure flags are right
@@ -1116,7 +1126,7 @@ impl Cpu {
             },
             (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
                 //ADC
-                let value: u8 = if self.flag_is_set(Flag::C) { value + 1 } else { value };
+                let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
@@ -1131,7 +1141,7 @@ impl Cpu {
             },
             (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
                 //SBC
-                let value: u8 = if self.flag_is_set(Flag::C) { value + 1 } else { value };
+                let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
                 result = (reg_a_val as i16 - value as i16) as u8;
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
