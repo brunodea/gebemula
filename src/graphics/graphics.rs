@@ -181,7 +181,7 @@ pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
             }
 
             //if above_bg {
-            }
+            {
                 buffer[pos] = r;
                 buffer[pos+1] = g;
                 buffer[pos+2] = b;
