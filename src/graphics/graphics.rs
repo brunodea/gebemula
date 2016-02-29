@@ -42,7 +42,7 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         }
         let xpos: u8 =
             if !is_window {
-                scx + (i as u8)
+                scx.wrapping_add(i as u8)
             } else {
                 (i - wx) as u8
             };
@@ -111,13 +111,19 @@ pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         let sprite_8_16: bool = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
         let height: u8 = if sprite_8_16 { 16 } else { 8 };
         //TODO draw sprites based on X priority.
-        let y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) - 16; //y = 0 || y >= 160 hides the sprite
+        let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index);
+        if y >= 16 {
+            y = y - 16;
+        }
         if (curr_line < y) || (curr_line > y + height) {
             //outside sprite
             index -= 4;
             continue;
         }
-        let x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) - 8; //x = 0 || x >= 168 hides the sprite
+        let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1); //x = 0 || x >= 168 hides the sprite
+        if x >= 8 {
+            x = x - 8;
+        }
         let tile_number: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
 
         let mut tile_location: u16 = consts::SPRITE_PATTERN_TABLE_ADDR_START +
