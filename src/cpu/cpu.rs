@@ -489,7 +489,7 @@ impl Cpu {
             },
             0xF2 => {
                 //LD A,(C)
-                let value: u8 = memory.read_byte(self.reg8(Reg::C) as u16);
+                let value: u8 = memory.read_byte(0xFF00 + self.reg8(Reg::C) as u16);
                 self.reg_set8(Reg::A, value);
                 instruction.cycles = 8
             },
@@ -544,17 +544,19 @@ impl Cpu {
                 if reg == Reg::SP {
                     reg = Reg::AF;
                 }
-                let val = self.reg16(reg);
+                let val: u16 = self.reg16(reg);
                 self.push_sp16(val, memory);
                 instruction.cycles = 16;
             },
             0xF8 => {
                 //LD HL,SP+n
-                let immediate: u8 = self.mem_next8(memory);
+                let immediate: u16 = self.mem_next8(memory) as u16;
                 let sp: u16 = self.reg16(Reg::SP);
-                self.reg_set16(Reg::HL, sp.wrapping_add(immediate as u16));
+                self.reg_set16(Reg::HL, sp.wrapping_add(immediate));
                 instruction.cycles = 12;
-                instruction.imm8 = Some(immediate);
+                instruction.imm8 = Some(immediate as u8);
+                self.flag_set(util::has_carry16(sp, immediate), Flag::C);
+                self.flag_set(util::has_half_carry16(sp, immediate), Flag::H);
             },
             0xF9 => {
                 //LD SP,HL
@@ -641,8 +643,8 @@ impl Cpu {
             0x3F => {
                 //CCF
                 let c: bool = self.flag_is_set(Flag::C);
-                self.flag_set(true, Flag::N);
-                self.flag_set(true, Flag::H);
+                self.flag_set(false, Flag::N);
+                self.flag_set(false, Flag::H);
                 self.flag_set(!c, Flag::C);
                 instruction.cycles = 4;
             },
@@ -672,7 +674,6 @@ impl Cpu {
                 self.reg_set16(Reg::SP, val.wrapping_add(imm));
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
-                //TODO: make sure flags are right
                 self.flag_set(util::has_half_carry16(val, imm), Flag::H);
                 self.flag_set(util::has_carry16(val, imm), Flag::C);
                 instruction.cycles = 16;
@@ -705,8 +706,8 @@ impl Cpu {
                 //RST
                 let pc: u16 = self.reg16(Reg::PC);
                 self.push_sp16(pc, memory);
-                let imm: u16 = self.mem_next8(memory) as u16;
-                self.reg_set16(Reg::PC, imm);
+                let addr: u16 = byte as u16 & 0b0011_1000;
+                self.reg_set16(Reg::PC, addr);
                 instruction.cycles = 32;
             },
             _ => panic!("Unknown instruction: {:#x}", byte),
