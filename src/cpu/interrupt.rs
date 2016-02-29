@@ -68,10 +68,7 @@ pub fn is_requested(interrupt: Interrupt, memory: &mem::Memory) -> bool {
 
 #[inline]
 pub fn request(interrupt: Interrupt, memory: &mut mem::Memory) {
-    //can only request interrupt if it is enabled.
-    if is_enabled(interrupt, memory) {
-        set_bit(bit(interrupt), consts::IF_REGISTER_ADDR, memory);
-    }
+    set_bit(bit(interrupt), consts::IF_REGISTER_ADDR, memory);
 }
 
 #[inline]
