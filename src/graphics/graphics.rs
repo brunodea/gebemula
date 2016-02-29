@@ -31,7 +31,7 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
     let mut tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
     let mut tile_line: u16 = (ypos % 8)*2;
     for i in startx..consts::DISPLAY_WIDTH_PX as i16 {
-        if wn_on && wx < consts::DISPLAY_WIDTH_PX as i16 + 7 && i >= wx && !is_window {
+        if wn_on && wx < consts::DISPLAY_WIDTH_PX as i16 && i >= wx && !is_window {
             //Display Window
             if curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
                 is_window = true;
