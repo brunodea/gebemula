@@ -118,18 +118,20 @@ pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         let sprite_8_16: bool = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
         let height: u8 = if sprite_8_16 { 16 } else { 8 };
         //TODO draw sprites based on X priority.
-        let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index);
-        if y >= 16 {
-            y = y - 16;
-        }
+        let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) - 16;
         if (curr_line < y) || (curr_line > y + height) {
             //outside sprite
             index -= 4;
             continue;
         }
-        let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1); //x = 0 || x >= 168 hides the sprite
-        if x >= 8 {
-            x = x - 8;
+        if y == 0 || y >= 160 {
+            index -= 4;
+            continue;
+        }
+        let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) - 8;
+        if x == 0 || x > 166 {
+            index -= 4;
+            continue;
         }
         let tile_number: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
 
@@ -142,7 +144,7 @@ pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
         let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
         let obp0: bool = (flags >> 4) & 0b1 == 0b0;
 
-        let num_bits: u8 = if sprite_8_16 { 8*8 } else { 8*16 };
+        let num_bits: u8 = if sprite_8_16 { 8*16 } else { 8*8 };
         for i in 0..num_bits {
             let tile_col: u8 = i % 8;
             let tile_line: u8 = i / 8;
@@ -153,7 +155,7 @@ pub fn draw_sprites(buffer: &mut [u8; 160*144*4], memory: &Memory) {
                         ((tile_number & 0xFE) as u16 * consts::TILE_SIZE_BYTES as u16);
                 } else {
                     tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                        ((tile_number | 0x01) as u16 * consts::TILE_SIZE_BYTES as u16);
+                        (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
                 }
             }
 
