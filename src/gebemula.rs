@@ -126,14 +126,17 @@ impl Gebemula {
                 match event {
                     Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
                         self.show_bg = !self.show_bg;
+                        self.screen_buffer = [255; 160*144*4];
                         println!("bg: {}", self.show_bg);
                     },
                     Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
                         self.show_wn = !self.show_wn;
+                        self.screen_buffer = [255; 160*144*4];
                         println!("wn: {}", self.show_wn);
                     },
                     Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
                         self.show_sprites = !self.show_sprites;
+                        self.screen_buffer = [255; 160*144*4];
                         println!("sprites: {}", self.show_sprites);
                     },
                     Event::Quit {..} |

@@ -9,6 +9,9 @@ pub fn update_line_buffer(bg_on: bool, wn_on: bool, buffer: &mut [u8; 160*144*4]
     if curr_line >= consts::DISPLAY_HEIGHT_PX {
         return;
     }
+    if !bg_on && !wn_on {
+        return;
+    }
     let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
     let mut ypos: u16 =
         curr_line as u16 + memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
@@ -28,6 +31,7 @@ pub fn update_line_buffer(bg_on: bool, wn_on: bool, buffer: &mut [u8; 160*144*4]
 
     let mut tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
     let mut tile_line: u16 = (ypos % 8)*2;
+    let mut clear_line: bool = false;
     for i in startx..consts::DISPLAY_WIDTH_PX as i16 {
         if wn_on && wx < consts::DISPLAY_WIDTH_PX as i16 && i >= wx && !is_window {
             //Display Window
@@ -36,7 +40,12 @@ pub fn update_line_buffer(bg_on: bool, wn_on: bool, buffer: &mut [u8; 160*144*4]
                 ypos = (curr_line - wy) as u16;
                 tile_row = (ypos/8)*32; //TODO ypos >> 3 is faster?
                 tile_line = (ypos % 8)*2;
+                clear_line = false;
+            } else if !bg_on {
+                continue;
             }
+        } else if !bg_on {
+            continue;
         }
         let xpos: u8 =
             if !is_window {
