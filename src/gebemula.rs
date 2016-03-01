@@ -25,6 +25,9 @@ pub struct Gebemula {
     screen_buffer: [u8; 160*144*4],
     game_rom: Vec<u8>,
     cycles_per_sec: u32,
+    show_bg: bool,
+    show_wn: bool,
+    show_sprites: bool,
 }
 
 impl Gebemula {
@@ -38,6 +41,9 @@ impl Gebemula {
             screen_buffer: [255; 160*144*4],
             game_rom: Vec::new(),
             cycles_per_sec: 0,
+            show_bg: true,
+            show_wn: true,
+            show_sprites: true,
         }
     }
 
@@ -67,12 +73,14 @@ impl Gebemula {
         }
         if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
             self.screen_refresh_event.update(instruction.cycles, &mut self.mem);
-            let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem);
-            let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem);
-            if (bg_on || wn_on) && self.screen_refresh_event.is_scan_line {
-                graphics::graphics::update_line_buffer(&mut self.screen_buffer, &self.mem);
+            let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(&self.mem)
+                && self.show_bg;
+            let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(&self.mem)
+                && self.show_wn;
+            if self.screen_refresh_event.is_scan_line {
+                graphics::graphics::update_line_buffer(bg_on, wn_on, &mut self.screen_buffer, &self.mem);
             }
-            if ioregister::LCDCRegister::is_sprite_display_on(&self.mem) &&
+            if ioregister::LCDCRegister::is_sprite_display_on(&self.mem) && self.show_sprites &&
                 self.screen_refresh_event.is_scan_line {
                 graphics::graphics::draw_sprites(&mut self.screen_buffer, &self.mem);
             }
@@ -116,6 +124,18 @@ impl Gebemula {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
+                    Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
+                        self.show_bg = !self.show_bg;
+                        println!("bg: {}", self.show_bg);
+                    },
+                    Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
+                        self.show_wn = !self.show_wn;
+                        println!("wn: {}", self.show_wn);
+                    },
+                    Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
+                        self.show_sprites = !self.show_sprites;
+                        println!("sprites: {}", self.show_sprites);
+                    },
                     Event::Quit {..} |
                     Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running

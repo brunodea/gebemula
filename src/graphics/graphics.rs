@@ -4,7 +4,7 @@ use super::super::mem::mem::Memory;
 use super::super::cpu::ioregister;
 use super::super::cpu;
 
-pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
+pub fn update_line_buffer(bg_on: bool, wn_on: bool, buffer: &mut [u8; 160*144*4], memory: &Memory) {
     let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
     if curr_line >= consts::DISPLAY_HEIGHT_PX {
         return;
@@ -15,8 +15,6 @@ pub fn update_line_buffer(buffer: &mut [u8; 160*144*4], memory: &Memory) {
     let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
     let wx: i16 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR) as i16 - 7;
 
-    let bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(memory);
-    let wn_on: bool = ioregister::LCDCRegister::is_window_display_on(memory);
     let mut is_window: bool = false;
 
     let startx: i16 = if bg_on { 0 } else { wx };
