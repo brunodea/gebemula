@@ -59,7 +59,13 @@ impl Graphics {
         let mut ypos: u16 =
             curr_line as u16 + memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
         let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
-        let wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR) - 7;
+        let mut wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR);
+
+        if wx < 7 {
+            wx = 7 - wx;
+        } else {
+            wx = wx - 7;
+        }
 
         let mut is_window: bool = false;
 
@@ -167,7 +173,12 @@ impl Graphics {
             let sprite_8_16: bool = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
             let height: u8 = if sprite_8_16 { 16 } else { 8 };
             //TODO draw sprites based on X priority.
-            let y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) - 16;
+            let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index);
+            if y < 16 {
+                y = 0;
+            } else {
+                y = y - 16;
+            }
             if (curr_line < y) || (curr_line > y + height) {
                 //outside sprite
                 index -= 4;
@@ -177,7 +188,12 @@ impl Graphics {
                 index -= 4;
                 continue;
             }
-            let x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) - 8;
+            let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1);
+            if x < 8 {
+                x = consts::DISPLAY_WIDTH_PX - (x + 8);
+            } else {
+                x = x - 8;
+            }
             if x == 0 || x > 166 {
                 index -= 4;
                 continue;
@@ -193,10 +209,9 @@ impl Graphics {
             let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
             let obp0: bool = (flags >> 4) & 0b1 == 0b0;
 
-            let num_bits: u8 = if sprite_8_16 { 8*16 } else { 8*8 };
-            for i in 0..num_bits {
+            for i in 0..8 {
                 let tile_col: u8 = i % 8;
-                let tile_line: u8 = i / 8;// curr_line - y;//i / 8;
+                let tile_line: u8 = curr_line - y - 1;
 
                 if sprite_8_16 {
                     if tile_line < 8 {
@@ -230,19 +245,21 @@ impl Graphics {
                 if y_flip {
                     pos =
                         if sprite_8_16 {
-                            (y + 15 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4
+                            (y + 15 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize
                         } else {
-                            (y + 7 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4
+                            (y + 7 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize
                         };
                 } else {
-                    pos = (y + tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize * 4;
+                    pos = (y + tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize;
                 }
 
                 if x_flip {
-                    pos += (x + 7 - tile_col) as usize * 4;
+                    pos += (x + 7 - tile_col) as usize;
                 } else {
-                    pos += (x + tile_col) as usize * 4;
+                    pos += (x + tile_col) as usize;
                 }
+
+                pos *= 4;
 
                 //if above_bg || self.bg_wn_pixel_indexes[pos/4] == 0 {
                 {
