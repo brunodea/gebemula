@@ -184,7 +184,7 @@ impl Cpu {
         if Cpu::reg_is8(reg) {
             self.regs[index] as u16
         } else {
-            (self.regs[index] as u16) << 8 | self.regs[index+1] as u16
+            ((self.regs[index] as u16) << 8) | self.regs[index+1] as u16
         }
     }
 
@@ -781,22 +781,22 @@ impl Cpu {
         match opcode {
             0x07 => {
                 //RLCA
-                value = value << 1 | bit_7;
+                value = (value << 1) | bit_7;
                 bit = bit_7;
             },
             0x0F => {
                 //RRCA
-                value = value >> 1 | (bit_0 << 7);
+                value = (value >> 1) | (bit_0 << 7);
                 bit = bit_0;
             },
             0x17 => {
                 //RLA
-                value = value << 1 | self.flag_bit(Flag::C);
+                value = (value << 1) | self.flag_bit(Flag::C);
                 bit = bit_7;
             },
             0x1F => {
                 //RRA
-                value = value >> 1 | (self.flag_bit(Flag::C) << 7);
+                value = (value >> 1) | (self.flag_bit(Flag::C) << 7);
                 bit = bit_0
             },
             _ => unreachable!(),
@@ -866,30 +866,30 @@ impl Cpu {
         } else {
             value = self.reg8(reg);
         }
-        let bit: u8 = opcode >> 3 & 0b111;
+        let bit: u8 = (opcode >> 3) & 0b111;
         let mut should_change_reg: bool = true;
 
         let cycles: u32 = if reg == Reg::HL { 16 } else { 8 };
         match opcode {
             0x00 ... 0x07 => {
                 //RLC b
-                let bit_7: u8 = value >> 7 & 0b1;
+                let bit_7: u8 = (value >> 7) & 0b1;
 
-                value = value << 1 | value >> 7;
+                value = (value << 1) | bit_7;
                 self.flag_set(bit_7 == 1, Flag::C);
             },
             0x08 ... 0x0F => {
                 //RRC m
                 let bit_0: u8 = value & 0b1;
 
-                value = value >> 1 | value << 7;
+                value = (value >> 1) | (bit_0 << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
             },
             0x10 ... 0x17 => {
                 //RL m
-                let bit_7: u8 = value >> 7 & 0b1;
+                let bit_7: u8 = (value >> 7) & 0b1;
 
-                value = value << 1 | self.flag_bit(Flag::C);
+                value = (value << 1) | self.flag_bit(Flag::C);
                 self.flag_set(bit_7 == 1, Flag::C);
             },
             0x18 ... 0x1F => {
@@ -897,7 +897,7 @@ impl Cpu {
                 let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_0: u8 = value & 0b1;
 
-                value = value >> 1 | (bit_c << 7);
+                value = (value >> 1) | (bit_c << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
             },
             0x20 ... 0x27 => {
@@ -909,15 +909,15 @@ impl Cpu {
             },
             0x28 ... 0x2F => {
                 //SRA n
-                let bit_7: u8 = (value >> 7) & 0b1;
+                let bit_7: u8 = value & 0b1000_0000;
                 let bit_0: u8 = value & 0b1;
-                value = value >> 1 | (bit_7 << 7);
+                value = (value >> 1) | bit_7;
 
                 self.flag_set(bit_0 == 1, Flag::C);
             },
             0x30 ... 0x37 => {
                 //SWAP n
-                value = value << 4 | value >> 4;
+                value = (value << 4) | (value >> 4);
                 self.flag_set(false, Flag::C);
             },
             0x38 ... 0x3F => {
@@ -929,7 +929,7 @@ impl Cpu {
             },
             0x40 ... 0x7F => {
                 //BIT b,r; BIT b,(HL)
-                self.flag_set((value >> bit) & 0b1 == 0b0, Flag::Z);
+                self.flag_set(((value >> bit) & 0b1) == 0b0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
@@ -941,7 +941,7 @@ impl Cpu {
             },
             0xC0 ... 0xFF => {
                 //SET b,r; SET b,(HL)
-                value = value | 1 << bit;
+                value = value | (1 << bit);
             },
             _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
         }
@@ -954,7 +954,7 @@ impl Cpu {
             }
         }
 
-        if opcode <= 0o77 {
+        if opcode <= 0x3F {
             self.flag_set(value == 0, Flag::Z);
             self.flag_set(false, Flag::N);
             self.flag_set(false, Flag::H);
@@ -1114,7 +1114,7 @@ impl Cpu {
             0x05 | 0x15 | 0x25 | 0x35 |
             0x0D | 0x1D | 0x2D | 0x3D => {
                 //DEC
-                result = (reg_val as i16 - 1) as u8;
+                result = if reg_val == 0x0 { 0xFF } else { reg_val - 1 };
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_val, result), Flag::H);
             },
@@ -1153,15 +1153,15 @@ impl Cpu {
         let result: u8;
         let mut unchange_a: bool = false;
 
-        match ((opcode >> 3) as u8, opcode % 0o10) {
-            (0o20, 0o0 ... 0o7) | (0o30, 0o6) => {
+        match opcode {
+            0x80 ... 0x87 | 0xC6 => {
                 //ADD
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
             },
-            (0o21, 0o0 ... 0o7) | (0o31, 0o6) => {
+            0x88 ... 0x8F | 0xCE => {
                 //ADC
                 let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
                 result = reg_a_val.wrapping_add(value);
@@ -1169,43 +1169,43 @@ impl Cpu {
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
             },
-            (0o22, 0o0 ... 0o7) | (0o32, 0o6) => {
+            0x90 ... 0x97 | 0xD6 => {
                 //SUB
-                result = (reg_a_val as i16 - value as i16) as u8;
+                result = if value > reg_a_val { value - reg_a_val } else { reg_a_val - value };
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
             },
-            (0o23, 0o0 ... 0o7) | (0o33, 0o6) => {
+            0x98 ... 0x9F | 0xDE => {
                 //SBC
                 let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
-                result = (reg_a_val as i16 - value as i16) as u8;
+                result = if value > reg_a_val { value - reg_a_val } else { reg_a_val - value };
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
             },
-            (0o24, 0o0 ... 0o7) | (0o34, 0o6) => {
+            0xA0 ... 0xA7 | 0xE6 => {
                 //AND
                 result = reg_a_val & value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (0o25, 0o0 ... 0o7) | (0o35, 0o6) => {
+            0xA8 ... 0xAF | 0xEE => {
                 //XOR
                 result = reg_a_val^value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (0o26, 0o0 ... 0o7) | (0o36, 0o6)  => {
+            0xB0 ... 0xB7 | 0xF6 => {
                 //OR
                 result = reg_a_val | value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             },
-            (0o27, 0o0 ... 0o7) | (0o37, 0o6) => {
+            0xB8 ... 0xBF | 0xFE => {
                 //CP
                 result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);
