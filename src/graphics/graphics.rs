@@ -174,29 +174,32 @@ impl Graphics {
             let height: u8 = if sprite_8_16 { 16 } else { 8 };
             //TODO draw sprites based on X priority.
             let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index);
+            if y == 0 || y >= 160 {
+                index -= 4;
+                continue;
+            }
             if y < 16 {
                 y = 0;
             } else {
                 y = y - 16;
             }
-            if (curr_line < y) || (curr_line > y + height) {
+            if (curr_line < y) || (curr_line >= y + height) {
                 //outside sprite
                 index -= 4;
                 continue;
             }
-            if y == 0 || y >= 160 {
-                index -= 4;
-                continue;
-            }
             let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1);
-            if x < 8 {
-                x = consts::DISPLAY_WIDTH_PX - (x + 8);
-            } else {
-                x = x - 8;
-            }
+            let startx: u8;
             if x == 0 || x > 166 {
                 index -= 4;
                 continue;
+            }
+            if x < 8 {
+                startx = 8 - x;
+                x = 8 - x;
+            } else {
+                startx = 0;
+                x = x - 8;
             }
             let tile_number: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
 
@@ -209,19 +212,19 @@ impl Graphics {
             let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
             let obp0: bool = (flags >> 4) & 0b1 == 0b0;
 
-            for i in 0..8 {
-                let tile_col: u8 = i % 8;
-                let tile_line: u8 = curr_line - y - 1;
-
-                if sprite_8_16 {
-                    if tile_line < 8 {
-                        tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                            ((tile_number & 0xFE) as u16 * consts::TILE_SIZE_BYTES as u16);
-                    } else {
-                        tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                            (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
-                    }
+            let tile_line: u8 = curr_line - y;
+            if sprite_8_16 {
+                if tile_line < 8 {
+                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+                        ((tile_number & 0xFE) as u16 * consts::TILE_SIZE_BYTES as u16);
+                } else {
+                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+                        (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
                 }
+            }
+
+            for i in startx..8 {
+                let tile_col: u8 = i;
 
                 //tile_line*2 because each tile uses 2 bytes per line.
                 let lhs: u8 = memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col);
@@ -259,10 +262,9 @@ impl Graphics {
                     pos += (x + tile_col) as usize;
                 }
 
-                pos *= 4;
-
-                //if above_bg || self.bg_wn_pixel_indexes[pos/4] == 0 {
+                //if above_bg || self.bg_wn_pixel_indexes[pos] == 0 {
                 {
+                    pos *= 4;
                     self.screen_buffer[pos] = r;
                     self.screen_buffer[pos+1] = g;
                     self.screen_buffer[pos+2] = b;
