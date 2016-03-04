@@ -1,3 +1,4 @@
+use cpu;
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 
@@ -9,12 +10,65 @@ use debugger::Debugger;
 
 use sdl2;
 use sdl2::pixels::{PixelFormatEnum, Color};
-use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
 use time;
 
-//display width * display height * 4 (rgba)
+enum EventType {
+    SCANLINE_OAM,
+    SCANLINE_VRAM,
+    H_BLANK,
+    VERTICAL_BLANK,
+}
+
+pub struct Event {
+    rate: u32,
+    duration: u32,
+    priority: u32,
+    event_type: EventType,
+}
+
+pub impl Event {
+    pub fn new(rate: u32, duration: u32, event_type: EventType) -> Event {
+        Event {
+            rate: rate,
+            duration: duration,
+            priority: 0,
+            event_type: event_type,
+        }
+    }
+}
+
+pub struct EventTimeline {
+    periodic_events: Vec<Event>,
+}
+
+
+impl EventTimeline {
+    pub fn new() -> EventTimeline {
+        EventTimeline {
+            periodic_events: Vec::new(),
+        }
+    }
+
+    pub fn add_event(&mut self, event: Event) {
+        event.priority += event.rate;
+        let position: usize = 0;
+        for (i, e) in self.periodic_events.into_iter().enumerate() {
+            if e.priority < event.priority {
+                position = i;
+                break;
+            }
+        }
+
+        self.periodic_events.insert(position, event);
+    }
+
+    pub fn pop_event(&mut self) -> Option<Event> {
+        self.periodic_events.remove(0)
+    }
+}
+
 pub struct Gebemula {
     cpu: Cpu,
     mem: Memory,
@@ -23,6 +77,7 @@ pub struct Gebemula {
     game_rom: Vec<u8>,
     cycles_per_sec: u32,
     graphics: Graphics,
+    timeline: EventTimeline,
 }
 
 impl Gebemula {
@@ -35,6 +90,7 @@ impl Gebemula {
             game_rom: Vec::new(),
             cycles_per_sec: 0,
             graphics: Graphics::new(),
+            timeline: EventTimeline::new(),
         }
     }
 
@@ -51,23 +107,98 @@ impl Gebemula {
 
     fn init(&mut self) {
         self.cpu.reset_registers();
+        timeline.add_event(Event::new(
+                cpu::consts::STAT_MODE_3_DURATION_CYCLES + 
+                cpu::consts::STAT_MODE_0_DURATION_CYCLES,
+                cpu::consts::STAT_MODE_2_DURATION_CYCLES,
+                EventType::SCANLINE_OAM));
+        ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
+    }
+
+    fn run_event(&mut self, event: Event) {
+        let gpu_mode_number: Option<u8> = None;
+        match event.event_type {
+            EventType::SCANLINE_OAM => {
+                self.timeline.add_event(Event::new(
+                        cpu::consts::STAT_MODE_2_DURATION_CYCLES +
+                        cpu::consts::STAT_MODE_0_DURATION_CYCLES,
+                        cpu::consts::STAT_MODE_3_DURATION_CYCLES,
+                        EventType::SCANLINE_VRAM));
+                gpu_mode_number = Some(0b11);
+            },
+            EventType::SCANLINE_VRAM => {
+                self.timeline.add_event(Event::new(
+                        cpu::consts::STAT_MODE_2_DURATION_CYCLES +
+                        cpu::consts::STAT_MODE_3_DURATION_CYCLES,
+                        cpu::consts::STAT_MODE_0_DURATION_CYCLES,
+                        EventType::H_BLANK));
+                gpu_mode_number = Some(0b00);
+            },
+            EventType::H_BLANK => {
+                    let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                    ly += 1;
+                    if ly == graphics::consts::DISPLAY_HEIGHT_PX {
+                        //TODO display buffer
+                        gpu_mode_number = Some(0b01);
+                        interrupt::request(interrupt::Interrupt::VBlank, memory);
+                    } else {
+                        timeline.add_event(Event::new(
+                                cpu::consts::STAT_MODE_3_DURATION_CYCLES + 
+                                cpu::consts::STAT_MODE_0_DURATION_CYCLES,
+                                cpu::consts::STAT_MODE_2_DURATION_CYCLES,
+                                EventType::SCANLINE_OAM));
+                        gpu_mode_number = Some(0b10);
+                    }
+                    self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
+            },
+            EventType::VERTICAL_BLANK =>,
+        }
+
+        if let Some(gpu_mode) = gpu_mode_number {
+            ioregister::update_stat_reg_mode_flag(gpu_mode, &mut self.mem);
+            //ioregister::lcdc_stat_interrupt(&mut self.mem); //verifies and request LCDC interrupt
+        }
     }
 
     fn step(&mut self) {
-        let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
-        if instruction.address == 0x100 {
-            //Disable bootstrap rom.
-            self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+        let next_event: Event = timeline.pop_event();
+        let cycles: u32 = 0;
+        while cycles < next_event.rate {
+            let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
+            if instruction.address == 0x100 {
+                //Disable bootstrap rom.
+                self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+            }
         }
-        if cfg!(debug_assertions) {
-            self.debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
-        }
-        self.graphics.update(instruction.cycles, &mut self.mem);
-        self.timer.update(instruction.cycles, &mut self.mem);
-        //Checks for interrupt requests should be made after *every* instruction is
-        //run.
-        self.cpu.handle_interrupts(&mut self.mem);
-        self.cycles_per_sec += instruction.cycles;
+        self.run_event(event);
+        /*
+         * cycles_until_next_event = next_event().rate;
+         * cycles = 0;
+         * while cycles < cycles_until_next_event {
+         *     (instruction, non_periodic_event) = self.cpu.run_instruction();
+         *     cycles += instruction.cycles;
+         *     match non_periodic_event {
+         *         DMA => cycles += DMA_DURATION,
+         *     }
+         * }
+         * event = pop_event();
+         * run_event(event);
+         * sleep(event.duration);
+         */
+        //let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
+        //if instruction.address == 0x100 {
+        //    //Disable bootstrap rom.
+        //    self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+        //}
+        //if cfg!(debug_assertions) {
+        //    self.debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
+        //}
+        //self.graphics.update(instruction.cycles, &mut self.mem);
+        //self.timer.update(instruction.cycles, &mut self.mem);
+        ////Checks for interrupt requests should be made after *every* instruction is
+        ////run.
+        //self.cpu.handle_interrupts(&mut self.mem);
+        //self.cycles_per_sec += instruction.cycles;
     }
 
     pub fn run_sdl(&mut self) {
@@ -92,7 +223,6 @@ impl Gebemula {
             (graphics::consts::DISPLAY_WIDTH_PX as u32,
              graphics::consts::DISPLAY_HEIGHT_PX as u32)).unwrap();
 
-
         renderer.clear();
         renderer.present();
 
@@ -102,17 +232,17 @@ impl Gebemula {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
-                    Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
                         self.graphics.toggle_bg();
                     },
-                    Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
                         self.graphics.toggle_wn();
                     },
-                    Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
                         self.graphics.toggle_sprites();
                     },
-                    Event::Quit {..} |
-                    Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    sdl2::event::Event::Quit {..} |
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running
                     },
                     _ => {}
