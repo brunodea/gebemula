@@ -1,3 +1,5 @@
+use timeline::{EventType, Event, EventTimeline};
+
 use cpu;
 use cpu::ioregister;
 use cpu::interrupt;
@@ -15,83 +17,6 @@ use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::keyboard::Keycode;
 
 use time;
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum EventType {
-    S_OAM,
-    S_VRAM,
-    H_BLANK,
-    V_BLANK,
-}
-
-#[derive(Copy, Clone)]
-pub struct Event {
-    duration: u32,
-    priority: u32,
-    event_type: EventType,
-}
-
-impl Event {
-    pub fn new(duration: u32, event_type: EventType) -> Event {
-        Event {
-            duration: duration,
-            priority: 0,
-            event_type: event_type,
-        }
-    }
-}
-
-pub struct EventTimeline {
-    periodic_events: [Event; 4],
-    curr_event_type: EventType,
-}
-
-
-impl EventTimeline {
-    pub fn new() -> EventTimeline {
-        let h_blank = Event::new(
-                cpu::consts::STAT_MODE_0_DURATION_CYCLES,
-                EventType::H_BLANK);
-        let v_blank = Event::new(
-                cpu::consts::STAT_MODE_1_DURATION_CYCLES,
-                EventType::V_BLANK);
-        let scanline_oam = Event::new(
-                cpu::consts::STAT_MODE_2_DURATION_CYCLES,
-                EventType::S_OAM);
-        let scanline_vram = Event::new(
-                cpu::consts::STAT_MODE_3_DURATION_CYCLES,
-                EventType::S_VRAM);
-        EventTimeline {
-            periodic_events: [scanline_oam, scanline_vram, h_blank, v_blank],
-            curr_event_type: EventType::S_OAM,
-        }
-    }
-
-    pub fn curr_event(&self) -> Option<Event> {
-        let mut res: Option<Event> = None;
-        for i in 0..self.periodic_events.len() {
-            let e: Event = self.periodic_events[i].clone();
-            if e.event_type == self.curr_event_type {
-                res = Some(e);
-                break;
-            }
-        }
-        return res;
-    }
-
-    //pub fn add_event(&mut self, event: Event) {
-    //    //event.priority += event.rate;
-    //    let position: usize = 0;
-    //    for (i, e) in self.periodic_events.into_iter().enumerate() {
-    //        position = i;
-    //        if e.priority > event.priority {
-    //            break;
-    //        }
-    //    }
-
-    //    self.periodic_events.insert(position, event);
-    //}
-}
 
 pub struct Gebemula {
     cpu: Cpu,
@@ -174,6 +99,13 @@ impl Gebemula {
                 }
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
             },
+            EventType::DISABLE_BOOTSTRAP => {
+                //Disable bootstrap rom.
+                self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+            },
+            EventType::DMA_TRANSFER => {
+                ioregister::dma_transfer(event.additional_value, &mut self.mem);
+            },
         }
 
         if let Some(gpu_mode) = gpu_mode_number {
@@ -187,24 +119,21 @@ impl Gebemula {
         let event: Event = self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
         while cycles < event.duration {
-            let instruction: &Instruction = &self.cpu.run_instruction(&mut self.mem);
-            if instruction.address == 0x100 {
-                //Disable bootstrap rom.
-                self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+            let (instruction, one_event):
+                (Instruction, Option<Event>) = self.cpu.run_instruction(&mut self.mem);
+            if let Some(e) = one_event {
+                self.run_event(e);
+                cycles += e.duration;
             }
             self.cpu.handle_interrupts(&mut self.mem);
-            self.timer.update(instruction.cycles, &mut self.mem);
             if cfg!(debug_assertions) {
-                self.debugger.run(instruction, &self.cpu, &self.mem, &self.timer);
+                self.debugger.run(&instruction, &self.cpu, &self.mem, &self.timer);
             }
             cycles += instruction.cycles;
-            self.cycles_per_sec += instruction.cycles;
         }
+        self.cycles_per_sec += cycles;
+        self.timer.update(cycles, &mut self.mem);
         self.run_event(event);
-        //self.graphics.update(instruction.cycles, &mut self.mem);
-        //
-        //
-        //self.cycles_per_sec += instruction.cycles;
     }
 
     pub fn run_sdl(&mut self) {

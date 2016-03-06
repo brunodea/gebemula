@@ -3,6 +3,7 @@ use super::super::mem::mem;
 use super::super::util::util;
 use super::super::debugger;
 use cpu::{ioregister, interrupt, consts};
+use super::super::timeline::{Event, EventType};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -318,10 +319,6 @@ impl Cpu {
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value: u8 = match address {
             consts::DIV_REGISTER_ADDR | consts::LY_REGISTER_ADDR => 0,
-            consts::DMA_REGISTER_ADDR => {
-                ioregister::dma_transfer(value, memory);
-                value
-            }
             _ => value,
         };
         memory.write_byte(address, value);
@@ -344,12 +341,14 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> Instruction {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) ->
+        (Instruction, Option<Event>) {
+
         if self.halt_flag {
             let mut instruction: Instruction = Instruction::new();
             instruction.opcode = 0x76;
             instruction.cycles = 4;
-            return instruction;
+            return (instruction, None);
         }
 
         //Actually performs DI and EI at the right time.
@@ -376,6 +375,7 @@ impl Cpu {
         }
         /************************************************/
 
+        let mut event: Option<Event> = None;
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
         let mut instruction: Instruction =Instruction::new();
@@ -388,6 +388,9 @@ impl Cpu {
             0x0 => {
                 //NOP
                 instruction.cycles = 4;
+                if addr == 0x100 {
+                    event = Some(Event::new(0, EventType::DISABLE_BOOTSTRAP));
+                }
             },
             0x10 => {
                 //STOP
@@ -465,12 +468,17 @@ impl Cpu {
             },
             0xE0 => {
                 //LDH (n),A
-                let immediate: u8 = self.mem_next8(memory);
-                self.mem_write(0xFF00 + (immediate as u16),
-                                  self.reg8(Reg::A),
-                                  memory);
+                let immediate: u16 = 0xFF00 + (self.mem_next8(memory) as u16);
+                if immediate == consts::DMA_REGISTER_ADDR {
+                    let mut e: Event = Event::new(
+                        consts::DMA_DURATION_CYCLES,
+                        EventType::DMA_TRANSFER);
+                    e.additional_value = self.reg8(Reg::A);
+                    event = Some(e);
+                }
+                self.mem_write(immediate, self.reg8(Reg::A), memory);
                 instruction.cycles = 12;
-                instruction.imm8 = Some(immediate);
+                instruction.imm8 = Some(immediate as u8);
             },
             0xF0 => {
                 //LDH A,(n)
@@ -482,9 +490,14 @@ impl Cpu {
             },
             0xE2 => {
                 //LD (C),A
-                self.mem_write(0xFF00 + self.reg8(Reg::C) as u16,
-                                  self.reg8(Reg::A),
-                                  memory);
+                let addr: u16 = 0xFF00 + (self.reg8(Reg::C) as u16);
+                if addr == consts::DMA_REGISTER_ADDR {
+                    let mut e: Event = Event::new(
+                        consts::DMA_DURATION_CYCLES,
+                        EventType::DMA_TRANSFER);
+                    e.additional_value = self.reg8(Reg::A);
+                }
+                self.mem_write(addr, self.reg8(Reg::A), memory);
                 instruction.cycles = 8
             },
             0xF2 => {
@@ -721,7 +734,7 @@ impl Cpu {
         }
         instruction.address = addr;
         self.last_instruction = Some(instruction);
-        instruction
+        (instruction, event)
     }
 
     /*Instructions execution codes*/

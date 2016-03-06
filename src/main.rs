@@ -7,6 +7,7 @@ mod cpu;
 mod mem;
 mod util;
 mod gebemula;
+mod timeline;
 
 use std::env;
 use std::io::Read;

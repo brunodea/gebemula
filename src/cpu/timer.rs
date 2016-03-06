@@ -2,12 +2,12 @@ use super::super::mem::mem;
 use cpu::{interrupt, consts};
 use std::fmt;
 
-pub struct Event {
+struct Event {
     cycles_counter: u32,
     cycles_rate: u32, //rate at which the event should happen
     cycles_duration: Option<u32>, //duration of the event, that is, number of cycles until the cycles counter starts again.
     cycles_duration_counter: u32,
-    pub on_event: bool,
+    on_event: bool,
 }
 
 impl fmt::Display for Event {

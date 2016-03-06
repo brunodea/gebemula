@@ -31,7 +31,6 @@ pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     }
 }
 
-//TODO duration of dma transfer: 160 microseconds
 //TODO change hex by consts
 pub fn dma_transfer(start_address: u8, memory: &mut mem::Memory) {
     let source_address: u16 = (start_address as u16) << 8;
