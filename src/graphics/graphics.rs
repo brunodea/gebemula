@@ -3,12 +3,10 @@ use super::super::util::util;
 use super::super::mem::mem::Memory;
 use super::super::cpu::ioregister;
 use super::super::cpu;
-use super::super::cpu::lcd::ScreenRefreshEvent;
 
 pub struct Graphics {
     bg_wn_pixel_indexes: [u8; 160*144],
     pub screen_buffer: [u8; 160*144*4],
-    screen_refresh_event: ScreenRefreshEvent,
     bg_on: bool,
     wn_on: bool,
     sprites_on: bool,
@@ -19,22 +17,16 @@ impl Graphics {
         Graphics {
             screen_buffer: [255; 160*144*4],
             bg_wn_pixel_indexes: [0; 160*144],
-            screen_refresh_event: ScreenRefreshEvent::new(),
             bg_on: true,
             wn_on: true,
             sprites_on: true,
         }
     }
 
-    pub fn update(&mut self, cycles: u32, memory: &mut Memory) {
+    pub fn update(&mut self, memory: &mut Memory) {
         if ioregister::LCDCRegister::is_lcd_display_enable(memory) {
-            self.screen_refresh_event.update(cycles, memory);
-            if self.screen_refresh_event.is_scan_line {
-                self.update_line_buffer(memory);
-            }
-            if self.screen_refresh_event.is_scan_line {
-                self.draw_sprites(memory);
-            }
+            self.update_line_buffer(memory);
+            self.draw_sprites(memory);
         }
     }
 
@@ -50,9 +42,6 @@ impl Graphics {
 
         let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
         if curr_line >= consts::DISPLAY_HEIGHT_PX {
-            return;
-        }
-        if !bg_on && !wn_on {
             return;
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
@@ -273,25 +262,22 @@ impl Graphics {
             }
 
             index -= 4;
-            }
         }
+    }
 
-        pub fn toggle_bg(&mut self) {
-            self.bg_on = !self.bg_on;
-            self.screen_buffer = [255; 160*144*4];
-            println!("bg: {}", self.bg_on);
-        }
-        pub fn toggle_wn(&mut self) {
-            self.wn_on = !self.wn_on;
-            self.screen_buffer = [255; 160*144*4];
-            println!("wn: {}", self.wn_on);
-        }
-        pub fn toggle_sprites(&mut self) {
-            self.sprites_on = !self.sprites_on;
-            self.screen_buffer = [255; 160*144*4];
-            println!("sprites: {}", self.sprites_on);
-        }
-        pub fn update_screen(&self) -> bool {
-            self.screen_refresh_event.is_display_buffer
-        }
+    pub fn toggle_bg(&mut self) {
+        self.bg_on = !self.bg_on;
+        self.screen_buffer = [255; 160*144*4];
+        println!("bg: {}", self.bg_on);
+    }
+    pub fn toggle_wn(&mut self) {
+        self.wn_on = !self.wn_on;
+        self.screen_buffer = [255; 160*144*4];
+        println!("wn: {}", self.wn_on);
+    }
+    pub fn toggle_sprites(&mut self) {
+        self.sprites_on = !self.sprites_on;
+        self.screen_buffer = [255; 160*144*4];
+        println!("sprites: {}", self.sprites_on);
+    }
 }
