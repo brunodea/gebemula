@@ -235,8 +235,8 @@ impl Gebemula {
 
         self.joypad = 0b1111_1111;
         let mut speed_mul: u32 = 1;
-        let max_fps: u32 = 35;
-        let mut update_rate_ns: u32 = 1_000_000_000 / max_fps;
+        let target_fps: u32 = 35;
+        let mut update_rate_ns: u32 = 1_000_000_000 / target_fps;
         let mut fps: u32 = 0;
         'running: loop {
             for event in event_pump.poll_iter() {
@@ -259,7 +259,7 @@ impl Gebemula {
                             speed_mul = 15;
                         }
                         println!("speed x{}", speed_mul);
-                        update_rate_ns = 1_000_000_000 / (max_fps*speed_mul);
+                        update_rate_ns = 1_000_000_000 / (target_fps*speed_mul);
                     },
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
                         speed_mul -= 1;
@@ -267,7 +267,7 @@ impl Gebemula {
                             speed_mul = 1;
                         }
                         println!("speed x{}", speed_mul);
-                        update_rate_ns = 1_000_000_000 / (max_fps*speed_mul);
+                        update_rate_ns = 1_000_000_000 / (target_fps*speed_mul);
                     },
                     sdl2::event::Event::Quit {..} |
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
