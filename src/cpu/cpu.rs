@@ -476,7 +476,7 @@ impl Cpu {
                     e.additional_value = self.reg8(Reg::A);
                     event = Some(e);
                 } else if immediate == consts::JOYPAD_REGISTER_ADDR {
-                    let mut e: Event = Event::new(
+                    let e: Event = Event::new(
                         0, EventType::JOYPAD);
                     event = Some(e);
                 }
@@ -502,7 +502,7 @@ impl Cpu {
                     e.additional_value = self.reg8(Reg::A);
                     event = Some(e);
                 } else if addr == consts::JOYPAD_REGISTER_ADDR {
-                    let mut e: Event = Event::new(
+                    let e: Event = Event::new(
                         0, EventType::JOYPAD);
                     event = Some(e);
                 }
