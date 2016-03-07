@@ -70,16 +70,18 @@ impl Graphics {
         let mut tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
         let mut tile_line: u16 = (ypos % 8)*2;
         for i in startx..consts::DISPLAY_WIDTH_PX {
-            if wn_on && wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window {
+            if wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window {
                 //Display Window
                 if curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
                     is_window = true;
                     ypos = (curr_line - wy) as u16;
                     tile_row = (ypos/8)*32; //TODO ypos >> 3 is faster?
                     tile_line = (ypos % 8)*2;
-                } else if !bg_on {
-                    continue;
                 }
+            }
+
+            if !wn_on && is_window {
+                is_window = false;
             }
 
             let pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize * 4) +
