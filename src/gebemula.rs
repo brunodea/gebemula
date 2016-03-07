@@ -141,10 +141,10 @@ impl Gebemula {
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem, &self.timer);
             }
+            self.timer.update(cycles, &mut self.mem);
             cycles += instruction.cycles;
         }
         self.cycles_per_sec += cycles;
-        self.timer.update(cycles, &mut self.mem);
         self.run_event(event);
     }
 
