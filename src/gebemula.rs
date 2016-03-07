@@ -14,9 +14,11 @@ use debugger::Debugger;
 
 use sdl2;
 use sdl2::pixels::{PixelFormatEnum, Color};
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Scancode, Keycode};
 
 use time;
+use std;
+use std::thread;
 
 pub struct Gebemula {
     cpu: Cpu,
@@ -126,7 +128,7 @@ impl Gebemula {
         }
     }
 
-    fn step(&mut self) {
+    fn step(&mut self) -> u32 {
         self.should_display_screen = false;
         let event: Event = self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
@@ -141,14 +143,68 @@ impl Gebemula {
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem, &self.timer);
             }
-            self.timer.update(cycles, &mut self.mem);
             cycles += instruction.cycles;
+            self.timer.update(cycles, &mut self.mem);
         }
-        self.cycles_per_sec += cycles;
         self.run_event(event);
+        cycles
+    }
+
+    fn adjust_joypad(&mut self, bit: u8, pressed: bool) {
+        self.joypad =
+            if pressed {
+                self.joypad & !(1 << bit)
+            } else {
+                self.joypad | (1 << bit)
+            };
+    }
+
+    //returns true if joypad changed (i.e. some button was pressed or released);
+    fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) -> bool {
+        let old_joypad: u8 = self.joypad;
+        self.adjust_joypad(0,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
+        self.adjust_joypad(1,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
+        self.adjust_joypad(2,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::LShift));
+        self.adjust_joypad(3,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::LCtrl));
+        self.adjust_joypad(4,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::Right));
+        self.adjust_joypad(5,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::Left));
+        self.adjust_joypad(6,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::Up));
+        self.adjust_joypad(7,
+            event_pump.keyboard_state().is_scancode_pressed(Scancode::Down));
+
+        self.joypad != old_joypad
+    }
+
+    fn print_buttons() {
+        println!(
+            "\
+            Gameboy | Keyboard\n\
+            --------+---------\n\
+               dir  |  arrows \n\
+                A   |    Z    \n\
+                B   |    X    \n\
+              start | left ctrl\n\
+              select| left shift\n\
+            --------------------\n\
+            F1: toggle background\n\
+            F2: toggle window\n\
+            F3: toggle sprites\n\
+            U: increase speed\n\
+            I: decrease speed\n\
+            Esc: quit\n\
+            "
+        );
     }
 
     pub fn run_sdl(&mut self) {
+        Gebemula::print_buttons();
         self.init();
 
         let sdl_context = sdl2::init().unwrap();
@@ -174,11 +230,15 @@ impl Gebemula {
         renderer.present();
 
         let mut event_pump = sdl_context.event_pump().unwrap();
+        let mut last_time_seconds = time::now();
         let mut last_time = time::now();
 
         self.joypad = 0b1111_1111;
+        let mut speed_mul: u32 = 1;
+        let max_fps: u32 = 35;
+        let mut update_rate_ns: u32 = 1_000_000_000 / max_fps;
+        let mut fps: u32 = 0;
         'running: loop {
-            let mut is_button_pressed: bool = false;
             for event in event_pump.poll_iter() {
                 match event {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
@@ -193,82 +253,35 @@ impl Gebemula {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                         self.debugger.cancel_run();
                     },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Z), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0000_0001;
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
+                        speed_mul += 1;
+                        if speed_mul >= 15 {
+                            speed_mul = 15;
+                        }
+                        println!("speed x{}", speed_mul);
+                        update_rate_ns = 1_000_000_000 / (max_fps*speed_mul);
                     },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Right), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0001_0000;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::X), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0000_0010;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Left), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0010_0000;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::LShift), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0000_0100;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Up), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0100_0000;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::LCtrl), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b0000_1000;
-                    },
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Down), .. } => {
-                        is_button_pressed = true;
-                        self.joypad |= 0b1000_0000;
-                    },
-                    //KeyUp may also generate a Joypad interrupt
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Z), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1111_1110;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1110_1111;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::X), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1111_1101;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1101_1111;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::LShift), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1111_1011;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Up), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1011_1111;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::LCtrl), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b1111_0111;
-                    },
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
-                        is_button_pressed = true;
-                        self.joypad &= 0b0111_1111;
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
+                        speed_mul -= 1;
+                        if speed_mul == 0 {
+                            speed_mul = 1;
+                        }
+                        println!("speed x{}", speed_mul);
+                        update_rate_ns = 1_000_000_000 / (max_fps*speed_mul);
                     },
                     sdl2::event::Event::Quit {..} |
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running
                     },
-                    _ => {}
+                     _ => {}
                 }
             }
-
-            if is_button_pressed {
+            
+            if self.adjust_joypad_buttons(&event_pump) {
                 interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
             }
+
+            self.cycles_per_sec += self.step();
 
             if self.should_display_screen {
                 renderer.clear();
@@ -276,15 +289,23 @@ impl Gebemula {
                                graphics::consts::DISPLAY_WIDTH_PX as usize * 4).unwrap();
                 renderer.copy(&texture, None, None);
                 renderer.present();
+
+                let now = time::now();
+                let diff: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
+                if diff < update_rate_ns {
+                    thread::sleep(std::time::Duration::new(0, update_rate_ns - diff));
+                }
+                last_time = now;
+                fps += 1;
             }
 
             let now = time::now();
-            if now - last_time >= time::Duration::seconds(1) {
-                last_time = now;
-                renderer.window_mut().unwrap().set_title(&format!("Gebemula - {}", self.cycles_per_sec));
+            if now - last_time_seconds >= time::Duration::seconds(1) {
+                last_time_seconds = now;
+                renderer.window_mut().unwrap().set_title(&format!("{} Gebemula - {}", fps, self.cycles_per_sec));
                 self.cycles_per_sec = 0;
+                fps = 0;
             }
-            self.step();
         }
     }
 }
