@@ -8,6 +8,7 @@ pub enum EventType {
     V_BLANK,
     DISABLE_BOOTSTRAP,
     DMA_TRANSFER,
+    JOYPAD,
 }
 
 #[derive(Copy, Clone)]

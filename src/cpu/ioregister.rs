@@ -54,6 +54,10 @@ impl LCDCRegister {
     fn is_bit_set(bit: u8, memory: &mem::Memory) -> bool {
         (memory.read_byte(consts::LCDC_REGISTER_ADDR) >> bit) & 0b1 == 0b1
     }
+    pub fn disable_lcd(memory: &mut mem::Memory) {
+        let val: u8 = memory.read_byte(consts::LCDC_REGISTER_ADDR);
+        memory.write_byte(consts::LCDC_REGISTER_ADDR, val & (0b0111_1111));
+    }
     pub fn is_lcd_display_enable(memory: &mem::Memory) -> bool {
         LCDCRegister::is_bit_set(7, memory)
     }
@@ -92,4 +96,14 @@ pub fn sprite_palette(obp0: bool, pixel_data: u8, memory: &mem::Memory) -> u8 {
             consts::OBP_1_REGISTER_ADDR
         };
     (memory.read_byte(addr) >> (pixel_data * 2)) & 0b11
+}
+
+pub fn joypad_buttons_selected(memory: &mem::Memory) -> bool {
+    memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0b0010_0000 == 0b0
+}
+
+pub fn joypad_set_buttons(new_buttons: u8, memory: &mut mem::Memory) {
+    let mut buttons: u8 = memory.read_byte(consts::JOYPAD_REGISTER_ADDR);
+    buttons = (buttons & 0b0011_0000) | new_buttons;
+    memory.write_byte(consts::JOYPAD_REGISTER_ADDR, buttons);
 }

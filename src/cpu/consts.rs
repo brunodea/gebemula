@@ -23,6 +23,8 @@ pub const WX_REGISTER_ADDR: u16 = 0xFF4B;
 pub const OBP_0_REGISTER_ADDR: u16 = 0xFF48;
 pub const OBP_1_REGISTER_ADDR: u16 = 0xFF49;
 
+pub const JOYPAD_REGISTER_ADDR: u16 = 0xFF00;
+
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 
 pub const DIV_REGISTER_UPDATE_RATE_HZ: u32 = 16384;

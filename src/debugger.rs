@@ -286,6 +286,10 @@ impl Debugger {
         }
     }
 
+    pub fn cancel_run(&mut self) {
+        self.run_debug = None;
+    }
+
     fn parse_run(&mut self, parameters: &[&str]) {
         if parameters.is_empty() {
             self.run_debug = Some(0);

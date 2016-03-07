@@ -4,7 +4,7 @@ use cpu::consts;
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Interrupt {
     VBlank, LCDC, TimerOverflow,
-    SerialIO, TransitionHighLow
+    SerialIO, Joypad
 }
 
 #[inline]
@@ -14,7 +14,7 @@ fn bit(interrupt: Interrupt) -> u8 {
         Interrupt::LCDC => 1,
         Interrupt::TimerOverflow => 2,
         Interrupt::SerialIO => 3,
-        Interrupt::TransitionHighLow => 4,
+        Interrupt::Joypad => 4,
     }
 }
 
@@ -25,7 +25,7 @@ fn from_bit(bit: u8) -> Interrupt {
         1 => Interrupt::LCDC,
         2 => Interrupt::TimerOverflow,
         3 => Interrupt::SerialIO,
-        4 => Interrupt::TransitionHighLow,
+        4 => Interrupt::Joypad,
         _ => unreachable!(),
     }
 }
@@ -37,7 +37,7 @@ pub fn address(interrupt: Interrupt) -> u16 {
         Interrupt::LCDC => 0x48,
         Interrupt::TimerOverflow => 0x50,
         Interrupt::SerialIO => 0x58,
-        Interrupt::TransitionHighLow => 0x60,
+        Interrupt::Joypad => 0x60,
     }
 }
 

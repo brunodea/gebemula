@@ -396,9 +396,9 @@ impl Cpu {
                 //STOP
                 //TODO enable things back after a button press.
                 //commented so it panics if this instruction is used.
-                //self.halt_flag = true;
-                //instruction.cycles = 4;
-                //ioregister::LCDCRegister::disable_lcd(memory);
+                self.halt_flag = true;
+                instruction.cycles = 4;
+                ioregister::LCDCRegister::disable_lcd(memory);
             },
             0x76 => {
                 //HALT
@@ -475,6 +475,10 @@ impl Cpu {
                         EventType::DMA_TRANSFER);
                     e.additional_value = self.reg8(Reg::A);
                     event = Some(e);
+                } else if immediate == consts::JOYPAD_REGISTER_ADDR {
+                    let mut e: Event = Event::new(
+                        0, EventType::JOYPAD);
+                    event = Some(e);
                 }
                 self.mem_write(immediate, self.reg8(Reg::A), memory);
                 instruction.cycles = 12;
@@ -496,6 +500,11 @@ impl Cpu {
                         consts::DMA_DURATION_CYCLES,
                         EventType::DMA_TRANSFER);
                     e.additional_value = self.reg8(Reg::A);
+                    event = Some(e);
+                } else if addr == consts::JOYPAD_REGISTER_ADDR {
+                    let mut e: Event = Event::new(
+                        0, EventType::JOYPAD);
+                    event = Some(e);
                 }
                 self.mem_write(addr, self.reg8(Reg::A), memory);
                 instruction.cycles = 8

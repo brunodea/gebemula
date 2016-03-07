@@ -28,6 +28,7 @@ pub struct Gebemula {
     graphics: Graphics,
     should_display_screen: bool,
     timeline: EventTimeline,
+    joypad: u8, //nible to the left are direction keys and to the right button keys.
 }
 
 impl Gebemula {
@@ -42,6 +43,7 @@ impl Gebemula {
             graphics: Graphics::new(),
             should_display_screen: false,
             timeline: EventTimeline::new(),
+            joypad: 0,
         }
     }
 
@@ -106,6 +108,16 @@ impl Gebemula {
             EventType::DMA_TRANSFER => {
                 ioregister::dma_transfer(event.additional_value, &mut self.mem);
             },
+            EventType::JOYPAD => {
+                let buttons: u8 =
+                    if ioregister::joypad_buttons_selected(&self.mem) {
+                        self.joypad & 0b0000_1111
+                    } else {
+                        self.joypad >> 4
+                    };
+
+                ioregister::joypad_set_buttons(buttons, &mut self.mem);
+            },
         }
 
         if let Some(gpu_mode) = gpu_mode_number {
@@ -164,7 +176,9 @@ impl Gebemula {
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut last_time = time::now();
 
+        self.joypad = 0b1111_1111;
         'running: loop {
+            let mut is_button_pressed: bool = false;
             for event in event_pump.poll_iter() {
                 match event {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
@@ -176,12 +190,84 @@ impl Gebemula {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
                         self.graphics.toggle_sprites();
                     },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
+                        self.debugger.cancel_run();
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Z), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0000_0001;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Right), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0001_0000;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::X), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0000_0010;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Left), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0010_0000;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::LShift), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0000_0100;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Up), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0100_0000;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::LCtrl), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b0000_1000;
+                    },
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Down), .. } => {
+                        is_button_pressed = true;
+                        self.joypad |= 0b1000_0000;
+                    },
+                    //KeyUp may also generate a Joypad interrupt
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Z), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1111_1110;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1110_1111;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::X), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1111_1101;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1101_1111;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::LShift), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1111_1011;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Up), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1011_1111;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::LCtrl), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b1111_0111;
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
+                        is_button_pressed = true;
+                        self.joypad &= 0b0111_1111;
+                    },
                     sdl2::event::Event::Quit {..} |
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                         break 'running
                     },
                     _ => {}
                 }
+            }
+
+            if is_button_pressed {
+                interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
             }
 
             if self.should_display_screen {
