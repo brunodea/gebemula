@@ -45,8 +45,8 @@ impl Graphics {
             return;
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
-        let mut ypos: u16 =
-            curr_line as u16 + memory.read_byte(cpu::consts::SCY_REGISTER_ADDR) as u16;
+        let scy: u8 = memory.read_byte(cpu::consts::SCY_REGISTER_ADDR);
+        let mut ypos: u16 = curr_line as u16 + scy as u16;
         let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
         let mut wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR);
 
@@ -80,9 +80,21 @@ impl Graphics {
                 } else if !bg_on {
                     continue;
                 }
-            } else if !bg_on {
+            }
+
+            let pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize * 4) +
+                (i as usize * 4);
+
+            if !bg_on && !is_window {
+                self.screen_buffer[pos] = 255;
+                self.screen_buffer[pos+1] = 255;
+                self.screen_buffer[pos+2] = 255;
+                self.screen_buffer[pos+3] = 255; //alpha
+
+                self.bg_wn_pixel_indexes[(curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + i as usize] = 0;
                 continue;
             }
+
             let xpos: u8 =
                 if !is_window {
                     scx.wrapping_add(i)
@@ -134,9 +146,6 @@ impl Graphics {
                 0b11 => (0,0,0),
                 _ => unreachable!(),
             };
-
-            let pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize * 4) +
-                (i as usize * 4);
 
             self.screen_buffer[pos] = r;
             self.screen_buffer[pos+1] = g;
@@ -196,7 +205,7 @@ impl Graphics {
                 (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
 
             let flags: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3);
-            let above_bg: bool = (flags >> 7) & 0b1 == 0b1;
+            let above_bg: bool = (flags >> 7) & 0b1 == 0b0;
             let y_flip: bool = (flags >> 6) & 0b1 == 0b1;
             let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
             let obp0: bool = (flags >> 4) & 0b1 == 0b0;
@@ -251,8 +260,7 @@ impl Graphics {
                     pos += (x + tile_col) as usize;
                 }
 
-                //if above_bg || self.bg_wn_pixel_indexes[pos] == 0 {
-                {
+                if above_bg || self.bg_wn_pixel_indexes[pos] == 0 {
                     pos *= 4;
                     self.screen_buffer[pos] = r;
                     self.screen_buffer[pos+1] = g;
