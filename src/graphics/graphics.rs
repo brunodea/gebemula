@@ -46,7 +46,12 @@ impl Graphics {
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
         let scy: u8 = memory.read_byte(cpu::consts::SCY_REGISTER_ADDR);
-        let mut ypos: u16 = (curr_line as u16).wrapping_add(scy as u16);
+        let mut ypos: u16 =
+            if curr_line as u16 + scy as u16 > 255 {
+                curr_line as u16 + scy as u16 - 256
+            } else {
+                scy as u16 + curr_line as u16
+            };
         let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
         let mut wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR);
 
@@ -67,33 +72,35 @@ impl Graphics {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
 
-        let mut tile_row: u16 = (ypos/8)*32; //TODO ypos >> 3 is faster?
+        let mut tile_row: u16 = (ypos/8)*32;
         let mut tile_line: u16 = (ypos % 8)*2;
         for i in startx..consts::DISPLAY_WIDTH_PX {
-            if wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window {
-                //Display Window
-                if curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
-                    is_window = true;
-                    ypos = (curr_line - wy) as u16;
-                    tile_row = (ypos/8)*32; //TODO ypos >> 3 is faster?
-                    tile_line = (ypos % 8)*2;
-                }
+            if wn_on && wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window &&
+                curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
+
+                is_window = true;
+                ypos = (curr_line - wy) as u16;
+                tile_row = (ypos/8)*32;
+                tile_line = (ypos % 8)*2;
             }
 
-            if !wn_on && is_window {
-                is_window = false;
-            }
+            let buffer_pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
+                (i as usize);
 
             if !bg_on && !is_window {
-                self.bg_wn_pixel_indexes[(curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + i as usize] = 0;
+                self.bg_wn_pixel_indexes[buffer_pos] = 0;
                 continue;
             }
 
-            let xpos: u8 =
+            let xpos: u16 =
                 if !is_window {
-                    scx.wrapping_add(i)
+                    if scx as u16 + i as u16 > 255 {
+                        scx as u16 + i as u16 - 256
+                    } else {
+                        scx as u16 + i as u16
+                    }
                 } else {
-                    i - wx
+                    i as u16 - wx as u16
                 };
 
             let addr_start =
@@ -111,7 +118,7 @@ impl Graphics {
                     }
                 };
 
-            let tile_col: u16 = (xpos as u16)/8; //TODO xpos >> 3 is faster?
+            let tile_col: u16 = xpos/8;
             let tile_addr: u16 = addr_start + tile_row + tile_col;
             let tile_location: u16 =
                 if is_tile_number_signed {
@@ -124,7 +131,7 @@ impl Graphics {
                 } else {
                     tile_table_addr_pattern_0 + (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
                 };
-            let tile_col: u8 = (xpos % 8) as u8;
+            let tile_col: u16 = xpos % 8;
             //two bytes representing 8 pixel indexes
             let lhs: u8 = memory.read_byte(tile_location + tile_line) >> (7 - tile_col);
             let rhs: u8 = memory.read_byte(tile_location + tile_line + 1) >> (7 - tile_col);
@@ -141,15 +148,14 @@ impl Graphics {
                 _ => unreachable!(),
             };
 
-            let pos: usize = ((curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
-                (i as usize))*4;
+            self.bg_wn_pixel_indexes[buffer_pos] = pixel_data;
 
-            self.screen_buffer[pos] = r;
-            self.screen_buffer[pos+1] = g;
-            self.screen_buffer[pos+2] = b;
-            self.screen_buffer[pos+3] = 255; //alpha
+            let buffer_pos: usize = buffer_pos * 4; //*4 because of RGBA
 
-            self.bg_wn_pixel_indexes[(curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + i as usize] = pixel_data;
+            self.screen_buffer[buffer_pos] = r;
+            self.screen_buffer[buffer_pos+1] = g;
+            self.screen_buffer[buffer_pos+2] = b;
+            self.screen_buffer[buffer_pos+3] = 255; //alpha
         }
     }
 
@@ -232,29 +238,29 @@ impl Graphics {
                     _ => unreachable!(),
                 };
 
-                let mut pos: usize;
+                let mut buffer_pos: usize;
 
                 if y_flip {
-                    pos = (y + height - 1 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize;
+                    buffer_pos = (y + height - 1 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize;
                 } else {
-                    pos = curr_line as usize * consts::DISPLAY_WIDTH_PX as usize;
+                    buffer_pos = curr_line as usize * consts::DISPLAY_WIDTH_PX as usize;
                 }
 
                 if x_flip {
-                    pos += (x + 7 - tile_col) as usize;
+                    buffer_pos += (x + 7 - tile_col) as usize;
                 } else {
-                    pos += (x + tile_col) as usize;
+                    buffer_pos += (x + tile_col) as usize;
                 }
 
-                if above_bg || self.bg_wn_pixel_indexes[pos] == 0 {
-                    pos *= 4;
-                    if pos > self.screen_buffer.len() - 4 {
+                if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
+                    buffer_pos *= 4;
+                    if buffer_pos > self.screen_buffer.len() - 4 {
                         continue;
                     }
-                    self.screen_buffer[pos] = r;
-                    self.screen_buffer[pos+1] = g;
-                    self.screen_buffer[pos+2] = b;
-                    self.screen_buffer[pos+3] = a;
+                    self.screen_buffer[buffer_pos] = r;
+                    self.screen_buffer[buffer_pos+1] = g;
+                    self.screen_buffer[buffer_pos+2] = b;
+                    self.screen_buffer[buffer_pos+3] = a;
                 }
             }
         }
