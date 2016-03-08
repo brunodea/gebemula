@@ -231,8 +231,8 @@ impl Gebemula {
 
         self.joypad = 0b1111_1111;
         let mut speed_mul: u32 = 1;
-        let target_fps: u32 = 35;
-        let mut update_rate_ns: u32 = 1_000_000_000 / target_fps;
+        let target_fps: u32 = 60;
+        let mut desired_frametime_ns: u32 = 1_000_000_000 / target_fps;
         let mut fps: u32 = 0;
         'running: loop {
             for event in event_pump.poll_iter() {
@@ -255,7 +255,7 @@ impl Gebemula {
                             speed_mul = 15;
                         }
                         println!("speed x{}", speed_mul);
-                        update_rate_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
                     },
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
                         speed_mul -= 1;
@@ -263,7 +263,7 @@ impl Gebemula {
                             speed_mul = 1;
                         }
                         println!("speed x{}", speed_mul);
-                        update_rate_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
                     },
                     sdl2::event::Event::Quit {..} |
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -279,6 +279,20 @@ impl Gebemula {
 
             self.cycles_per_sec += self.step();
 
+            /*
+             * Yuri Kunde Schlesner:
+             * it's just the way you do it (fps checking)  seems brittle and 
+             * you'll get error depending on your timing
+             * instead of counting "each >= 1 second check how many frames 
+             * were rendered and show that as fps", you should either do
+             * "each >= 1 second check how many frame were rendered / *actual* 
+             * elapsed time since last reset of fps"
+             * or "each N frames, check elapsed time since last fps update and
+             * calculate based on that" fps is just 1 / frametime, so you should 
+             * just try to average frametime over time to calculate it imo
+             *
+             * https://github.com/yuriks/super-match-5-dx/blob/master/src/main.cpp#L224
+             */
             if self.should_display_screen {
                 renderer.clear();
                 texture.update(None, &self.graphics.screen_buffer,
@@ -287,11 +301,11 @@ impl Gebemula {
                 renderer.present();
 
                 let now = time::now();
-                let diff: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
-                if diff < update_rate_ns {
-                    thread::sleep(std::time::Duration::new(0, update_rate_ns - diff));
+                let elapsed: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
+                if elapsed < desired_frametime_ns {
+                    thread::sleep(std::time::Duration::new(0, desired_frametime_ns - elapsed));
                 }
-                last_time = now;
+                last_time = time::now();
                 fps += 1;
             }
 
