@@ -345,10 +345,7 @@ impl Cpu {
         (Instruction, Option<Event>) {
 
         if self.halt_flag {
-            let mut instruction: Instruction = Instruction::new();
-            instruction.opcode = 0x76;
-            instruction.cycles = 4;
-            return (instruction, None);
+            return (self.last_instruction.unwrap(), None);
         }
 
         //Actually performs DI and EI at the right time.
