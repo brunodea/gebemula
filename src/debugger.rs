@@ -262,10 +262,10 @@ impl Debugger {
             \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
             \ttAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
-                             \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.\
-                             \n\tWhen running press 'q' to cancel it and go back to the debugger.");
+                             \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
         println!("- info\n\tDisplay information about the game rom.");
         println!("- help\n\tShow this.");
+        println!("Tip: when running 'run', 'step' or 'break' press 'Q' to stop it and go back to the debugger.");
     }
 
     fn parse_step(&mut self, parameters: &[&str]) {
@@ -289,6 +289,10 @@ impl Debugger {
 
     pub fn cancel_run(&mut self) {
         self.run_debug = None;
+        self.should_run_cpu = false;
+        self.steps_debug = 0b0;
+        self.num_steps = 0;
+        self.break_command = BreakCommand::new();
     }
 
     fn parse_run(&mut self, parameters: &[&str]) {
