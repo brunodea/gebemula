@@ -183,24 +183,20 @@ impl Gebemula {
     }
 
     fn print_buttons() {
-        println!(
-            "\
-            Gameboy | Keyboard\n\
-            --------+---------\n\
-               dir  |  arrows \n\
-                A   |    Z    \n\
-                B   |    X    \n\
-              start | left ctrl\n\
-              select| left shift\n\
-            --------------------\n\
-            F1: toggle background\n\
-            F2: toggle window\n\
-            F3: toggle sprites\n\
-            U: increase speed\n\
-            I: decrease speed\n\
-            Esc: quit\n\
-            "
-        );
+        println!("Gameboy|Keyboard");
+        println!("-------+-----------");
+        println!("  dir  |  arrows ");
+        println!("   A   |    Z    ");
+        println!("   B   |    X    ");
+        println!(" start | left ctrl");
+        println!("select | left shift");
+        println!("-------+-----------");
+        println!("F1: toggle background");
+        println!("F2: toggle window");
+        println!("F3: toggle sprites");
+        println!("U: increase speed");
+        println!("I: decrease speed");
+        println!("Esc: quit");
     }
 
     pub fn run_sdl(&mut self) {
