@@ -272,7 +272,7 @@ impl Gebemula {
                      _ => {}
                 }
             }
-            
+
             if self.adjust_joypad_buttons(&event_pump) {
                 interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
             }
@@ -281,14 +281,14 @@ impl Gebemula {
 
             /*
              * Yuri Kunde Schlesner:
-             * it's just the way you do it (fps checking)  seems brittle and 
+             * it's just the way you do it (fps checking)  seems brittle and
              * you'll get error depending on your timing
-             * instead of counting "each >= 1 second check how many frames 
+             * instead of counting "each >= 1 second check how many frames
              * were rendered and show that as fps", you should either do
-             * "each >= 1 second check how many frame were rendered / *actual* 
+             * "each >= 1 second check how many frame were rendered / *actual*
              * elapsed time since last reset of fps"
              * or "each N frames, check elapsed time since last fps update and
-             * calculate based on that" fps is just 1 / frametime, so you should 
+             * calculate based on that" fps is just 1 / frametime, so you should
              * just try to average frametime over time to calculate it imo
              *
              * https://github.com/yuriks/super-match-5-dx/blob/master/src/main.cpp#L224
@@ -300,6 +300,10 @@ impl Gebemula {
                 renderer.copy(&texture, None, None);
                 renderer.present();
 
+                //clear buffer
+                self.graphics.screen_buffer = [255;
+                    (graphics::consts::DISPLAY_HEIGHT_PX as usize *
+                     graphics::consts::DISPLAY_WIDTH_PX as usize * 4)];
                 let now = time::now();
                 let elapsed: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
                 if elapsed < desired_frametime_ns {
