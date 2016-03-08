@@ -98,14 +98,21 @@ impl Memory {
             },
             0xC000 ... 0xCFFF => {
                 self.wram_bank_0[(address - 0xC000) as usize] = value;
-                if address <= 0xCDFF {
+                self.wram_echo[(address - 0xC000) as usize] = value;
+            },
+            0xD000 ... 0xDFFF => {
+                self.wram_bank_1_n[(address - 0xD000) as usize] = value;
+                if address <= 0xDDFF {
                     self.wram_echo[(address - 0xC000) as usize] = value;
                 }
             },
-            0xD000 ... 0xDFFF => self.wram_bank_1_n[(address - 0xD000) as usize] = value,
             0xE000 ... 0xFDFF => {
                 self.wram_echo[(address - 0xE000) as usize] = value;
-                self.wram_bank_0[(address - 0xE000) as usize] = value;
+                if address <= 0xEFFF {
+                    self.wram_bank_0[(address - 0xE000) as usize] = value;
+                } else {
+                    self.wram_bank_1_n[(address - 0xF000) as usize] = value;
+                }
             },
             0xFE00 ... 0xFE9F => self.oam[(address - 0xFE00) as usize] = value,
             0xFEA0 ... 0xFEFF => self.unusable[(address - 0xFEA0) as usize] = value,
