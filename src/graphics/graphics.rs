@@ -268,17 +268,14 @@ impl Graphics {
 
     pub fn toggle_bg(&mut self) {
         self.bg_on = !self.bg_on;
-        self.screen_buffer = [255; 160*144*4];
         println!("bg: {}", self.bg_on);
     }
     pub fn toggle_wn(&mut self) {
         self.wn_on = !self.wn_on;
-        self.screen_buffer = [255; 160*144*4];
         println!("wn: {}", self.wn_on);
     }
     pub fn toggle_sprites(&mut self) {
         self.sprites_on = !self.sprites_on;
-        self.screen_buffer = [255; 160*144*4];
         println!("sprites: {}", self.sprites_on);
     }
 }
