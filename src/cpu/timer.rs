@@ -5,57 +5,34 @@ use std::fmt;
 struct Event {
     cycles_counter: u32,
     cycles_rate: u32, //rate at which the event should happen
-    cycles_duration: Option<u32>, //duration of the event, that is, number of cycles until the cycles counter starts again.
-    cycles_duration_counter: u32,
-    on_event: bool,
 }
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "cycles counter: {}\
-               \ncycles rate: {}\
-               \ncycles duration: {:?}\
-               \ncycles duration counter: {}\
-               \non event: {:?}", self.cycles_counter, self.cycles_rate, self.cycles_duration,
-               self.cycles_duration_counter, self.on_event)
+               \ncycles rate: {}", 
+               self.cycles_counter, self.cycles_rate)
     }
 }
 
 impl Event {
-    pub fn new(cycles_rate: u32, cycles_duration: Option<u32>) -> Event {
+    pub fn new(cycles_rate: u32) -> Event {
         Event {
             cycles_counter: 0,
             cycles_rate: cycles_rate,
-            cycles_duration: cycles_duration,
-            cycles_duration_counter: 0,
-            on_event: false,
         }
     }
 
     //return true if event happened.
     pub fn update(&mut self, cycles: u32) -> bool {
-        if let Some(duration) = self.cycles_duration {
-            if self.on_event {
-                self.cycles_duration_counter += cycles;
-                if self.cycles_duration_counter >= duration {
-                    self.cycles_duration_counter = 0;
-                    self.on_event = false;
-                }
-            }
+        self.cycles_counter += cycles;
+        if self.cycles_counter >= self.cycles_rate {
+            self.cycles_counter = 0;
+            true
         } else {
-            self.on_event = false
+            false
         }
-
-        if !self.on_event {
-            self.cycles_counter += cycles;
-            if self.cycles_counter >= self.cycles_rate {
-                self.cycles_counter = 0;
-                self.on_event = true;
-                return true;
-            }
-        }
-        false
     }
 }
 
@@ -69,8 +46,8 @@ impl Timer {
     pub fn new() -> Timer {
         //TODO fix durations.
         Timer {
-            div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES, None),
-            tima_event: Event::new(0, None),
+            div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES),
+            tima_event: Event::new(0),
             timer_started: false,
         }
     }
@@ -86,7 +63,7 @@ impl Timer {
                 self.tima_event.cycles_rate = cycles_from_hz(input_clock(memory));
                 self.timer_started = true;
             }
-            if self.tima_event.update(cycles) {
+            if self.timer_started && self.tima_event.update(cycles) {
                 let mut tima: u8 = memory.read_byte(consts::TIMA_REGISTER_ADDR);
                 if tima == 0xFF {
                     //overflows
