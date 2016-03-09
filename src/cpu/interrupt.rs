@@ -44,7 +44,7 @@ pub fn address(interrupt: Interrupt) -> u16 {
 #[inline]
 fn is_set_bit(bit: u8, addr: u16, memory: &mem::Memory) -> bool {
     let reg: u8 = memory.read_byte(addr);
-    (reg >> bit) & 0b1 == 0b1
+    ((reg >> bit) & 0b1) == 0b1
 }
 
 #[inline]
