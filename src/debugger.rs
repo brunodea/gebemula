@@ -353,12 +353,16 @@ impl Debugger {
                 let lcdc: u8 = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
                 let scx: u8 = mem.read_byte(cpu::consts::SCX_REGISTER_ADDR);
                 let scy: u8 = mem.read_byte(cpu::consts::SCY_REGISTER_ADDR);
+                let stat: u8 = mem.read_byte(cpu::consts::STAT_REGISTER_ADDR);
+                let lyc: u8 = mem.read_byte(cpu::consts::LYC_REGISTER_ADDR);
 
                 println!("IF: {:#x} {:#b}", if_, if_);
                 println!("IE: {:#x} {:#b}", ie, ie);
                 println!("DIV: {:#x} {:#b}", div, div);
                 println!("LY: {:#x} {:#b}", ly, ly);
+                println!("LYC: {:#x} {:#b}", lyc, lyc);
                 println!("LCDC: {:#x} {:#b}", lcdc, lcdc);
+                println!("STAT: {:#x} {:#b}", stat, stat);
                 println!("TIMA: {:#x} {:#b}", tima, tima);
                 println!("TMA: {:#x} {:#b}", tma, tma);
                 println!("TAC: {:#x} {:#b}", tac, tac);
