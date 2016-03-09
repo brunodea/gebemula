@@ -76,7 +76,7 @@ impl Graphics {
         let mut tile_line: u16 = (ypos % 8)*2;
         for i in startx..consts::DISPLAY_WIDTH_PX {
             if wn_on && wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window &&
-                curr_line >= wy && wy < consts::DISPLAY_HEIGHT_PX {
+                curr_line >= wy {
 
                 is_window = true;
                 ypos = (curr_line - wy) as u16;
