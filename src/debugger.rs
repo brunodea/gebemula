@@ -536,7 +536,11 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             0x3E | 0x36 => {
                 //LD r,n; LD (HL),n
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
-                format!("ld {:?},{:#x}", reg, instruction.imm8.unwrap())
+                let mut r = format!("{:?}", reg);
+                if reg == Reg::HL {
+                    r = "(HL)".to_owned();
+                }
+                format!("ld {},{:#x}", r, instruction.imm8.unwrap())
             },
             0x40 ... 0x6F | 0x70 ... 0x75 |
             0x77 ... 0x7F => {
@@ -577,11 +581,11 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xEA => {
                 //LD (nn),A
-                format!("ld {:#x},A", instruction.imm16.unwrap())
+                format!("ld ({:#x}),A", instruction.imm16.unwrap())
             },
             0xFA => {
                 //LD A,(nn)
-                format!("ld A,{:#x}", instruction.imm16.unwrap())
+                format!("ld A,({:#x})", instruction.imm16.unwrap())
             },
             /***************************************/
             /* 16 bit load/store/move instructions */
@@ -593,7 +597,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0x08 => {
                 //LD (nn), SP
-                format!("ld {:#x},SP", instruction.imm16.unwrap())
+                format!("ld ({:#x}),SP", instruction.imm16.unwrap())
             },
             0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 //POP rr
@@ -602,7 +606,10 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xC5 | 0xD5 | 0xE5 | 0xF5 => {
                 //PUSH rr
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let mut reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                if reg == Reg::SP {
+                    reg = Reg::AF;
+                }
                 format!("push {:?}", reg)
             },
             0xF8 => {

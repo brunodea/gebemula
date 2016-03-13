@@ -89,9 +89,9 @@ impl fmt::Display for Instruction {
         }
         let addr = format!("{:#01$x}", self.address, 6);
         if imm8 == "" && imm16 == "" {
-            write!(f, "{}: {} ({})", addr, debugger::instr_to_human(self), opcode)
+            write!(f, "{}: {} - ({})", addr, debugger::instr_to_human(&self), opcode)
         } else {
-            write!(f, "{}: {} ({} {}{})", addr, debugger::instr_to_human(self), opcode, imm8, imm16)
+            write!(f, "{}: {} - ({} {}{})", addr, debugger::instr_to_human(&self), opcode, imm8, imm16)
         }
     }
 }
