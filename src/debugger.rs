@@ -8,6 +8,7 @@ use std::io::{self, Write};
 struct BreakCommand {
     break_addr: Option<u16>,
     break_reg: Option<Reg>,
+    break_ioreg: Option<u16>,
     break_reg_value: u16,
     break_debug: u8,
 }
@@ -17,35 +18,34 @@ impl BreakCommand {
         BreakCommand {
             break_addr: None,
             break_reg: None,
+            break_ioreg: None,
             break_reg_value: 0,
             break_debug: 0,
         }
     }
 
     //true if should go to read loop;
-    fn run(&mut self, instruction: &Instruction, cpu: &Cpu) -> bool {
-        let mut go_to_read_loop: bool = false;
+    fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) -> bool {
+        let go_to_read_loop: bool;
         if let Some(addr) = self.break_addr {
-            if instruction.address == addr {
-                println!("{}", instruction);
-                self.break_addr = None;
-                self.break_reg = None;
-                self.break_reg_value = 0;
-                go_to_read_loop = true;
-            } else {
-                Debugger::print_cpu_human(self.break_debug, instruction, cpu);
-            }
+            go_to_read_loop = instruction.address == addr;
+        } else if let Some(ioreg) = self.break_ioreg {
+            go_to_read_loop = mem.read_byte(ioreg) as u16 == self.break_reg_value;
         } else if let Some(reg) = self.break_reg {
-            if cpu.reg16(reg) == self.break_reg_value {
-                println!("{}", instruction);
-                self.break_addr = None;
-                self.break_reg = None;
-                self.break_reg_value = 0;
-                go_to_read_loop = true;
-            }
+            go_to_read_loop = cpu.reg16(reg) == self.break_reg_value;
         } else {
             go_to_read_loop = true;
         }
+
+        if go_to_read_loop {
+            self.break_addr = None;
+            self.break_reg = None;
+            self.break_ioreg = None;
+            self.break_reg_value = 0;
+            self.break_debug |= 0b10; //ensure the last instruction is printed
+        }
+
+        Debugger::print_cpu_human(self.break_debug, instruction, cpu);
 
         go_to_read_loop
     }
@@ -70,38 +70,64 @@ impl BreakCommand {
             }
         } else {
             should_run_cpu = true;
-            let reg: Reg = match params[0] {
-                "A" => Reg::A,
-                "F" => Reg::F,
-                "B" => Reg::B,
-                "C" => Reg::C,
-                "D" => Reg::D,
-                "E" => Reg::E,
-                "H" => Reg::H,
-                "L" => Reg::L,
-                "AF" => Reg::AF,
-                "BC" => Reg::BC,
-                "HL" => Reg::HL,
-                "SP" => Reg::SP,
-                "PC" => Reg::PC,
-                _ => {
-                    Debugger::display_help(&format!("Invalid register: {}", params[0]));
-                    should_run_cpu = false;
-                    Reg::A
-                }
+            let ioregister: Option<u16> = match params[0] {
+                "LCDC" => Some(cpu::consts::LCDC_REGISTER_ADDR),
+                "LYC" => Some(cpu::consts::LYC_REGISTER_ADDR),
+                "LY" => Some(cpu::consts::LY_REGISTER_ADDR),
+                "SCX" => Some(cpu::consts::SCX_REGISTER_ADDR),
+                "SCY" => Some(cpu::consts::SCY_REGISTER_ADDR),
+                "WY" => Some(cpu::consts::WY_REGISTER_ADDR),
+                "WX" => Some(cpu::consts::WX_REGISTER_ADDR),
+                "IF" => Some(cpu::consts::IF_REGISTER_ADDR),
+                "IE" => Some(cpu::consts::IF_REGISTER_ADDR),
+                "STAT" => Some(cpu::consts::STAT_REGISTER_ADDR),
+                _ => None,
             };
-            if should_run_cpu {
+            let reg: Option<Reg> = match params[0] {
+                "A" => Some(Reg::A),
+                "F" => Some(Reg::F),
+                "B" => Some(Reg::B),
+                "C" => Some(Reg::C),
+                "D" => Some(Reg::D),
+                "E" => Some(Reg::E),
+                "H" => Some(Reg::H),
+                "L" => Some(Reg::L),
+                "AF" => Some(Reg::AF),
+                "BC" => Some(Reg::BC),
+                "HL" => Some(Reg::HL),
+                "SP" => Some(Reg::SP),
+                "PC" => Some(Reg::PC),
+                _ => None,
+            };
+
+            if ioregister != None {
                 if let Some(value) = Debugger::hex_from_str(&params[1]) {
                     self.break_addr = None;
-                    self.break_reg = Some(reg);
+                    self.break_reg = None;
+                    self.break_ioreg = ioregister;
                     self.break_reg_value = value as u16;
                     cpu_human_param_index = 2;
                     has_cpu_human = params.len() >= 3;
                 } else {
-                    Debugger::display_help(&format!("Invalid register value: {}", params[1]));
                     should_run_cpu = false;
                 }
+            } else if reg != None {
+                if let Some(value) = Debugger::hex_from_str(&params[1]) {
+                    self.break_addr = None;
+                    self.break_reg = reg;
+                    self.break_ioreg = None;
+                    self.break_reg_value = value as u16;
+                    cpu_human_param_index = 2;
+                    has_cpu_human = params.len() >= 3;
+                } else {
+                    should_run_cpu = false;
+                }
+            } else {
+                should_run_cpu = false;
+            }
 
+            if !should_run_cpu {
+                Debugger::display_help(&format!("Invalid register value: {}", params[1]));
             }
         }
 
@@ -112,6 +138,7 @@ impl BreakCommand {
                 //user has input some incorret value
                 self.break_addr = None;
                 self.break_reg = None;
+                self.break_ioreg = None;
                 self.break_reg_value = 0;
                 should_run_cpu = false;
             }
@@ -155,7 +182,7 @@ impl Debugger {
             Debugger::print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
         }
-        let mut go_to_loop: bool = self.break_command.run(instruction, cpu);
+        let mut go_to_loop: bool = self.break_command.run(instruction, cpu, mem);
         if go_to_loop && self.num_steps > 0 {
             self.num_steps -= 1;
             Debugger::print_cpu_human(self.steps_debug, instruction, cpu);
@@ -260,7 +287,8 @@ impl Debugger {
         println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\
             \tBreak when addr is hit or reg has value.\n\
             \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
-            \ttAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC");
+            \ttAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\
+            \tAvailable ioregs: LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
                              \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
         println!("- info\n\tDisplay information about the game rom.");
