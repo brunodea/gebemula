@@ -106,6 +106,7 @@ impl BreakCommand {
                     self.break_reg = None;
                     self.break_ioreg = ioregister;
                     self.break_reg_value = value as u16;
+                    self.break_debug = 0;
                     cpu_human_param_index = 2;
                     has_cpu_human = params.len() >= 3;
                 } else {
@@ -117,6 +118,7 @@ impl BreakCommand {
                     self.break_reg = reg;
                     self.break_ioreg = None;
                     self.break_reg_value = value as u16;
+                    self.break_debug = 0;
                     cpu_human_param_index = 2;
                     has_cpu_human = params.len() >= 3;
                 } else {
@@ -140,6 +142,7 @@ impl BreakCommand {
                 self.break_reg = None;
                 self.break_ioreg = None;
                 self.break_reg_value = 0;
+                self.break_debug = 0;
                 should_run_cpu = false;
             }
         }
