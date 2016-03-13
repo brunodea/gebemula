@@ -20,12 +20,11 @@ pub fn stat_reg_coincidence_flag(memory: &mem::Memory) -> bool {
 }
 
 pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
-    update_stat_reg_coincidence_flag(memory);
     let reg: u8 = memory.read_byte(consts::STAT_REGISTER_ADDR);
-    if  ((reg >> 6 == 0b1) && stat_reg_coincidence_flag(memory)) ||
-        ((reg >> 5 == 0b1) && (reg & 0b11 == 0b10)) ||
-        ((reg >> 4 == 0b1) && (reg & 0b11 == 0b01)) ||
-        ((reg >> 3 == 0b1) && (reg & 0b11 == 0b00)) {
+    if  ((((reg >> 6) & 0b1) == 0b1) && ((reg >> 2) & 0b1 == 0b1)) ||
+        ((((reg >> 5) & 0b1) == 0b1) && (reg & 0b11 == 0b10)) ||
+        ((((reg >> 4) & 0b1) == 0b1) && (reg & 0b11 == 0b01)) ||
+        ((((reg >> 3) & 0b1) == 0b1) && (reg & 0b11 == 0b00)) {
 
         interrupt::request(interrupt::Interrupt::LCDC, memory);
     }
