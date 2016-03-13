@@ -11,6 +11,7 @@ struct BreakCommand {
     break_ioreg: Option<u16>,
     break_reg_value: u16,
     break_debug: u8,
+    is_running: bool,
 }
 
 impl BreakCommand {
@@ -21,6 +22,7 @@ impl BreakCommand {
             break_ioreg: None,
             break_reg_value: 0,
             break_debug: 0,
+            is_running: false,
         }
     }
 
@@ -29,23 +31,29 @@ impl BreakCommand {
         let go_to_read_loop: bool;
         if let Some(addr) = self.break_addr {
             go_to_read_loop = instruction.address == addr;
+            Debugger::print_cpu_human(self.break_debug, instruction, cpu);
         } else if let Some(ioreg) = self.break_ioreg {
             go_to_read_loop = mem.read_byte(ioreg) as u16 == self.break_reg_value;
+            Debugger::print_cpu_human(self.break_debug, instruction, cpu);
         } else if let Some(reg) = self.break_reg {
             go_to_read_loop = cpu.reg16(reg) == self.break_reg_value;
+            Debugger::print_cpu_human(self.break_debug, instruction, cpu);
         } else {
             go_to_read_loop = true;
         }
 
         if go_to_read_loop {
+            self.break_debug = 0b10; //ensure the last instruction is printed
+            if self.is_running {
+                Debugger::print_cpu_human(self.break_debug, instruction, cpu);
+                self.is_running = false;
+            }
             self.break_addr = None;
             self.break_reg = None;
             self.break_ioreg = None;
             self.break_reg_value = 0;
-            self.break_debug |= 0b10; //ensure the last instruction is printed
+            self.break_debug = 0;
         }
-
-        Debugger::print_cpu_human(self.break_debug, instruction, cpu);
 
         go_to_read_loop
     }
@@ -130,6 +138,8 @@ impl BreakCommand {
 
             if !should_run_cpu {
                 Debugger::display_help(&format!("Invalid register value: {}", params[1]));
+            } else {
+                self.is_running = true;
             }
         }
 
@@ -290,7 +300,7 @@ impl Debugger {
         println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\
             \tBreak when addr is hit or reg has value.\n\
             \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
-            \ttAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\
+            \tAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\
             \tAvailable ioregs: LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
                              \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
