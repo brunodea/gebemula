@@ -104,8 +104,7 @@ impl Gebemula {
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
             },
             EventType::DISABLE_BOOTSTRAP => {
-                //Disable bootstrap rom.
-                self.mem.load_bootstrap_rom(&self.game_rom[0..0x100]);
+                self.mem.disable_bootstrap();
             },
             EventType::DMA_TRANSFER => {
                 ioregister::dma_transfer(event.additional_value, &mut self.mem);

@@ -278,20 +278,10 @@ impl Cpu {
     }
     fn decrement_reg(&mut self, reg: Reg) {
         if Cpu::reg_is8(reg) {
-            let mut val: u8 = self.reg8(reg);
-            if val == 0x0 {
-                val = 0xFF;
-            } else {
-                val = val - 1;
-            }
+            let val: u8 = self.reg8(reg).wrapping_sub(1);
             self.reg_set8(reg, val);
         } else {
-            let mut val: u16 = self.reg16(reg);
-            if val == 0x0 {
-                val = 0xFFFF;
-            } else {
-                val = val - 1;
-            }
+            let val: u16 = self.reg16(reg).wrapping_sub(1);
             self.reg_set16(reg, val);
         }
     }
@@ -1133,7 +1123,7 @@ impl Cpu {
             0x05 | 0x15 | 0x25 | 0x35 |
             0x0D | 0x1D | 0x2D | 0x3D => {
                 //DEC
-                result = if reg_val == 0x0 { 0xFF } else { reg_val - 1 };
+                result = reg_val.wrapping_sub(1);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_val, result), Flag::H);
             },
