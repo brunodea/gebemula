@@ -23,6 +23,14 @@ impl Graphics {
         }
     }
 
+    pub fn restart(&mut self) {
+        self.screen_buffer = [255; 160*144*4];
+        self.bg_wn_pixel_indexes = [0; 160*144];
+        self.bg_on = true;
+        self.wn_on = true;
+        self.sprites_on = true;
+    }
+
     pub fn update(&mut self, memory: &mut Memory) {
         if ioregister::LCDCRegister::is_lcd_display_enable(memory) {
             self.update_line_buffer(memory);

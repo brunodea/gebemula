@@ -162,8 +162,13 @@ impl Cpu {
         }
     }
 
-    pub fn reset_registers(&mut self) {
+    pub fn restart(&mut self) {
         self.regs = [0; 12];
+        self.ime_flag = true;
+        self.halt_flag = false;
+        self.last_instruction = None;
+        self.disable_interrupts = false;
+        self.enable_interrupts = false;
     }
 
     fn reg_set16(&mut self, reg: Reg, value: u16) {

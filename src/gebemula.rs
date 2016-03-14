@@ -49,6 +49,18 @@ impl Gebemula {
         }
     }
 
+    pub fn restart(&mut self) {
+        self.cpu.restart();
+        self.mem.restart();
+        self.timer = Timer::new();
+        self.cycles_per_sec = 0;
+        self.graphics.restart();
+        self.should_display_screen = false;
+        self.timeline = EventTimeline::new();
+        self.joypad = 0;
+        ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
+    }
+
     pub fn load_bootstrap_rom(&mut self, bootstrap_rom: &[u8]) {
         self.mem.load_bootstrap_rom(bootstrap_rom);
     }
@@ -192,6 +204,7 @@ impl Gebemula {
         println!("---------+------------");
         println!("  U: increase speed");
         println!("  I: decrease speed");
+        println!("  R: restart");
         println!(" F1: toggle background");
         println!(" F2: toggle window");
         println!(" F3: toggle sprites");
@@ -201,7 +214,6 @@ impl Gebemula {
 
     pub fn run_sdl(&mut self) {
         Gebemula::print_buttons();
-        self.init();
 
         let sdl_context = sdl2::init().unwrap();
         let vide_subsystem = sdl_context.video().unwrap();
@@ -248,6 +260,9 @@ impl Gebemula {
                     },
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                         self.debugger.cancel_run();
+                    },
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
+                        self.restart();
                     },
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
                         speed_mul += 1;
