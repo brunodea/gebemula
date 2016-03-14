@@ -30,7 +30,7 @@ pub struct Gebemula {
     graphics: Graphics,
     should_display_screen: bool,
     timeline: EventTimeline,
-    joypad: u8, //nible to the left are direction keys and to the right button keys.
+    joypad: u8, //nibble to the left are direction keys and to the right button keys.
 }
 
 impl Gebemula {
