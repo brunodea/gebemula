@@ -25,7 +25,7 @@ pub struct Memory {
     current_ram_bank: u16,
     rom_banking_enabled: bool,
     external_ram_enabled: bool,
-    bootstrap_enabled: bool
+    bootstrap_enabled: bool,
 }
 
 impl Memory {
