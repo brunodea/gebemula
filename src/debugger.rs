@@ -400,6 +400,7 @@ impl Debugger {
                 let lyc: u8 = mem.read_byte(cpu::consts::LYC_REGISTER_ADDR);
                 let wx: u8 = mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
                 let wy: u8 = mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
+                let p1: u8 = mem.read_byte(cpu::consts::JOYPAD_REGISTER_ADDR);
 
                 println!("IF: {:#b}", if_);
                 println!("IE: {:#b}", ie);
@@ -415,6 +416,7 @@ impl Debugger {
                 println!("SCY: {}", scy);
                 println!("WX: {}", wx);
                 println!("WY: {}", wy);
+                println!("Joypad: {:#b}", p1);
             },
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);
