@@ -562,7 +562,7 @@ impl Cpu {
                 //LD HL,SP+n
                 let immediate: u16 = util::sign_extend(self.mem_next8(memory));
                 let sp: u16 = self.reg16(Reg::SP);
-                if immediate < 0 {
+                if util::is_neg16(immediate) {
                     let res: u16 = sp.wrapping_sub(util::twos_complement(immediate));
                     self.reg_set16(Reg::HL, res);
                     self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
@@ -691,7 +691,7 @@ impl Cpu {
                 //ADD SP,n
                 let imm: u16 = util::sign_extend(self.mem_next8(memory));
                 let sp: u16 = self.reg16(Reg::SP);
-                if imm < 0 {
+                if util::is_neg16(imm) {
                     let res: u16 = sp.wrapping_sub(util::twos_complement(imm));
                     self.reg_set16(Reg::SP, res);
                     self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
