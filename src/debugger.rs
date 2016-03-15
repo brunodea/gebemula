@@ -89,6 +89,8 @@ impl BreakCommand {
                 "IF" => Some(cpu::consts::IF_REGISTER_ADDR),
                 "IE" => Some(cpu::consts::IF_REGISTER_ADDR),
                 "STAT" => Some(cpu::consts::STAT_REGISTER_ADDR),
+                "DIV" => Some(cpu::consts::DIV_REGISTER_ADDR),
+                "TIMA" => Some(cpu::consts::TIMA_REGISTER_ADDR),
                 _ => None,
             };
             let reg: Option<Reg> = match params[0] {
@@ -301,7 +303,7 @@ impl Debugger {
             \tBreak when addr is hit or reg has value.\n\
             \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
             \tAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\
-            \tAvailable ioregs: LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY");
+            \tAvailable ioregs: LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY,DIV,TIMA");
         println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
                              \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
         println!("- info\n\tDisplay information about the game rom.");
@@ -399,8 +401,8 @@ impl Debugger {
                 let wx: u8 = mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
                 let wy: u8 = mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
 
-                println!("IF: {:#x} {:#b}", if_, if_);
-                println!("IE: {:#x} {:#b}", ie, ie);
+                println!("IF: {:#b}", if_);
+                println!("IE: {:#b}", ie);
                 println!("DIV: {:#x}", div);
                 println!("LY: {:#x} {}", ly, ly);
                 println!("LYC: {:#x} {}", lyc, lyc);
@@ -408,7 +410,7 @@ impl Debugger {
                 println!("STAT: {:#x} {:#b}", stat, stat);
                 println!("TIMA: {:#x}", tima);
                 println!("TMA: {:#x}", tma);
-                println!("TAC: {:#x}", tac);
+                println!("TAC: {:#b}", tac);
                 println!("SCX: {}", scx);
                 println!("SCY: {}", scy);
                 println!("WX: {}", wx);

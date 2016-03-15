@@ -39,16 +39,13 @@ impl Event {
 pub struct Timer {
     div_event: Event,
     tima_event: Event,
-    timer_started: bool,
 }
 
 impl Timer {
     pub fn new() -> Timer {
-        //TODO fix durations.
         Timer {
             div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES),
             tima_event: Event::new(0),
-            timer_started: false,
         }
     }
 
@@ -59,23 +56,18 @@ impl Timer {
         }
 
         if !timer_stop(memory) {
-            if !self.timer_started {
-                self.tima_event.cycles_rate = cycles_from_hz(input_clock(memory));
-                self.timer_started = true;
-            }
-            if self.timer_started && self.tima_event.update(cycles) {
+            self.tima_event.cycles_rate = cycles_from_hz(input_clock(memory));
+            if self.tima_event.update(cycles) {
                 let mut tima: u8 = memory.read_byte(consts::TIMA_REGISTER_ADDR);
                 if tima == 0xFF {
                     //overflows
                     tima = memory.read_byte(consts::TMA_REGISTER_ADDR);
+                    interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
                 } else {
                     tima += 1;
                 }
                 memory.write_byte(consts::TIMA_REGISTER_ADDR, tima);
-                interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
             }
-        } else {
-            self.timer_started = false;
         }
     }
 
