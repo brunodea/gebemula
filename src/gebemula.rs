@@ -59,6 +59,8 @@ impl Gebemula {
         self.timeline = EventTimeline::new();
         self.joypad = 0;
         ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
+        self.mem.set_access_vram(true);
+        self.mem.set_access_oam(false);
     }
 
     pub fn load_bootstrap_rom(&mut self, bootstrap_rom: &[u8]) {
@@ -72,17 +74,15 @@ impl Gebemula {
         self.mem.load_game_rom(game_rom);
     }
 
-    fn init(&mut self) {
-        self.cpu.reset_registers();
-        ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
-    }
-
     fn run_event(&mut self, event: Event) {
         let mut gpu_mode_number: Option<u8> = None;
         match event.event_type {
             EventType::S_OAM => {
                 gpu_mode_number = Some(0b11);
                 self.timeline.curr_event_type = EventType::S_VRAM;
+                self.mem.set_access_vram(true);
+                self.mem.set_access_oam(true);
+                self.graphics.update(&mut self.mem);
             },
             EventType::S_VRAM => {
                 gpu_mode_number = Some(0b00);
@@ -91,7 +91,6 @@ impl Gebemula {
             EventType::H_BLANK => {
                 let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 ly += 1;
-                self.graphics.update(&mut self.mem);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX {
                     self.should_display_screen = true;
                     gpu_mode_number = Some(0b01);
@@ -119,7 +118,9 @@ impl Gebemula {
                 self.mem.disable_bootstrap();
             },
             EventType::DMA_TRANSFER => {
+                self.mem.set_access_oam(true);
                 ioregister::dma_transfer(event.additional_value, &mut self.mem);
+                self.mem.set_access_oam(false);
             },
             EventType::JOYPAD => {
                 let buttons: u8 =
@@ -134,9 +135,15 @@ impl Gebemula {
         }
 
         if let Some(gpu_mode) = gpu_mode_number {
+            self.mem.set_access_vram(true);
+            self.mem.set_access_oam(true);
+            //self.mem.set_access_vram(gpu_mode <= 2);
+            //self.mem.set_access_oam(gpu_mode <= 1);
+
             ioregister::update_stat_reg_mode_flag(gpu_mode, &mut self.mem);
-            ioregister::lcdc_stat_interrupt(&mut self.mem); //verifies and request LCDC interrupt
         }
+        ioregister::update_stat_reg_coincidence_flag(&mut self.mem);
+        ioregister::lcdc_stat_interrupt(&mut self.mem);
     }
 
     fn step(&mut self) -> u32 {
@@ -144,18 +151,23 @@ impl Gebemula {
         let event: Event = self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
         while cycles < event.duration {
+            if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+                self.mem.set_access_vram(true);
+                self.mem.set_access_oam(true);
+            }
             let (instruction, one_event):
                 (Instruction, Option<Event>) = self.cpu.run_instruction(&mut self.mem);
+            self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = one_event {
                 self.run_event(e);
                 cycles += e.duration;
+                self.timer.update(e.duration, &mut self.mem);
             }
             self.cpu.handle_interrupts(&mut self.mem);
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem, &self.timer);
             }
             cycles += instruction.cycles;
-            self.timer.update(cycles, &mut self.mem);
         }
         self.run_event(event);
         cycles
