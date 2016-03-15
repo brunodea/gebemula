@@ -41,12 +41,13 @@ impl Graphics {
     fn update_line_buffer(&mut self, memory: &Memory) {
         let mut bg_on: bool = ioregister::LCDCRegister::is_bg_window_display_on(memory);
         let mut wn_on: bool = ioregister::LCDCRegister::is_window_display_on(memory);
-        if !bg_on && !wn_on {
-            return;
-        }
 
         bg_on = bg_on & self.bg_on;
         wn_on = wn_on & self.wn_on;
+
+        if !bg_on && !wn_on {
+            return;
+        }
 
         let curr_line: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
         if curr_line >= consts::DISPLAY_HEIGHT_PX {
@@ -54,20 +55,9 @@ impl Graphics {
         }
         let scx: u8 = memory.read_byte(cpu::consts::SCX_REGISTER_ADDR);
         let scy: u8 = memory.read_byte(cpu::consts::SCY_REGISTER_ADDR);
-        let mut ypos: u16 =
-            if curr_line as u16 + scy as u16 > 255 {
-                curr_line as u16 + scy as u16 - 256
-            } else {
-                scy as u16 + curr_line as u16
-            };
+        let mut ypos: u16 = curr_line.wrapping_add(scy) as u16;
         let wy: u8 = memory.read_byte(cpu::consts::WY_REGISTER_ADDR);
-        let mut wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR);
-
-        if wx < 7 {
-            wx = 7 - wx;
-        } else {
-            wx = wx - 7;
-        }
+        let wx: u8 = memory.read_byte(cpu::consts::WX_REGISTER_ADDR).wrapping_sub(7);
 
         let mut is_window: bool = false;
 
@@ -75,7 +65,7 @@ impl Graphics {
 
         let (tile_table_addr_pattern_0, is_tile_number_signed) =
             if ioregister::LCDCRegister::is_tile_data_0(&memory) {
-                (consts::TILE_DATA_TABLE_0_ADDR_START + 0x800, true)
+                (consts::TILE_DATA_TABLE_0_ADDR_START, true)
             } else {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
@@ -83,7 +73,7 @@ impl Graphics {
         let mut tile_row: u16 = (ypos/8)*32;
         let mut tile_line: u16 = (ypos % 8)*2;
         for i in startx..consts::DISPLAY_WIDTH_PX {
-            if wn_on && wx < consts::DISPLAY_WIDTH_PX && i >= wx && !is_window &&
+            if wn_on && !is_window && i >= wx && wx < consts::DISPLAY_WIDTH_PX &&
                 curr_line >= wy {
 
                 is_window = true;
@@ -92,6 +82,13 @@ impl Graphics {
                 tile_line = (ypos % 8)*2;
             }
 
+            let xpos: u16 =
+                if !is_window {
+                    scx.wrapping_add(i) as u16
+                } else {
+                    i.wrapping_sub(wx) as u16
+                };
+
             let buffer_pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
                 (i as usize);
 
@@ -99,18 +96,6 @@ impl Graphics {
                 self.bg_wn_pixel_indexes[buffer_pos] = 0;
                 continue;
             }
-
-            let xpos: u16 =
-                if !is_window {
-                    if scx as u16 + i as u16 > 255 {
-                        scx as u16 + i as u16 - 256
-                    } else {
-                        scx as u16 + i as u16
-                    }
-                } else {
-                    i as u16 - wx as u16
-                };
-
             let addr_start =
                 if !is_window {
                     if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
@@ -126,16 +111,17 @@ impl Graphics {
                     }
                 };
 
-            let tile_col: u16 = xpos/8;
-            let tile_addr: u16 = addr_start + tile_row + tile_col;
+            let tile_col_bg: u16 = xpos >> 3;
+            let tile_addr: u16 = addr_start + tile_row + tile_col_bg;
             let tile_location: u16 =
                 if is_tile_number_signed {
-                    let tile_number: u16 = util::sign_extend(memory.read_byte(tile_addr));
+                    let mut tile_number: u16 = util::sign_extend(memory.read_byte(tile_addr));
                     if util::is_neg16(tile_number) {
-                        tile_table_addr_pattern_0 - (util::twos_complement(tile_number) * consts::TILE_SIZE_BYTES as u16)
+                        tile_number = 128 - util::twos_complement(tile_number);
                     } else {
-                        tile_table_addr_pattern_0 + (tile_number * consts::TILE_SIZE_BYTES as u16)
+                        tile_number += 128;
                     }
+                    tile_table_addr_pattern_0 + (tile_number * consts::TILE_SIZE_BYTES as u16)
                 } else {
                     tile_table_addr_pattern_0 + (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
                 };
@@ -178,36 +164,29 @@ impl Graphics {
             return;
         }
         let mut index: u16 = 160; //40*4: 40 sprites that use 4 bytes
-        while index > 0 {
+        while index != 0 {
             index -= 4;
             let sprite_8_16: bool = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
             let height: u8 = if sprite_8_16 { 16 } else { 8 };
             //TODO draw sprites based on X priority.
-            let mut y: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index);
+            let mut y: i16 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) as i16;
             if y == 0 || y >= 160 {
                 continue;
             }
-            if y < 16 {
-                y = 0;
-            } else {
-                y = y - 16;
-            }
-            if (curr_line < y) || (curr_line >= y + height) {
+            y -= 16;
+            if ((curr_line as i16) < y) || ((curr_line as i16) >= y + height as i16) {
                 //outside sprite
                 continue;
             }
-            let mut x: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1);
+            let mut x: i16 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) as i16;
             if x == 0 || x >= 168 {
                 continue;
             }
-            if x < 8 {
-                x = 0;
-            } else {
-                x = x - 8;
-            }
+            x -= 8;
+
             let tile_number: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
 
-            let mut tile_location: u16 = consts::SPRITE_PATTERN_TABLE_ADDR_START +
+            let tile_location: u16 = consts::SPRITE_PATTERN_TABLE_ADDR_START +
                 (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
 
             let flags: u8 = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3);
@@ -216,19 +195,27 @@ impl Graphics {
             let x_flip: bool = (flags >> 5) & 0b1 == 0b1;
             let obp0: bool = (flags >> 4) & 0b1 == 0b0;
 
-            let tile_line: u8 = curr_line - y;
-            if sprite_8_16 {
-                if tile_line < 8 {
-                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                        ((tile_number as u16 & 0xFE) * consts::TILE_SIZE_BYTES as u16);
+            let tile_line: u8 =
+                if y < 0 {
+                    y = -1*y;
+                    (curr_line as i16 + y) as u8
                 } else {
-                    tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                        (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
-                }
-            }
-
-            let startx: u8 = 0;
-            for tile_col in startx..8 {
+                    curr_line - y as u8
+                };
+            let endx: u8 =
+                if x + 8 >= consts::DISPLAY_WIDTH_PX as i16 {
+                    (consts::DISPLAY_WIDTH_PX as i16 - x) as u8
+                } else {
+                    8
+                };
+            let startx: u8 =
+                if x < 0 {
+                    x = -1*x;
+                    x as u8
+                } else {
+                    0
+                };
+            for tile_col in startx..endx {
                 //tile_line*2 because each tile uses 2 bytes per line.
                 let lhs: u8 = memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col);
                 let rhs: u8 = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >> (7 - tile_col);
@@ -249,15 +236,16 @@ impl Graphics {
                 let mut buffer_pos: usize;
 
                 if y_flip {
-                    buffer_pos = (y + height - 1 - tile_line) as usize * consts::DISPLAY_WIDTH_PX as usize;
+                    buffer_pos = (y + height as i16 - 1 - tile_line as i16) as usize * consts::DISPLAY_WIDTH_PX as usize;
                 } else {
-                    buffer_pos = curr_line as usize * consts::DISPLAY_WIDTH_PX as usize;
+                    //y + tile_line = curr_line
+                    buffer_pos = (y + tile_line as i16) as usize * consts::DISPLAY_WIDTH_PX as usize;
                 }
 
                 if x_flip {
-                    buffer_pos += (x + 7 - tile_col) as usize;
+                    buffer_pos += (x + 7 - tile_col as i16) as usize;
                 } else {
-                    buffer_pos += (x + tile_col) as usize;
+                    buffer_pos += (x + tile_col as i16) as usize;
                 }
 
                 if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
