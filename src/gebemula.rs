@@ -173,36 +173,37 @@ impl Gebemula {
         cycles
     }
 
-    fn adjust_joypad(&mut self, bit: u8, pressed: bool) {
+    fn adjust_joypad(&mut self, bit: u8, pressed: bool) -> bool {
         self.joypad =
             if pressed {
                 self.joypad & !(1 << bit)
             } else {
                 self.joypad | (1 << bit)
             };
+        pressed
     }
 
     //returns true if joypad changed (i.e. some button was pressed or released);
     fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) -> bool {
-        let old_joypad: u8 = self.joypad;
-        self.adjust_joypad(0,
+        let mut pressed: bool;
+        pressed = self.adjust_joypad(0,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
-        self.adjust_joypad(1,
+        pressed |= self.adjust_joypad(1,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
-        self.adjust_joypad(2,
+        pressed |= self.adjust_joypad(2,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::LShift));
-        self.adjust_joypad(3,
+        pressed |= self.adjust_joypad(3,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::LCtrl));
-        self.adjust_joypad(4,
+        pressed |= self.adjust_joypad(4,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::Right));
-        self.adjust_joypad(5,
+        pressed |= self.adjust_joypad(5,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::Left));
-        self.adjust_joypad(6,
+        pressed |= self.adjust_joypad(6,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::Up));
-        self.adjust_joypad(7,
+        pressed |= self.adjust_joypad(7,
             event_pump.keyboard_state().is_scancode_pressed(Scancode::Down));
 
-        self.joypad != old_joypad
+        pressed
     }
 
     fn print_buttons() {
