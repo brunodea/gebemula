@@ -384,8 +384,6 @@ impl Cpu {
             },
             0x10 => {
                 //STOP
-                //TODO enable things back after a button press.
-                //commented so it panics if this instruction is used.
                 self.halt_flag = true;
                 instruction.cycles = 4;
                 ioregister::LCDCRegister::disable_lcd(memory);
@@ -501,7 +499,7 @@ impl Cpu {
             },
             0xF2 => {
                 //LD A,(C)
-                let value: u8 = memory.read_byte(0xFF00 + self.reg8(Reg::C) as u16);
+                let value: u8 = memory.read_byte(0xFF00 + (self.reg8(Reg::C) as u16));
                 self.reg_set8(Reg::A, value);
                 instruction.cycles = 8
             },
@@ -562,13 +560,23 @@ impl Cpu {
             },
             0xF8 => {
                 //LD HL,SP+n
-                let immediate: u16 = self.mem_next8(memory) as u16;
+                let immediate: u16 = util::sign_extend(self.mem_next8(memory));
                 let sp: u16 = self.reg16(Reg::SP);
-                self.reg_set16(Reg::HL, sp.wrapping_add(immediate));
+                if immediate < 0 {
+                    let res: u16 = sp.wrapping_sub(util::twos_complement(immediate));
+                    self.reg_set16(Reg::HL, res);
+                    self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
+                    self.flag_set((res & 0xf) <= (sp & 0xf), Flag::H);
+                } else {
+                    let res: u16 = sp.wrapping_add(immediate);
+                    self.reg_set16(Reg::HL, res);
+                    self.flag_set((sp & 0xff) as u32 + immediate as u32 > 0xff, Flag::C);
+                    self.flag_set((sp & 0xf) + (immediate & 0xf) > 0xf, Flag::H);
+                }
+                self.flag_set(false, Flag::Z);
+                self.flag_set(false, Flag::N);
                 instruction.cycles = 12;
                 instruction.imm8 = Some(immediate as u8);
-                self.flag_set(util::has_carry16(sp, immediate), Flag::C);
-                self.flag_set(util::has_half_carry16(sp, immediate), Flag::H);
             },
             0xF9 => {
                 //LD SP,HL
@@ -681,13 +689,21 @@ impl Cpu {
             },
             0xE8 => {
                 //ADD SP,n
-                let imm: u16 = self.mem_next8(memory) as u16;
-                let val: u16 = self.reg16(Reg::SP);
-                self.reg_set16(Reg::SP, val.wrapping_add(imm));
+                let imm: u16 = util::sign_extend(self.mem_next8(memory));
+                let sp: u16 = self.reg16(Reg::SP);
+                if imm < 0 {
+                    let res: u16 = sp.wrapping_sub(util::twos_complement(imm));
+                    self.reg_set16(Reg::SP, res);
+                    self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
+                    self.flag_set((res & 0xf) <= (sp & 0xf), Flag::H);
+                } else {
+                    let res: u16 = sp.wrapping_add(imm);
+                    self.reg_set16(Reg::SP, res);
+                    self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
+                    self.flag_set((sp & 0xf) + (imm & 0xf) > 0xf, Flag::H);
+                }
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_half_carry16(val, imm), Flag::H);
-                self.flag_set(util::has_carry16(val, imm), Flag::C);
                 instruction.cycles = 16;
                 instruction.imm8 = Some(imm as u8);
             },
@@ -1025,7 +1041,9 @@ impl Cpu {
             }
             self.reg_set16(Reg::PC, val);
         } else {
-            imm16 = Some(self.mem_next16(memory)); //mem_next increments PC twice.
+            if !jump_to_hl {
+                imm16 = Some(self.mem_next16(memory)); //mem_next increments PC twice.
+            }
             cycles = 12;
         }
 
@@ -1183,7 +1201,7 @@ impl Cpu {
             },
             0x90 ... 0x97 | 0xD6 => {
                 //SUB
-                result = if value > reg_a_val { value - reg_a_val } else { reg_a_val - value };
+                result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
@@ -1191,7 +1209,7 @@ impl Cpu {
             0x98 ... 0x9F | 0xDE => {
                 //SBC
                 let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
-                result = if value > reg_a_val { value - reg_a_val } else { reg_a_val - value };
+                result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
