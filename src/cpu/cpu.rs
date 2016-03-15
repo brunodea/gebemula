@@ -322,16 +322,14 @@ impl Cpu {
     pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
         if self.ime_flag {
             if let Some(interrupt) = interrupt::next_request(memory) {
-                if interrupt::is_enabled(interrupt, memory) {
-                    self.halt_flag = false;
-                    self.ime_flag = false;
-                    let pc: u16 = self.reg16(Reg::PC);
-                    self.push_sp16(pc, memory);
-                    self.reg_set16(Reg::PC, interrupt::address(interrupt));
-                    interrupt::remove_request(interrupt, memory);
-                    //since the interrupt request is removed and interrupts are disabled,
-                    //simply returning to the main loop seems correct.
-                }
+                self.halt_flag = false;
+                self.ime_flag = false;
+                let pc: u16 = self.reg16(Reg::PC);
+                self.push_sp16(pc, memory);
+                self.reg_set16(Reg::PC, interrupt::address(interrupt));
+                interrupt::remove_request(interrupt, memory);
+                //since the interrupt request is removed and interrupts are disabled,
+                //simply returning to the main loop seems correct.
             }
         }
     }

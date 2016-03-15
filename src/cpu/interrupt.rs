@@ -81,7 +81,8 @@ pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
     //order of priority
     for bit in 0..5 {
         let interrupt: Interrupt = from_bit(bit);
-        if is_requested(interrupt, memory) {
+        if is_enabled(interrupt, memory) &&
+            is_requested(interrupt, memory) {
             return Some(interrupt);
         }
     }
