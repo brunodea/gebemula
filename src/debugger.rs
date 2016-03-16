@@ -650,7 +650,10 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 //POP rr
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let mut reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                if reg == Reg::SP {
+                    reg = Reg::AF;
+                }
                 format!("pop {:?}", reg)
             },
             0xC5 | 0xD5 | 0xE5 | 0xF5 => {
