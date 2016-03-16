@@ -279,7 +279,6 @@ impl Memory {
 
     fn change_ram_bank(&mut self, byte: u8) {
         self.current_ram_bank = (byte & 0b11) as u16;
-        println!("{}", self.current_ram_bank);
     }
 
     pub fn set_access_vram(&mut self, can_access: bool) {
