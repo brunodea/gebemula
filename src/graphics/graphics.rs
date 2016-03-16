@@ -197,7 +197,7 @@ impl Graphics {
 
             x -= 8;
             let endx: u8 =
-                if x as u8 + 8 >= consts::DISPLAY_WIDTH_PX {
+                if x + 8 >= consts::DISPLAY_WIDTH_PX as i16 {
                     consts::DISPLAY_WIDTH_PX.wrapping_sub(x as u8)
                 } else {
                     8
@@ -232,9 +232,9 @@ impl Graphics {
 
                 let old_pos: usize = buffer_pos;
                 if x_flip {
-                    buffer_pos += (x + 7 - tile_col as i16) as usize;
+                    buffer_pos += (x.wrapping_add(7 - tile_col as i16) as u16) as usize;
                 } else {
-                    buffer_pos += (x + tile_col as i16) as usize;
+                    buffer_pos += (x.wrapping_add(tile_col as i16) as u16) as usize;
                 }
 
                 if buffer_pos < old_pos {
