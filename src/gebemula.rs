@@ -268,19 +268,19 @@ impl Gebemula {
                 match event {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
                         self.graphics.toggle_bg();
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
                         self.graphics.toggle_wn();
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
                         self.graphics.toggle_sprites();
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                         self.debugger.cancel_run();
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                         self.restart();
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
                         speed_mul += 1;
                         if speed_mul >= 15 {
@@ -288,7 +288,7 @@ impl Gebemula {
                         }
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
-                    },
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
                         speed_mul -= 1;
                         if speed_mul == 0 {
@@ -296,12 +296,12 @@ impl Gebemula {
                         }
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
-                    },
+                    }
                     sdl2::event::Event::Quit {..} |
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                        break 'running
-                    },
-                     _ => {}
+                        sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                            break 'running
+                        }
+                    _ => {}
                 }
             }
 
@@ -334,8 +334,8 @@ impl Gebemula {
 
                 //clear buffer
                 self.graphics.screen_buffer = [255;
-                    (graphics::consts::DISPLAY_HEIGHT_PX as usize *
-                     graphics::consts::DISPLAY_WIDTH_PX as usize * 4)];
+                (graphics::consts::DISPLAY_HEIGHT_PX as usize *
+                 graphics::consts::DISPLAY_WIDTH_PX as usize * 4)];
                 let now = time::now();
                 let elapsed: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
                 if elapsed < desired_frametime_ns {
