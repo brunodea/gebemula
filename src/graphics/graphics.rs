@@ -228,7 +228,7 @@ impl Graphics {
                 let mut buffer_pos: usize;
 
                 if y_flip {
-                    buffer_pos = (y + height as i16 - 1 - tile_line as i16) as usize *
+                    buffer_pos = (y.wrapping_add(height as i16 - 1 - tile_line as i16) as u16) as usize *
                                  consts::DISPLAY_WIDTH_PX as usize;
                 } else {
                     // y + tile_line = curr_line
