@@ -193,7 +193,7 @@ impl Debugger {
             println!("----------------------------------");
             self.display_header = false;
         }
-        if !self.run_debug.is_some() {
+        if self.run_debug.is_some() {
             Debugger::print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
         }
