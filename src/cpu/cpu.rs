@@ -7,18 +7,28 @@ use super::super::timeline::{Event, EventType};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
-    Z, N, H, C,
+    Z,
+    N,
+    H,
+    C,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Reg {
-    A, F,
-    B, C,
-    D, E,
-    H, L,
-    AF, BC,
-    DE, HL,
-    SP, PC
+    A,
+    F,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    AF,
+    BC,
+    DE,
+    HL,
+    SP,
+    PC,
 }
 
 impl Reg {
@@ -92,19 +102,29 @@ impl fmt::Display for Instruction {
         }
         let addr = format!("{:#01$x}", self.address, 6);
         if imm8 == "" && imm16 == "" {
-            write!(f, "{}: {} - ({})", addr, debugger::instr_to_human(&self), opcode)
+            write!(f,
+                   "{}: {} - ({})",
+                   addr,
+                   debugger::instr_to_human(&self),
+                   opcode)
         } else {
-            write!(f, "{}: {} - ({} {}{})", addr, debugger::instr_to_human(&self), opcode, imm8, imm16)
+            write!(f,
+                   "{}: {} - ({} {}{})",
+                   addr,
+                   debugger::instr_to_human(&self),
+                   opcode,
+                   imm8,
+                   imm16)
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Cpu {
-    //[A,F,B,C,D,E,H,L,SP,PC]
+    // [A,F,B,C,D,E,H,L,SP,PC]
     regs: [u8; 12],
-    ime_flag: bool, //interrupt master enable flag
-    halt_flag: bool, //cpu doesn't run until an interrupt occurs.
+    ime_flag: bool, // interrupt master enable flag
+    halt_flag: bool, // cpu doesn't run until an interrupt occurs.
     last_instruction: Option<Instruction>,
     disable_interrupts: bool,
     enable_interrupts: bool,
@@ -118,9 +138,9 @@ impl fmt::Display for Cpu {
 
         let mut i: usize = 0;
         while i < 12 {
-            let value: u16 = (self.regs[i] as u16) << 8 | self.regs[i+1] as u16;
+            let value: u16 = (self.regs[i] as u16) << 8 | self.regs[i + 1] as u16;
             let value_fmt = format!("{:#01$x}", value, 6);
-            regs = regs + &format!("{}({}) ", value_fmt, regs_names[i/2]);
+            regs = regs + &format!("{}({}) ", value_fmt, regs_names[i / 2]);
 
             i += 2;
         }
@@ -159,10 +179,14 @@ impl Cpu {
     #[inline]
     fn reg_is8(reg: Reg) -> bool {
         match reg {
-            Reg::A | Reg::F |
-            Reg::B | Reg::C |
-            Reg::D | Reg::E |
-            Reg::H | Reg::L => true,
+            Reg::A |
+            Reg::F |
+            Reg::B |
+            Reg::C |
+            Reg::D |
+            Reg::E |
+            Reg::H |
+            Reg::L => true,
             _ => false,
         }
     }
@@ -183,7 +207,7 @@ impl Cpu {
             self.regs[index] = value as u8;
         } else {
             self.regs[index] = (value >> 8) as u8;
-            self.regs[index+1] = value as u8;
+            self.regs[index + 1] = value as u8;
         }
     }
 
@@ -198,7 +222,7 @@ impl Cpu {
         if Cpu::reg_is8(reg) {
             self.regs[index] as u16
         } else {
-            ((self.regs[index] as u16) << 8) | self.regs[index+1] as u16
+            ((self.regs[index] as u16) << 8) | self.regs[index + 1] as u16
         }
     }
 
@@ -242,18 +266,18 @@ impl Cpu {
     fn flag_bit(&self, flag: Flag) -> u8 {
         let m: u8;
         match flag {
-            Flag::Z =>  {
+            Flag::Z => {
                 m = 7;
-            },
+            }
             Flag::N => {
                 m = 6;
-            },
+            }
             Flag::H => {
                 m = 5;
-            },
+            }
             Flag::C => {
                 m = 4;
-            },
+            }
         }
         (self.flags() >> m) & 0b1
     }
@@ -265,7 +289,7 @@ impl Cpu {
 
     #[inline]
     fn push_sp8(&mut self, value: u8, memory: &mut mem::Memory) {
-        let sp: u16 = self.reg16(Reg::SP) - 1; //sp auto-decrements when pushing (it goes down in the memory)
+        let sp: u16 = self.reg16(Reg::SP) - 1;
         self.mem_write(sp, value, memory);
         self.reg_set16(Reg::SP, sp);
     }
@@ -323,7 +347,7 @@ impl Cpu {
         value
     }
 
-    //next 2 bytes.
+    // next 2 bytes.
     #[inline]
     fn mem_next16(&mut self, memory: &mem::Memory) -> u16 {
         let n1: u16 = self.mem_next8(memory) as u16;
@@ -332,7 +356,7 @@ impl Cpu {
         (n2 << 8) | n1
     }
 
-    //function for having control of memory writes
+    // function for having control of memory writes
     #[inline]
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value: u8 = match address {
@@ -351,21 +375,20 @@ impl Cpu {
                 self.push_sp16(pc, memory);
                 self.reg_set16(Reg::PC, interrupt::address(interrupt));
                 interrupt::remove_request(interrupt, memory);
-                //since the interrupt request is removed and interrupts are disabled,
-                //simply returning to the main loop seems correct.
+                // since the interrupt request is removed and interrupts are disabled,
+                // simply returning to the main loop seems correct.
             }
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) ->
-        (Instruction, Option<Event>) {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> (Instruction, Option<Event>) {
 
         if self.halt_flag {
             return (self.last_instruction.unwrap(), None);
         }
 
-        //Actually performs DI and EI at the right time.
-        //The order of these if's *has* to be like this.
+        // Actually performs DI and EI at the right time.
+        // The order of these if's *has* to be like this.
         if self.disable_interrupts {
             self.ime_flag = false;
             self.disable_interrupts = false;
@@ -376,22 +399,22 @@ impl Cpu {
         if let Some(ref last_instr) = self.last_instruction {
             match last_instr.opcode {
                 0xF3 => {
-                    //DI
+                    // DI
                     self.disable_interrupts = true;
-                },
+                }
                 0xFB => {
-                    //EI
+                    // EI
                     self.enable_interrupts = true;
-                },
+                }
                 _ => (),
             }
         }
-        /************************************************/
+        /// *********************************************
 
         let mut event: Option<Event> = None;
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
-        let mut instruction: Instruction =Instruction::new();
+        let mut instruction: Instruction = Instruction::new();
         instruction.opcode = byte;
         match byte {
             /***************************************/
@@ -634,7 +657,8 @@ impl Cpu {
                 let n_flag: bool = self.flag_is_set(Flag::N);
                 let mut as_nop: bool = false;
                 //the N flag isn't strictly necessary here, so it can be removed in the future.
-                let (add_value, new_c_flag) = match (n_flag, c_flag, upper_nibble, h_flag, lower_nibble) {
+                let (add_value, new_c_flag) =
+                    match (n_flag, c_flag, upper_nibble, h_flag, lower_nibble) {
                     (false, false, 0x0 ... 0x9, false, 0x0 ... 0x9) => (0x00, false),
                     (false, false, 0x0 ... 0x8, false, 0xA ... 0xF) => (0x06, false),
                     (false, false, 0x0 ... 0x9, true, 0x0 ... 0x3) => (0x06, false),
@@ -777,39 +801,39 @@ impl Cpu {
         (instruction, event)
     }
 
-    /*Instructions execution codes*/
+    // Instructions execution codes
 
     fn exec_ret(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
         let should_return: bool;
         let mut cycles: u32 = 20;
         match opcode {
             0xC0 => {
-                //RET NZ
+                // RET NZ
                 should_return = !self.flag_is_set(Flag::Z);
-            },
+            }
             0xC8 => {
-                //RET Z
+                // RET Z
                 should_return = self.flag_is_set(Flag::Z);
-            },
+            }
             0xC9 => {
-                //RET
+                // RET
                 should_return = true;
                 cycles = 16;
-            },
+            }
             0xD0 => {
-                //RET NC
+                // RET NC
                 should_return = !self.flag_is_set(Flag::C);
-            },
+            }
             0xD8 => {
-                //RET C
+                // RET C
                 should_return = self.flag_is_set(Flag::C);
-            },
+            }
             0xD9 => {
-                //RETI
+                // RETI
                 should_return = true;
                 cycles = 16;
                 self.ime_flag = true;
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -833,35 +857,35 @@ impl Cpu {
         let bit: u8;
         match opcode {
             0x07 => {
-                //RLCA
+                // RLCA
                 value = (value << 1) | bit_7;
                 bit = bit_7;
-            },
+            }
             0x0F => {
-                //RRCA
+                // RRCA
                 value = (value >> 1) | (bit_0 << 7);
                 bit = bit_0;
-            },
+            }
             0x17 => {
-                //RLA
+                // RLA
                 value = (value << 1) | self.flag_bit(Flag::C);
                 bit = bit_7;
-            },
+            }
             0x1F => {
-                //RRA
+                // RRA
                 value = (value >> 1) | (self.flag_bit(Flag::C) << 7);
                 bit = bit_0
-            },
+            }
             _ => unreachable!(),
         }
 
         self.reg_set8(Reg::A, value);
 
         self.flag_set(bit == 1, Flag::C);
-        //TODO: what to believe?
-        //Z80 manual says Z flag is not affected;
-        //Gameboy manual says it is.
-        //self.flag_set(value == 0, Flag::Z);
+        // TODO: what to believe?
+        // Z80 manual says Z flag is not affected;
+        // Gameboy manual says it is.
+        // self.flag_set(value == 0, Flag::Z);
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
 
@@ -872,30 +896,30 @@ impl Cpu {
     }
 
     fn exec_call(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
-        //push next instruction onto stack
+        // push next instruction onto stack
         let immediate: u16 = self.mem_next16(memory);
         let should_jump: bool;
         match opcode {
             0xC4 => {
-                //CALL NZ,a16
+                // CALL NZ,a16
                 should_jump = !self.flag_is_set(Flag::Z);
-            },
+            }
             0xCC => {
-                //CALL Z,a16
+                // CALL Z,a16
                 should_jump = self.flag_is_set(Flag::Z);
-            },
+            }
             0xCD => {
-                //CALL a16
+                // CALL a16
                 should_jump = true;
-            },
+            }
             0xD4 => {
-                //CALL NC,a16
+                // CALL NC,a16
                 should_jump = !self.flag_is_set(Flag::C);
-            },
+            }
             0xDC => {
-                //CALL C,a16
+                // CALL C,a16
                 should_jump = self.flag_is_set(Flag::C);
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -925,81 +949,89 @@ impl Cpu {
         let bit: u8 = (opcode >> 3) & 0b111;
         let mut should_change_reg: bool = true;
 
-        let cycles: u32 = if reg == Reg::HL { 16 } else { 8 };
+        let cycles: u32 = if reg == Reg::HL {
+            16
+        } else {
+            8
+        };
         match opcode {
-            0x00 ... 0x07 => {
-                //RLC b
+            0x00...0x07 => {
+                // RLC b
                 let bit_7: u8 = (value >> 7) & 0b1;
 
                 value = (value << 1) | bit_7;
                 self.flag_set(bit_7 == 1, Flag::C);
-            },
-            0x08 ... 0x0F => {
-                //RRC m
+            }
+            0x08...0x0F => {
+                // RRC m
                 let bit_0: u8 = value & 0b1;
 
                 value = (value >> 1) | (bit_0 << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
-            },
-            0x10 ... 0x17 => {
-                //RL m
+            }
+            0x10...0x17 => {
+                // RL m
                 let bit_7: u8 = (value >> 7) & 0b1;
 
                 value = (value << 1) | self.flag_bit(Flag::C);
                 self.flag_set(bit_7 == 1, Flag::C);
-            },
-            0x18 ... 0x1F => {
-                //RR m
+            }
+            0x18...0x1F => {
+                // RR m
                 let bit_c: u8 = self.flag_bit(Flag::C);
                 let bit_0: u8 = value & 0b1;
 
                 value = (value >> 1) | (bit_c << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
-            },
-            0x20 ... 0x27 => {
-                //SLA n
+            }
+            0x20...0x27 => {
+                // SLA n
                 let bit_7: u8 = (value >> 7) & 0b1;
                 value = value << 1;
 
                 self.flag_set(bit_7 == 1, Flag::C);
-            },
-            0x28 ... 0x2F => {
-                //SRA n
+            }
+            0x28...0x2F => {
+                // SRA n
                 let bit_7: u8 = value & 0b1000_0000;
                 let bit_0: u8 = value & 0b1;
                 value = (value >> 1) | bit_7;
 
                 self.flag_set(bit_0 == 1, Flag::C);
-            },
-            0x30 ... 0x37 => {
-                //SWAP n
+            }
+            0x30...0x37 => {
+                // SWAP n
                 value = (value << 4) | (value >> 4);
                 self.flag_set(false, Flag::C);
-            },
-            0x38 ... 0x3F => {
-                //SRL n
+            }
+            0x38...0x3F => {
+                // SRL n
                 let bit_0: u8 = value & 0b1;
                 value = value >> 1;
 
                 self.flag_set(bit_0 == 1, Flag::C);
-            },
-            0x40 ... 0x7F => {
-                //BIT b,r; BIT b,(HL)
+            }
+            0x40...0x7F => {
+                // BIT b,r; BIT b,(HL)
                 self.flag_set(((value >> bit) & 0b1) == 0b0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
                 should_change_reg = false;
-            },
-            0x80 ... 0xBF => {
-                //RES b,r; RES b,(HL)
+            }
+            0x80...0xBF => {
+                // RES b,r; RES b,(HL)
                 value = value & !(1 << bit);
-            },
-            0xC0 ... 0xFF => {
-                //SET b,r; SET b,(HL)
+            }
+            0xC0...0xFF => {
+                // SET b,r; SET b,(HL)
                 value = value | (1 << bit);
-            },
-            _ => panic!("CB-prefixed opcode not yet implemented: {:#01$x}", opcode, 2),
+            }
+            _ => {
+                panic!("CB-prefixed opcode not yet implemented: {:#01$x}",
+                       opcode,
+                       2)
+            }
         }
 
         if should_change_reg {
@@ -1029,30 +1061,30 @@ impl Cpu {
         let mut jump_to_hl: bool = false;
         match opcode {
             0xC3 => {
-                //JP nn
+                // JP nn
                 should_jump = true;
-            },
+            }
             0xC2 => {
-                //JP NZ,nn
+                // JP NZ,nn
                 should_jump = !self.flag_is_set(Flag::Z);
-            },
+            }
             0xCA => {
-                //JP Z,nn
+                // JP Z,nn
                 should_jump = self.flag_is_set(Flag::Z);
-            },
+            }
             0xD2 => {
-                //JP NC,nn
+                // JP NC,nn
                 should_jump = !self.flag_is_set(Flag::C);
-            },
+            }
             0xDA => {
-                //JP C,nn
+                // JP C,nn
                 should_jump = self.flag_is_set(Flag::C);
-            },
+            }
             0xE9 => {
-                //JP (HL)
+                // JP (HL)
                 should_jump = true;
                 jump_to_hl = true;
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -1086,25 +1118,25 @@ impl Cpu {
         let should_jump: bool;
         match opcode {
             0x18 => {
-                //JR n
+                // JR n
                 should_jump = true;
-            },
+            }
             0x20 => {
-                //JR NZ,r8
+                // JR NZ,r8
                 should_jump = !self.flag_is_set(Flag::Z);
-            },
+            }
             0x28 => {
-                //JR Z,r8
+                // JR Z,r8
                 should_jump = self.flag_is_set(Flag::Z);
-            },
+            }
             0x30 => {
-                //JR NC,r8
+                // JR NC,r8
                 should_jump = !self.flag_is_set(Flag::C);
-            },
+            }
             0x38 => {
-                //JR C,r8
+                // JR C,r8
                 should_jump = self.flag_is_set(Flag::C);
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -1145,20 +1177,32 @@ impl Cpu {
             reg_val = self.reg8(reg);
         }
         match opcode {
-            0x04 | 0x14 | 0x24 | 0x34 |
-            0x0C | 0x1C | 0x2C | 0x3C => {
-                //INC
+            0x04 |
+            0x14 |
+            0x24 |
+            0x34 |
+            0x0C |
+            0x1C |
+            0x2C |
+            0x3C => {
+                // INC
                 result = reg_val.wrapping_add(1);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_val, 1), Flag::H);
-            },
-            0x05 | 0x15 | 0x25 | 0x35 |
-            0x0D | 0x1D | 0x2D | 0x3D => {
-                //DEC
+            }
+            0x05 |
+            0x15 |
+            0x25 |
+            0x35 |
+            0x0D |
+            0x1D |
+            0x2D |
+            0x3D => {
+                // DEC
                 result = reg_val.wrapping_sub(1);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_val, result), Flag::H);
-            },
+            }
             _ => unreachable!(),
         }
         self.flag_set(result == 0, Flag::Z);
@@ -1195,65 +1239,77 @@ impl Cpu {
         let mut unchange_a: bool = false;
 
         match opcode {
-            0x80 ... 0x87 | 0xC6 => {
-                //ADD
+            0x80...0x87 | 0xC6 => {
+                // ADD
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
-            },
-            0x88 ... 0x8F | 0xCE => {
-                //ADC
-                let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
+            }
+            0x88...0x8F | 0xCE => {
+                // ADC
+                let value: u8 = if self.flag_is_set(Flag::C) {
+                    value.wrapping_add(1)
+                } else {
+                    value
+                };
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
-            },
-            0x90 ... 0x97 | 0xD6 => {
-                //SUB
+            }
+            0x90...0x97 | 0xD6 => {
+                // SUB
                 result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
-            },
-            0x98 ... 0x9F | 0xDE => {
-                //SBC
-                let value: u8 = if self.flag_is_set(Flag::C) { value.wrapping_add(1) } else { value };
+            }
+            0x98...0x9F | 0xDE => {
+                // SBC
+                let value: u8 = if self.flag_is_set(Flag::C) {
+                    value.wrapping_add(1)
+                } else {
+                    value
+                };
                 result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
-            },
-            0xA0 ... 0xA7 | 0xE6 => {
-                //AND
+            }
+            0xA0...0xA7 | 0xE6 => {
+                // AND
                 result = reg_a_val & value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
                 self.flag_set(false, Flag::C);
-            },
-            0xA8 ... 0xAF | 0xEE => {
-                //XOR
-                result = reg_a_val^value;
+            }
+            0xA8...0xAF | 0xEE => {
+                // XOR
+                result = reg_a_val ^ value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
-            },
-            0xB0 ... 0xB7 | 0xF6 => {
-                //OR
+            }
+            0xB0...0xB7 | 0xF6 => {
+                // OR
                 result = reg_a_val | value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
-            },
-            0xB8 ... 0xBF | 0xFE => {
-                //CP
-                result = if reg_a_val == value { 0x0 } else { 0x1 };
+            }
+            0xB8...0xBF | 0xFE => {
+                // CP
+                result = if reg_a_val == value {
+                    0x0
+                } else {
+                    0x1
+                };
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(reg_a_val < value, Flag::C);
                 unchange_a = true;
-            },
+            }
 
             _ => unreachable!(),
         }
@@ -1304,12 +1360,12 @@ impl Cpu {
 
         let cycles: u32;
         if reg == Reg::HL {
-            //LD (HL),n
+            // LD (HL),n
             let addr: u16 = self.reg16(Reg::HL);
             self.mem_write(addr, immediate, memory);
             cycles = 12;
         } else {
-            //LD r,n
+            // LD r,n
             self.reg_set8(reg, immediate);
             cycles = 8
         }

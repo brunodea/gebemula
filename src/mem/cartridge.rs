@@ -7,16 +7,16 @@ pub fn cartridge_type_str(memory: &Memory) -> String {
     match byte {
         0x1F => {
             return "Pocket Camera".to_owned();
-        },
+        }
         0xFD => {
             return "Bandai TAMA5".to_owned();
-        },
+        }
         0xFE => {
             return "Hudson HuC-3".to_owned();
-        },
+        }
         0xFF => {
             return "Hudson HuC-1".to_owned();
-        },
+        }
         _ => (),
     }
 
@@ -30,7 +30,7 @@ pub fn cartridge_type_str(memory: &Memory) -> String {
     let mbc2: &str = "+MBC2";
     let mbc3: &str = "+MBC3";
     let mbc5: &str = "+MBC5";
-    
+
     let mut res: String = "".to_owned();
     if byte == 0x00 {
         res = " ONLY".to_owned();
@@ -110,4 +110,3 @@ pub fn game_title_str(memory: &Memory) -> String {
 
     game_title.to_owned()
 }
-

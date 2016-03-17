@@ -35,18 +35,10 @@ pub struct EventTimeline {
 
 impl EventTimeline {
     pub fn new() -> EventTimeline {
-        let h_blank = Event::new(
-                cpu::consts::STAT_MODE_0_DURATION_CYCLES,
-                EventType::H_BLANK);
-        let v_blank = Event::new(
-                cpu::consts::STAT_MODE_1_DURATION_CYCLES,
-                EventType::V_BLANK);
-        let scanline_oam = Event::new(
-                cpu::consts::STAT_MODE_2_DURATION_CYCLES,
-                EventType::S_OAM);
-        let scanline_vram = Event::new(
-                cpu::consts::STAT_MODE_3_DURATION_CYCLES,
-                EventType::S_VRAM);
+        let h_blank = Event::new(cpu::consts::STAT_MODE_0_DURATION_CYCLES, EventType::H_BLANK);
+        let v_blank = Event::new(cpu::consts::STAT_MODE_1_DURATION_CYCLES, EventType::V_BLANK);
+        let scanline_oam = Event::new(cpu::consts::STAT_MODE_2_DURATION_CYCLES, EventType::S_OAM);
+        let scanline_vram = Event::new(cpu::consts::STAT_MODE_3_DURATION_CYCLES, EventType::S_VRAM);
         EventTimeline {
             periodic_events: [scanline_oam, scanline_vram, h_blank, v_blank],
             curr_event_type: EventType::S_OAM,

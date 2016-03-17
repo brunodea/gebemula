@@ -26,7 +26,7 @@ impl BreakCommand {
         }
     }
 
-    //true if should go to read loop;
+    // true if should go to read loop;
     fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) -> bool {
         let go_to_read_loop: bool;
         if let Some(addr) = self.break_addr {
@@ -58,7 +58,7 @@ impl BreakCommand {
         go_to_read_loop
     }
 
-    //true if should_run_cpu
+    // true if should_run_cpu
     fn parse(&mut self, params: &[&str]) -> bool {
         if params.is_empty() {
             Debugger::display_help("Invalid number of arguments for 'break'\n");
@@ -149,7 +149,7 @@ impl BreakCommand {
             if let Some(value) = Debugger::cpu_human_in_params(&params[cpu_human_param_index..]) {
                 self.break_debug = value;
             } else {
-                //user has input some incorret value
+                // user has input some incorret value
                 self.break_addr = None;
                 self.break_reg = None;
                 self.break_ioreg = None;
@@ -164,9 +164,9 @@ impl BreakCommand {
 
 pub struct Debugger {
     should_run_cpu: bool,
-    run_debug: Option<u8>, //0b0000_0000 - bit 0: cpu, bit 1: human;
+    run_debug: Option<u8>, // 0b0000_0000 - bit 0: cpu, bit 1: human;
     break_command: BreakCommand,
-    steps_debug: u8, //same as run_debug
+    steps_debug: u8, // same as run_debug
     num_steps: u32,
     display_header: bool,
 }
@@ -201,7 +201,7 @@ impl Debugger {
         if go_to_loop && self.num_steps > 0 {
             self.num_steps -= 1;
             Debugger::print_cpu_human(self.steps_debug, instruction, cpu);
-            if self.num_steps == 0 &&  self.steps_debug == 0 {
+            if self.num_steps == 0 && self.steps_debug == 0 {
                 println!("{}", instruction);
             } else {
                 go_to_loop = false;
@@ -213,7 +213,8 @@ impl Debugger {
     }
     fn display_info(&self, mem: &Memory) {
         println!("Game: {}", mem::cartridge::game_title_str(mem));
-        println!("Cartridge Type: {}", mem::cartridge::cartridge_type_str(mem));
+        println!("Cartridge Type: {}",
+                 mem::cartridge::cartridge_type_str(mem));
     }
     fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         loop {
@@ -225,7 +226,7 @@ impl Debugger {
                 Ok(_) => {
                     input.pop(); //removes the '\n'.
                     self.parse(&input, instruction, cpu, mem, timer);
-                },
+                }
                 Err(error) => println!("error: {}", error),
             }
             if self.should_run_cpu {
@@ -239,7 +240,11 @@ impl Debugger {
         let debug_human: bool = (mask >> 1) & 0b1 == 0b1;
 
         if debug_human {
-            let v: &str = if debug_cpu { ":\n\t" } else { "\n" };
+            let v: &str = if debug_cpu {
+                ":\n\t"
+            } else {
+                "\n"
+            };
             print!("{}{}", instruction, v);
         }
         if debug_cpu {
@@ -247,7 +252,12 @@ impl Debugger {
         }
     }
 
-    fn parse(&mut self, command: &str, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
+    fn parse(&mut self,
+             command: &str,
+             instruction: &Instruction,
+             cpu: &Cpu,
+             mem: &Memory,
+             timer: &Timer) {
         let aux: &mut Vec<&str> = &mut command.trim().split(' ').collect();
         let mut words: Vec<&str> = Vec::new();
         for w in aux.iter().filter(|x| *x.to_owned() != "") {
@@ -259,33 +269,33 @@ impl Debugger {
                 "show" => {
                     Debugger::parse_show(&words[1..], cpu, mem, timer);
                     self.should_run_cpu = false;
-                },
+                }
                 "step" => {
                     self.parse_step(&words[1..]);
                     self.should_run_cpu = self.num_steps > 0;
-                },
+                }
                 "last" => {
                     println!("{}", instruction);
                     self.should_run_cpu = false;
-                },
+                }
                 "break" => {
                     self.should_run_cpu = self.break_command.parse(&words[1..]);
-                },
+                }
                 "help" => {
                     Debugger::display_help("");
-                },
+                }
                 "run" => {
                     self.parse_run(&words[1..]);
-                },
+                }
                 "info" => {
                     self.display_info(mem);
-                },
+                }
                 "" => {
-                    //does nothing
-                },
+                    // does nothing
+                }
                 _ => {
                     Debugger::display_help(&format!("Invalid command: {}", words[0]));
-                },
+                }
             }
         }
     }
@@ -294,21 +304,25 @@ impl Debugger {
         if error_msg != "" {
             println!("***ERROR: {}", error_msg);
         }
-        println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state of component.");
-        println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print it.\
-                 \n\tIf a number is set, run step num times and print the last one.\
-                 \n\tIf a number is set and cpu or human or both, then it will print all the instructions until the n'th instruction.");
+        println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state \
+                  of component.");
+        println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print \
+                  it.\n\tIf a number is set, run step num times and print the last one.\n\tIf a \
+                  number is set and cpu or human or both, then it will print all the \
+                  instructions until the n'th instruction.");
         println!("- last\n\tPrint last instruction.");
-        println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\
-            \tBreak when addr is hit or reg has value.\n\
-            \tIf cpu, human or both are set, every instruction until the break point will be displayed.\n\
-            \tAvailable regs: A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\
-            \tAvailable ioregs: LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY,DIV,TIMA");
-        println!("- run [cpu|human]\n\tDisable the debugger and run the code.\
-                             \n\tIf set, information about cpu state or instruction (human friendly) or both will be printed.");
+        println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\tBreak when addr is hit or \
+                  reg has value.\n\tIf cpu, human or both are set, every instruction until the \
+                  break point will be displayed.\n\tAvailable regs: \
+                  A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\tAvailable ioregs: \
+                  LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY,DIV,TIMA");
+        println!("- run [cpu|human]\n\tDisable the debugger and run the code.\n\tIf set, \
+                  information about cpu state or instruction (human friendly) or both will be \
+                  printed.");
         println!("- info\n\tDisplay information about the game rom.");
         println!("- help\n\tShow this.");
-        println!("Tip: when running 'run', 'step' or 'break' press 'Q' to stop it and go back to the debugger.");
+        println!("Tip: when running 'run', 'step' or 'break' press 'Q' to stop it and go back to \
+                  the debugger.");
     }
 
     fn parse_step(&mut self, parameters: &[&str]) {
@@ -357,20 +371,29 @@ impl Debugger {
             match *param {
                 "cpu" => {
                     cpu = true;
-                },
+                }
                 "human" => {
                     human = true;
-                },
+                }
                 _ => {
-                    Debugger::display_help(&format!("Invalid parameter for cpu|human: {}\n", param));
+                    Debugger::display_help(&format!("Invalid parameter for cpu|human: {}\n",
+                                                    param));
                     return None;
                 }
             }
         }
         let mut res: u8 = 0;
         if cpu || human {
-            res = if human { 0b10 } else { 0b00 };
-            res = if cpu { res | 0b01 } else { res };
+            res = if human {
+                0b10
+            } else {
+                0b00
+            };
+            res = if cpu {
+                res | 0b01
+            } else {
+                res
+            };
         }
 
         Some(res)
@@ -384,7 +407,7 @@ impl Debugger {
         match parameters[0] {
             "cpu" => {
                 println!("{}", cpu);
-            },
+            }
             "ioregs" => {
                 let tima: u8 = mem.read_byte(cpu::consts::TIMA_REGISTER_ADDR);
                 let tma: u8 = mem.read_byte(cpu::consts::TMA_REGISTER_ADDR);
@@ -417,16 +440,17 @@ impl Debugger {
                 println!("WX: {}", wx);
                 println!("WY: {}", wy);
                 println!("Joypad: {:#b}", p1);
-            },
+            }
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);
-            },
+            }
             "events" => {
                 println!("{}", timer.events_to_str());
             }
             _ => {
-                Debugger::display_help(&format!("Invalid parameter for 'show': {}\n",parameters[0]));
-            },
+                Debugger::display_help(&format!("Invalid parameter for 'show': {}\n",
+                                                parameters[0]));
+            }
         }
     }
 
@@ -447,20 +471,18 @@ impl Debugger {
             str_hex = &str_hex[2..];
         }
         match u16::from_str_radix(str_hex, 16) {
-            Ok(value) => {
-                Some(value)
-            },
+            Ok(value) => Some(value),
             Err(value) => {
                 Debugger::display_help(&format!("Address is not a valid hex number: {}\n", value));
                 None
-            },
+            }
         }
     }
 }
 
 pub fn instr_to_human(instruction: &Instruction) -> String {
     if let Some(_) = instruction.prefix {
-        //CB-prefixed instructions
+        // CB-prefixed instructions
         let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
         let mut r = format!("{:?}", reg);
         if reg == Reg::HL {
@@ -468,47 +490,41 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
         }
         let bit: u8 = instruction.opcode >> 3 & 0b111;
         match instruction.opcode {
-            0x00 ... 0x07 => {
-                format!("rlc {}", r)
-            },
-            0x08 ... 0x0F => {
-                format!("rrc {}", r)
-            },
-            0x10 ... 0x17 => {
-                //RL m
+            0x00...0x07 => format!("rlc {}", r),
+            0x08...0x0F => format!("rrc {}", r),
+            0x10...0x17 => {
+                // RL m
                 format!("rl {}", r)
-            },
-            0x18 ... 0x1F => {
-                //RR m
+            }
+            0x18...0x1F => {
+                // RR m
                 format!("rr {}", r)
-            },
-            0x20 ... 0x27 => {
-                format!("sla {}", r)
-            },
-            0x28 ... 0x2F => {
-                //SRA n
+            }
+            0x20...0x27 => format!("sla {}", r),
+            0x28...0x2F => {
+                // SRA n
                 format!("sra {}", r)
-            },
-            0x30 ... 0x37 => {
-                //SWAP n
+            }
+            0x30...0x37 => {
+                // SWAP n
                 format!("swap {}", r)
-            },
-            0x38 ... 0x3F => {
-                //SRL n
+            }
+            0x38...0x3F => {
+                // SRL n
                 format!("srl {}", r)
-            },
-            0x40 ... 0x7F => {
-                //BIT b,r; BIT b,(HL)
+            }
+            0x40...0x7F => {
+                // BIT b,r; BIT b,(HL)
                 format!("bit {},{}", bit, r)
-            },
-            0x80 ... 0xBF => {
-                //RES b,r; RES b,(HL)
+            }
+            0x80...0xBF => {
+                // RES b,r; RES b,(HL)
                 format!("res {},{}", bit, r)
-            },
-            0xC0 ... 0xFF => {
-                //SET b,r; SET b,(HL)
+            }
+            0xC0...0xFF => {
+                // SET b,r; SET b,(HL)
                 format!("set {},{}", bit, r)
-            },
+            }
             _ => unreachable!(),
         }
     } else {

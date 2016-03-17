@@ -3,8 +3,11 @@ use cpu::consts;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Interrupt {
-    VBlank, LCDC, TimerOverflow,
-    SerialIO, Joypad
+    VBlank,
+    LCDC,
+    TimerOverflow,
+    SerialIO,
+    Joypad,
 }
 
 #[inline]
@@ -29,7 +32,7 @@ fn from_bit(bit: u8) -> Interrupt {
         _ => unreachable!(),
     }
 }
- 
+
 #[inline]
 pub fn address(interrupt: Interrupt) -> u16 {
     match interrupt {
@@ -78,11 +81,10 @@ pub fn remove_request(interrupt: Interrupt, memory: &mut mem::Memory) {
 
 #[inline]
 pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
-    //order of priority
+    // order of priority
     for bit in 0..5 {
         let interrupt: Interrupt = from_bit(bit);
-        if is_enabled(interrupt, memory) &&
-            is_requested(interrupt, memory) {
+        if is_enabled(interrupt, memory) && is_requested(interrupt, memory) {
             return Some(interrupt);
         }
     }

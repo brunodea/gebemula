@@ -4,15 +4,16 @@ use std::fmt;
 
 struct Event {
     cycles_counter: u32,
-    cycles_rate: u32, //rate at which the event should happen
+    cycles_rate: u32, // rate at which the event should happen
 }
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "cycles counter: {}\
-               \ncycles rate: {}", 
-               self.cycles_counter, self.cycles_rate)
+               \ncycles rate: {}",
+               self.cycles_counter,
+               self.cycles_rate)
     }
 }
 
@@ -24,7 +25,7 @@ impl Event {
         }
     }
 
-    //return true if event happened.
+    // return true if event happened.
     pub fn update(&mut self, cycles: u32) -> bool {
         self.cycles_counter += cycles;
         if self.cycles_counter >= self.cycles_rate {
@@ -60,7 +61,7 @@ impl Timer {
             if self.tima_event.update(cycles) {
                 let mut tima: u8 = memory.read_byte(consts::TIMA_REGISTER_ADDR);
                 if tima == 0xFF {
-                    //overflows
+                    // overflows
                     tima = memory.read_byte(consts::TMA_REGISTER_ADDR);
                     interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
                 } else {

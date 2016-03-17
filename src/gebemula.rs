@@ -30,7 +30,7 @@ pub struct Gebemula {
     graphics: Graphics,
     should_display_screen: bool,
     timeline: EventTimeline,
-    joypad: u8, //nibble to the left are direction keys and to the right button keys.
+    joypad: u8, // nibble to the left are direction keys and to the right button keys.
 }
 
 impl Gebemula {
@@ -83,11 +83,11 @@ impl Gebemula {
                 self.mem.set_access_vram(true);
                 self.mem.set_access_oam(true);
                 self.graphics.update(&mut self.mem);
-            },
+            }
             EventType::S_VRAM => {
                 gpu_mode_number = Some(0b00);
                 self.timeline.curr_event_type = EventType::H_BLANK;
-            },
+            }
             EventType::H_BLANK => {
                 let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 ly += 1;
@@ -101,7 +101,7 @@ impl Gebemula {
                     gpu_mode_number = Some(0b10);
                 }
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
-            },
+            }
             EventType::V_BLANK => {
                 let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
@@ -113,32 +113,31 @@ impl Gebemula {
                     ly += 1;
                 }
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
-            },
+            }
             EventType::DISABLE_BOOTSTRAP => {
                 self.mem.disable_bootstrap();
-            },
+            }
             EventType::DMA_TRANSFER => {
                 self.mem.set_access_oam(true);
                 ioregister::dma_transfer(event.additional_value, &mut self.mem);
                 self.mem.set_access_oam(false);
-            },
+            }
             EventType::JOYPAD => {
-                let buttons: u8 =
-                    if ioregister::joypad_buttons_selected(&self.mem) {
-                        self.joypad & 0b0000_1111
-                    } else {
-                        self.joypad >> 4
-                    };
+                let buttons: u8 = if ioregister::joypad_buttons_selected(&self.mem) {
+                    self.joypad & 0b0000_1111
+                } else {
+                    self.joypad >> 4
+                };
 
                 ioregister::joypad_set_buttons(buttons, &mut self.mem);
-            },
+            }
         }
 
         if let Some(gpu_mode) = gpu_mode_number {
             self.mem.set_access_vram(true);
             self.mem.set_access_oam(true);
-            //self.mem.set_access_vram(gpu_mode <= 2);
-            //self.mem.set_access_oam(gpu_mode <= 1);
+            // self.mem.set_access_vram(gpu_mode <= 2);
+            // self.mem.set_access_oam(gpu_mode <= 1);
 
             ioregister::update_stat_reg_mode_flag(gpu_mode, &mut self.mem);
         }
@@ -155,8 +154,8 @@ impl Gebemula {
                 self.mem.set_access_vram(true);
                 self.mem.set_access_oam(true);
             }
-            let (instruction, one_event):
-                (Instruction, Option<Event>) = self.cpu.run_instruction(&mut self.mem);
+            let (instruction, one_event): (Instruction, Option<Event>) =
+                self.cpu.run_instruction(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = one_event {
                 self.run_event(e);
@@ -174,34 +173,39 @@ impl Gebemula {
     }
 
     fn adjust_joypad(&mut self, bit: u8, pressed: bool) -> bool {
-        self.joypad =
-            if pressed {
-                self.joypad & !(1 << bit)
-            } else {
-                self.joypad | (1 << bit)
-            };
+        self.joypad = if pressed {
+            self.joypad & !(1 << bit)
+        } else {
+            self.joypad | (1 << bit)
+        };
         pressed
     }
 
-    //returns true if joypad changed (i.e. some button was pressed or released);
+    // returns true if joypad changed (i.e. some button was pressed or released);
     fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) -> bool {
         let mut pressed: bool;
         pressed = self.adjust_joypad(0,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
+                                     event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
         pressed |= self.adjust_joypad(1,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
+                                      event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
         pressed |= self.adjust_joypad(2,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::LShift));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::LShift));
         pressed |= self.adjust_joypad(3,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::LCtrl));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::LCtrl));
         pressed |= self.adjust_joypad(4,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::Right));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::Right));
         pressed |= self.adjust_joypad(5,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::Left));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::Left));
         pressed |= self.adjust_joypad(6,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::Up));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::Up));
         pressed |= self.adjust_joypad(7,
-            event_pump.keyboard_state().is_scancode_pressed(Scancode::Down));
+                                      event_pump.keyboard_state()
+                                                .is_scancode_pressed(Scancode::Down));
 
         pressed
     }
@@ -231,21 +235,21 @@ impl Gebemula {
         let sdl_context = sdl2::init().unwrap();
         let vide_subsystem = sdl_context.video().unwrap();
 
-        let window = vide_subsystem.window(
-            "Gebemula Emulator",
-            graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
-            graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
-            .opengl()
-            .build()
-            .unwrap();
+        let window = vide_subsystem.window("Gebemula Emulator",
+                                           graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
+                                           graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
+                                   .opengl()
+                                   .build()
+                                   .unwrap();
 
         let mut renderer = window.renderer().build().unwrap();
-        renderer.set_draw_color(Color::RGBA(0,0,0,255));
+        renderer.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
-        let mut texture = renderer.create_texture_streaming(
-            PixelFormatEnum::ABGR8888,
-            (graphics::consts::DISPLAY_WIDTH_PX as u32,
-             graphics::consts::DISPLAY_HEIGHT_PX as u32)).unwrap();
+        let mut texture =
+            renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
+                                              (graphics::consts::DISPLAY_WIDTH_PX as u32,
+                                               graphics::consts::DISPLAY_HEIGHT_PX as u32))
+                    .unwrap();
 
         renderer.clear();
         renderer.present();
@@ -344,7 +348,8 @@ impl Gebemula {
             let now = time::now();
             if now - last_time_seconds >= time::Duration::seconds(1) {
                 last_time_seconds = now;
-                renderer.window_mut().unwrap().set_title(&format!("{} Gebemula - {}", fps, self.cycles_per_sec));
+                let title: &str = &format!("{} Gebemula - {}", fps, self.cycles_per_sec);
+                renderer.window_mut().unwrap().set_title(title);
                 self.cycles_per_sec = 0;
                 fps = 0;
             }

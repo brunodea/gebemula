@@ -53,7 +53,7 @@ impl Memory {
         }
     }
 
-    //returns a string with the memory data from min_addr to max_addr.
+    // returns a string with the memory data from min_addr to max_addr.
     pub fn format(&self, min_addr: Option<u16>, max_addr: Option<u16>) -> String {
         let columns: u8 = 16;
 
@@ -87,70 +87,79 @@ impl Memory {
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            0x0000 ... 0x7FFF => {
+            0x0000...0x7FFF => {
                 if self.cartridge_type == CartridgeType::RomOnly {
-                    //self.cartridge[address as usize] = value;
+                    // self.cartridge[address as usize] = value;
                 } else {
                     self.handle_banking(address, value);
                 }
             }
-            0x8000 ... 0x9FFF => {
+            0x8000...0x9FFF => {
                 if self.can_access_vram {
                     self.vram[(address - 0x8000) as usize] = value;
                 }
-            },
-            0xA000 ... 0xBFFF => {
-                //TODO && if battery powered?
+            }
+            0xA000...0xBFFF => {
+                // TODO && if battery powered?
                 if self.external_ram_enabled {
-                    self.external_ram[address as usize - 0xA000 + (self.current_ram_bank as usize * consts::RAM_BANK_SIZE as usize)] = value;
-                    //self.external_ram_enabled = false;
+                    self.external_ram[address as usize - 0xA000 +
+                                      (self.current_ram_bank as usize *
+                                       consts::RAM_BANK_SIZE as usize)] = value;
+                    // self.external_ram_enabled = false;
                 }
-            },
-            0xC000 ... 0xDFFF => self.wram[(address - 0xC000) as usize] = value,
-            0xE000 ... 0xFDFF => self.wram[(address - 0xE000) as usize] = value,
-            0xFE00 ... 0xFE9F => {
+            }
+            0xC000...0xDFFF => self.wram[(address - 0xC000) as usize] = value,
+            0xE000...0xFDFF => self.wram[(address - 0xE000) as usize] = value,
+            0xFE00...0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize] = value;
                 }
             }
-            0xFEA0 ... 0xFEFF =>(),// panic!("writing to unusable ram."),
-            0xFF00 ... 0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
-            0xFF80 ... 0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
+            0xFEA0...0xFEFF => (),// panic!("writing to unusable ram."),
+            0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
+            0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupts_enable = value,
-            _ => panic!("Out of bound! Tried to write to {:#x}.", address)
+            _ => panic!("Out of bound! Tried to write to {:#x}.", address),
         }
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            0x0000 ... 0x00FF => {
+            0x0000...0x00FF => {
                 if self.bootstrap_enabled {
                     self.bootstrap_rom[address as usize]
                 } else {
                     self.cartridge[address as usize]
                 }
-            },
-            0x0100 ... 0x3FFF => self.cartridge[address as usize],
-            0x4000 ... 0x7FFF => self.cartridge[address as usize - 0x4000 + (self.current_rom_bank as usize * consts::ROM_BANK_SIZE as usize)],
-            0x8000 ... 0x9FFF => {
+            }
+            0x0100...0x3FFF => self.cartridge[address as usize],
+            0x4000...0x7FFF => {
+                self.cartridge[address as usize - 0x4000 +
+                               (self.current_rom_bank as usize * consts::ROM_BANK_SIZE as usize)]
+            }
+            0x8000...0x9FFF => {
                 if self.can_access_vram {
                     self.vram[(address - 0x8000) as usize]
                 } else {
                     0xFF
                 }
             }
-            0xA000 ... 0xBFFF => self.external_ram[(address as u32 - 0xA000 + (self.current_ram_bank as u32 * consts::RAM_BANK_SIZE as u32)) as usize],
-            0xC000 ... 0xDFFF => self.wram[(address - 0xC000) as usize],
-            0xE000 ... 0xFDFF => self.wram[(address - 0xE000) as usize],
-            0xFE00 ... 0xFE9F => {
+            0xA000...0xBFFF => {
+                let bank_addr: usize = self.current_ram_bank as usize *
+                                       consts::RAM_BANK_SIZE as usize;
+                self.external_ram[address as usize - 0xA000 + bank_addr];
+            }
+            0xC000...0xDFFF => self.wram[(address - 0xC000) as usize],
+            0xE000...0xFDFF => self.wram[(address - 0xE000) as usize],
+            0xFE00...0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize]
                 } else {
                     0xFF
                 }
             }
-            0xFF00 ... 0xFF7F => self.io_registers[(address - 0xFF00) as usize],
-            0xFF80 ... 0xFFFE => self.hram[(address - 0xFF80) as usize],
+            0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize],
+            0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
             0xFFFF => self.interrupts_enable,
             _ => panic!("Out of bound! Tried to read from {:#x}.", address),
         }
@@ -158,55 +167,57 @@ impl Memory {
 
     fn handle_banking(&mut self, address: u16, byte: u8) {
         match address {
-            0x0000 ... 0x1FFF => {
+            0x0000...0x1FFF => {
                 if self.cartridge_type != CartridgeType::RomOnly &&
-                    (self.cartridge_type != CartridgeType::Mbc2 || (util::is_bit_one(address, 3))) {
+                   (self.cartridge_type != CartridgeType::Mbc2 || (util::is_bit_one(address, 3))) {
 
                     self.external_ram_enabled = (byte & 0x0F) == 0x0A;
                 }
-            },
-            0x2000 ... 0x2FFF => {
+            }
+            0x2000...0x2FFF => {
                 match self.cartridge_type {
                     CartridgeType::Mbc1 | CartridgeType::Mbc2 => {
                         self.change_rom_bank_lower_bits(byte);
-                    },
+                    }
                     CartridgeType::Mbc3 => {
                         self.change_rom_bank_mbc3(byte);
-                    },
+                    }
                     CartridgeType::Mbc5 => {
                         self.change_rom_bank_lower_bits_mbc5(byte);
                     }
                     _ => unreachable!(),
                 }
-            },
-            0x3000 ... 0x3FFF => {
+            }
+            0x3000...0x3FFF => {
                 match self.cartridge_type {
                     CartridgeType::Mbc1 | CartridgeType::Mbc2 => {
                         self.change_rom_bank_lower_bits(byte);
-                    },
+                    }
                     CartridgeType::Mbc3 => {
                         self.change_rom_bank_mbc3(byte);
-                    },
+                    }
                     CartridgeType::Mbc5 => {
                         self.change_rom_bank_9th_bit_mbc5(byte);
                     }
                     _ => unreachable!(),
                 }
-            },
-            0x4000 ... 0x5FFF => {
+            }
+            0x4000...0x5FFF => {
                 match self.cartridge_type {
                     CartridgeType::Mbc1 | CartridgeType::Mbc3 => {
                         if self.rom_banking_enabled {
-                            self.current_rom_bank = (self.current_rom_bank & 0b0001_1111) | ((byte as u16 & 0b11) << 5);
-                            if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20
-                                || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+                            self.current_rom_bank = (self.current_rom_bank & 0b0001_1111) |
+                                                    ((byte as u16 & 0b11) << 5);
+                            if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20 ||
+                               self.current_rom_bank == 0x40 ||
+                               self.current_rom_bank == 0x60 {
 
-                                    self.current_rom_bank += 0x1;
-                                }
+                                self.current_rom_bank += 0x1;
+                            }
                         } else {
                             self.change_ram_bank(byte);
                         }
-                    },
+                    }
                     CartridgeType::Mbc5 => {
                         if self.rom_banking_enabled {
                             self.change_rom_bank_9th_bit_mbc5(byte);
@@ -216,10 +227,10 @@ impl Memory {
                     }
                     _ => unreachable!(),
                 }
-            },
-            0x6000 ... 0x7FFF => {
+            }
+            0x6000...0x7FFF => {
                 if self.cartridge_type == CartridgeType::Mbc1 ||
-                    self.cartridge_type == CartridgeType::Mbc3 {
+                   self.cartridge_type == CartridgeType::Mbc3 {
 
                     self.rom_banking_enabled = byte & 0b1 == 0;
                     if self.rom_banking_enabled {
@@ -228,7 +239,7 @@ impl Memory {
                         self.current_rom_bank &= 0b0001_1111;
                     }
                 }
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -239,16 +250,18 @@ impl Memory {
                 let lower_bits: u16 = byte as u16 & 0x1F;
                 self.current_rom_bank &= 0b1110_0000;
                 self.current_rom_bank |= lower_bits;
-                if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20 || self.current_rom_bank == 0x40 || self.current_rom_bank == 0x60 {
+                if self.current_rom_bank == 0x0 || self.current_rom_bank == 0x20 ||
+                   self.current_rom_bank == 0x40 ||
+                   self.current_rom_bank == 0x60 {
                     self.current_rom_bank += 0x1;
                 }
-            },
+            }
             CartridgeType::Mbc2 => {
                 self.current_rom_bank = byte as u16 & 0xF;
                 if self.current_rom_bank == 0x0 {
                     self.current_rom_bank = 0x1;
                 }
-            },
+            }
             _ => panic!("Unsupported cartridge type."),
         }
     }
@@ -350,11 +363,14 @@ impl Memory {
         }
         match self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize] {
             0x0 => self.cartridge_type = CartridgeType::RomOnly,
-            0x1 ... 0x3 => self.cartridge_type = CartridgeType::Mbc1,
-            0x5 ... 0x6 => self.cartridge_type = CartridgeType::Mbc2,
-            0x11 ... 0x13 => self.cartridge_type = CartridgeType::Mbc3,
-            0x19 ... 0x1E => self.cartridge_type = CartridgeType::Mbc5,
-            _ => panic!("Cartridges of type {:#X} are not yet supported.", self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize]),
+            0x1...0x3 => self.cartridge_type = CartridgeType::Mbc1,
+            0x5...0x6 => self.cartridge_type = CartridgeType::Mbc2,
+            0x11...0x13 => self.cartridge_type = CartridgeType::Mbc3,
+            0x19...0x1E => self.cartridge_type = CartridgeType::Mbc5,
+            _ => {
+                panic!("Cartridges of type {:#X} are not yet supported.",
+                       self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize])
+            }
         }
     }
 }
