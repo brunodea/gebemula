@@ -703,7 +703,17 @@ impl Cpu {
             },
             0x09 | 0x19 | 0x29 | 0x39 => {
                 //ADD HL,rr
-                instruction = self.exec_add_hl_rr(byte);
+                let reg: Reg = Reg::pair_from_dd(byte >> 4);
+                let value: u16 = self.reg16(reg);
+
+                let hl: u16 = self.reg16(Reg::HL);
+                self.reg_set16(Reg::HL, hl.wrapping_add(value));
+
+                self.flag_set(false, Flag::N);
+                self.flag_set(util::has_half_carry16(hl, value), Flag::H);
+                self.flag_set(util::has_carry16(hl, value), Flag::C);
+
+                instruction.cycles = 8;
             },
             0xE8 => {
                 //ADD SP,n
@@ -1116,23 +1126,6 @@ impl Cpu {
         let mut instr: Instruction = Instruction::new();
         instr.cycles = cycles;
         instr.imm8 = Some(imm8);
-
-        instr
-    }
-
-    fn exec_add_hl_rr(&mut self, opcode: u8) -> Instruction {
-        let reg: Reg = Reg::pair_from_dd(opcode >> 4);
-        let value: u16 = self.reg16(reg);
-
-        let hl: u16 = self.reg16(Reg::HL);
-        self.reg_set16(Reg::HL, hl.wrapping_add(value));
-
-        self.flag_set(false, Flag::N);
-        self.flag_set(util::has_half_carry16(hl, value), Flag::H);
-        self.flag_set(util::has_carry16(hl, value), Flag::C);
-
-        let mut instr: Instruction = Instruction::new();
-        instr.cycles = 8;
 
         instr
     }
