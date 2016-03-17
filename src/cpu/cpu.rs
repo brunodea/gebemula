@@ -22,6 +22,7 @@ pub enum Reg {
 }
 
 impl Reg {
+    #[inline]
     pub fn pair_from_ddd(byte: u8) -> Reg {
         match byte & 0b111 {
             0b000 => Reg::B,
@@ -35,6 +36,8 @@ impl Reg {
             _ => unreachable!(),
         }
     }
+
+    #[inline]
     pub fn pair_from_dd(byte: u8) -> Reg {
         match byte & 0b11 {
             0b00 => Reg::BC,
@@ -137,6 +140,7 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn reg_index(reg: Reg) -> usize {
         match reg {
             Reg::A | Reg::AF => 0,
@@ -152,6 +156,7 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn reg_is8(reg: Reg) -> bool {
         match reg {
             Reg::A | Reg::F |
@@ -171,6 +176,7 @@ impl Cpu {
         self.enable_interrupts = false;
     }
 
+    #[inline]
     fn reg_set16(&mut self, reg: Reg, value: u16) {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
@@ -181,10 +187,12 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn reg_set8(&mut self, reg: Reg, value: u8) {
         self.reg_set16(reg, value as u16);
     }
 
+    #[inline]
     pub fn reg16(&self, reg: Reg) -> u16 {
         let index: usize = Cpu::reg_index(reg);
         if Cpu::reg_is8(reg) {
@@ -194,6 +202,7 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn reg8(&self, reg: Reg) -> u8 {
         if !Cpu::reg_is8(reg) {
             panic!("Trying to get 8 bits from 16-bit register: {:?}", reg)
@@ -202,6 +211,7 @@ impl Cpu {
         self.regs[index]
     }
 
+    #[inline]
     fn flag_mask(flag: Flag) -> u8 {
         match flag {
             Flag::Z => 0b1000_0000,
@@ -211,6 +221,7 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn flag_set(&mut self, set: bool, flag: Flag) {
         let mut flags: u8 = self.reg8(Reg::F);
         let mask: u8 = Cpu::flag_mask(flag);
@@ -222,10 +233,12 @@ impl Cpu {
         self.reg_set8(Reg::F, flags);
     }
 
-     fn flag_is_set(&self, flag: Flag) -> bool {
+    #[inline]
+    fn flag_is_set(&self, flag: Flag) -> bool {
         self.flag_bit(flag) == 0b1
     }
 
+    #[inline]
     fn flag_bit(&self, flag: Flag) -> u8 {
         let m: u8;
         match flag {
@@ -245,27 +258,32 @@ impl Cpu {
         (self.flags() >> m) & 0b1
     }
 
+    #[inline]
     fn flags(&self) -> u8 {
         self.reg8(Reg::F)
     }
 
+    #[inline]
     fn push_sp8(&mut self, value: u8, memory: &mut mem::Memory) {
         let sp: u16 = self.reg16(Reg::SP) - 1; //sp auto-decrements when pushing (it goes down in the memory)
         self.mem_write(sp, value, memory);
         self.reg_set16(Reg::SP, sp);
     }
 
+    #[inline]
     fn push_sp16(&mut self, value: u16, memory: &mut mem::Memory) {
         self.push_sp8((value >> 8) as u8, memory);
         self.push_sp8(value as u8, memory);
     }
 
+    #[inline]
     fn pop_sp8(&mut self, memory: &mem::Memory) -> u8 {
         let sp: u16 = self.reg16(Reg::SP);
         self.reg_set16(Reg::SP, sp + 1);
         memory.read_byte(sp)
     }
 
+    #[inline]
     fn pop_sp16(&mut self, memory: &mem::Memory) -> u16 {
         let lo: u8 = self.pop_sp8(memory);
         let hi: u8 = self.pop_sp8(memory);
@@ -281,6 +299,7 @@ impl Cpu {
             self.reg_set16(reg, val);
         }
     }
+
     fn decrement_reg(&mut self, reg: Reg) {
         if Cpu::reg_is8(reg) {
             let val: u8 = self.reg8(reg).wrapping_sub(1);
@@ -291,11 +310,13 @@ impl Cpu {
         }
     }
 
+    #[inline]
     fn mem_at_reg(&self, reg: Reg, memory: &mem::Memory) -> u8 {
         let addr: u16 = self.reg16(reg);
         memory.read_byte(addr)
     }
 
+    #[inline]
     fn mem_next8(&mut self, memory: &mem::Memory) -> u8 {
         let value: u8 = self.mem_at_reg(Reg::PC, memory);
         self.increment_reg(Reg::PC);
@@ -303,6 +324,7 @@ impl Cpu {
     }
 
     //next 2 bytes.
+    #[inline]
     fn mem_next16(&mut self, memory: &mem::Memory) -> u16 {
         let n1: u16 = self.mem_next8(memory) as u16;
         let n2: u16 = self.mem_next8(memory) as u16;
@@ -311,6 +333,7 @@ impl Cpu {
     }
 
     //function for having control of memory writes
+    #[inline]
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value: u8 = match address {
             consts::DIV_REGISTER_ADDR | consts::LY_REGISTER_ADDR => 0,
