@@ -82,16 +82,16 @@ impl Memory {
 
             i += 1;
         }
-        format!("{}", res)
+        res
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             0x0000 ... 0x7FFF => {
-                if self.cartridge_type != CartridgeType::RomOnly {
-                    self.handle_banking(address, value);
-                } else {
+                if self.cartridge_type == CartridgeType::RomOnly {
                     //self.cartridge[address as usize] = value;
+                } else {
+                    self.handle_banking(address, value);
                 }
             }
             0x8000 ... 0x9FFF => {

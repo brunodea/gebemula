@@ -370,7 +370,6 @@ impl Cpu {
         let byte: u8 = self.mem_next8(memory);
         let mut instruction: Instruction =Instruction::new();
         instruction.opcode = byte;
-        //instr, instruction type
         match byte {
             /***************************************/
             /*      Misc/Control instructions      */
@@ -393,12 +392,8 @@ impl Cpu {
                 instruction.cycles = 4;
                 self.halt_flag = true;
             },
-            0xF3 => {
-                //DI
-                instruction.cycles = 4;
-            },
-            0xFB => {
-                //EI
+            0xF3 | 0xFB => {
+                //DI | EI
                 instruction.cycles = 4;
             },
             0xCB => {
@@ -741,9 +736,6 @@ impl Cpu {
             _ => panic!("Unknown instruction: {:#x}", byte),
         }
 
-        if instruction.cycles == 0 {
-            panic!("Unknown instruction: {:#x}", byte);
-        }
         if instruction.prefix == None {
             instruction.opcode = byte;
         }

@@ -87,7 +87,7 @@ impl BreakCommand {
                 "WY" => Some(cpu::consts::WY_REGISTER_ADDR),
                 "WX" => Some(cpu::consts::WX_REGISTER_ADDR),
                 "IF" => Some(cpu::consts::IF_REGISTER_ADDR),
-                "IE" => Some(cpu::consts::IF_REGISTER_ADDR),
+                "IE" => Some(cpu::consts::IE_REGISTER_ADDR),
                 "STAT" => Some(cpu::consts::STAT_REGISTER_ADDR),
                 "DIV" => Some(cpu::consts::DIV_REGISTER_ADDR),
                 "TIMA" => Some(cpu::consts::TIMA_REGISTER_ADDR),
@@ -248,7 +248,7 @@ impl Debugger {
     }
 
     fn parse(&mut self, command: &str, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
-        let aux: &mut Vec<&str> = &mut command.trim().split(" ").collect();
+        let aux: &mut Vec<&str> = &mut command.trim().split(' ').collect();
         let mut words: Vec<&str> = Vec::new();
         for w in aux.iter().filter(|x| *x.to_owned() != "") {
             words.push(w.trim());
@@ -318,7 +318,7 @@ impl Debugger {
             if let Ok(s) = parameters[0].parse::<u32>() {
                 self.num_steps = s;
             } else {
-                Debugger::display_help(&format!("Couldn't parse number of steps."));
+                Debugger::display_help("Couldn't parse number of steps.");
                 self.num_steps = 0;
                 return;
             }
@@ -343,7 +343,7 @@ impl Debugger {
             self.run_debug = Some(0);
             self.should_run_cpu = true;
         } else if parameters.len() > 2 {
-            Debugger::display_help(&format!("Invalid number of parameters for run."));
+            Debugger::display_help("Invalid number of parameters for run.");
         } else if let Some(value) = Debugger::cpu_human_in_params(&parameters) {
             self.run_debug = Some(value);
             self.should_run_cpu = true;
@@ -431,14 +431,14 @@ impl Debugger {
     }
 
     fn parse_show_memory(parameters: &[&str], mem: &Memory) {
-        if parameters.len() != 2 {
-            Debugger::display_help(&format!("Invalid number of arguments for 'show memory'\n"));
-        } else {
+        if parameters.len() == 2 {
             let min_addr = Debugger::hex_from_str(parameters[0]);
             let max_addr = Debugger::hex_from_str(parameters[1]);
             if min_addr != None && max_addr != None {
                 println!("{}", mem.format(min_addr, max_addr));
             }
+        } else {
+            Debugger::display_help("Invalid number of arguments for 'show memory'\n");
         }
     }
 
@@ -561,11 +561,11 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0x22 => {
                 //LD (HL+),A
-                format!("ld (HL+),A")
+                "ld (HL+),A".to_owned()
             },
             0x32 => {
                 //LD (HL-),A
-                format!("ld (HL-),A")
+                "ld (HL-),A".to_owned()
             },
             0x0A | 0x1A => {
                 //LD A,(rr);
@@ -574,11 +574,11 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0x2A => {
                 //LD A,(HL+);
-                format!("ld A,(HL+)")
+               "ld A,(HL+)".to_owned()
             },
             0x3A => {
                 //LD A,(HL-)
-                format!("ld A,(HL-)")
+               "ld A,(HL-)".to_owned()
             },
             0x06 | 0x16 | 0x26 |
             0x0E | 0x1E | 0x2E |
@@ -622,11 +622,11 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xE2 => {
                 //LD (C),A
-                format!("ld (0xff00+C), A")
+               "ld (0xff00+C), A".to_owned()
             },
             0xF2 => {
                 //LD A,(C)
-                format!("ld A,(0xff00+C)")
+               "ld A,(0xff00+C)".to_owned()
             },
             0xEA => {
                 //LD (nn),A
@@ -670,7 +670,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xF9 => {
                 //LD SP,HL
-                format!("ld SP,HL")
+               "ld SP,HL".to_owned()
             },
             /*****************************************/
             /* 8 bit arithmetic/logical instructions */
@@ -679,7 +679,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("add A,{}", v)
             },
@@ -687,7 +687,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("adc A,{}", v)
             },
@@ -695,7 +695,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("sub {}", v)
             },
@@ -703,7 +703,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("sbc A,{}", v)
             },
@@ -711,7 +711,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("and {}", v)
             },
@@ -719,7 +719,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("xor {}", v)
             },
@@ -727,7 +727,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("or {}", v)
             },
@@ -735,7 +735,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("cp {}", v)
             },
@@ -769,7 +769,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned()
                 }
                 format!("inc {}", v)
             },
@@ -779,7 +779,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
-                    v = format!("(HL)");
+                    v = "(HL)".to_owned();
                 }
                 format!("dec {}", v)
             },

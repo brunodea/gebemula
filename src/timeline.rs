@@ -56,12 +56,12 @@ impl EventTimeline {
     pub fn curr_event(&self) -> Option<Event> {
         let mut res: Option<Event> = None;
         for i in 0..self.periodic_events.len() {
-            let e: Event = self.periodic_events[i].clone();
+            let e: Event = self.periodic_events[i];
             if e.event_type == self.curr_event_type {
                 res = Some(e);
                 break;
             }
         }
-        return res;
+        res
     }
 }

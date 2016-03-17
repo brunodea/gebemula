@@ -83,10 +83,10 @@ impl Graphics {
             }
 
             let xpos: u16 =
-                if !is_window {
-                    scx.wrapping_add(i) as u16
-                } else {
+                if is_window {
                     i.wrapping_sub(wx) as u16
+                } else {
+                    scx.wrapping_add(i) as u16
                 };
 
             let buffer_pos: usize = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
@@ -97,14 +97,14 @@ impl Graphics {
                 continue;
             }
             let addr_start =
-                if !is_window {
-                    if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
+                if is_window {
+                    if ioregister::LCDCRegister::is_window_tile_map_display_normal(&memory) {
                         consts::BG_NORMAL_ADDR_START
                     } else {
                         consts::BG_WINDOW_ADDR_START
                     }
                 } else {
-                    if ioregister::LCDCRegister::is_window_tile_map_display_normal(&memory) {
+                    if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
                         consts::BG_NORMAL_ADDR_START
                     } else {
                         consts::BG_WINDOW_ADDR_START
