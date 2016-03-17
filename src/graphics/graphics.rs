@@ -5,7 +5,7 @@ use super::super::cpu::ioregister;
 use super::super::cpu;
 
 pub struct Graphics {
-    bg_wn_pixel_indexes: [u8; 160*144],
+    bg_wn_pixel_indexes: [u8; 160*144*4],
     pub screen_buffer: [u8; 160*144*4],
     bg_on: bool,
     wn_on: bool,
@@ -16,7 +16,7 @@ impl Graphics {
     pub fn new() -> Graphics {
         Graphics {
             screen_buffer: [255; 160*144*4],
-            bg_wn_pixel_indexes: [0; 160*144],
+            bg_wn_pixel_indexes: [0; 160*144*4],
             bg_on: true,
             wn_on: true,
             sprites_on: true,
@@ -25,7 +25,7 @@ impl Graphics {
 
     pub fn restart(&mut self) {
         self.screen_buffer = [255; 160*144*4];
-        self.bg_wn_pixel_indexes = [0; 160*144];
+        self.bg_wn_pixel_indexes = [0; 160*144*4];
         self.bg_on = true;
         self.wn_on = true;
         self.sprites_on = true;
