@@ -858,7 +858,10 @@ impl Cpu {
         self.reg_set8(Reg::A, value);
 
         self.flag_set(bit == 1, Flag::C);
-        self.flag_set(value == 0, Flag::Z);
+        //TODO: what to believe?
+        //Z80 manual says Z flag is not affected;
+        //Gameboy manual says it is.
+        //self.flag_set(value == 0, Flag::Z);
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
 
