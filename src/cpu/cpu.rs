@@ -793,7 +793,7 @@ impl Cpu {
             _ => panic!("Unknown instruction: {:#x}", byte),
         }
 
-        if instruction.prefix == None {
+        if instruction.prefix.is_none() {
             instruction.opcode = byte;
         }
         instruction.address = addr;

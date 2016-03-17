@@ -110,7 +110,7 @@ impl BreakCommand {
                 _ => None,
             };
 
-            if ioregister != None {
+            if ioregister.is_some() {
                 if let Some(value) = Debugger::hex_from_str(&params[1]) {
                     self.break_addr = None;
                     self.break_reg = None;
@@ -122,7 +122,7 @@ impl BreakCommand {
                 } else {
                     should_run_cpu = false;
                 }
-            } else if reg != None {
+            } else if reg.is_some() {
                 if let Some(value) = Debugger::hex_from_str(&params[1]) {
                     self.break_addr = None;
                     self.break_reg = reg;
@@ -193,7 +193,7 @@ impl Debugger {
             println!("----------------------------------");
             self.display_header = false;
         }
-        if self.run_debug != None {
+        if !self.run_debug.is_some() {
             Debugger::print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
         }
@@ -458,7 +458,7 @@ impl Debugger {
         if parameters.len() == 2 {
             let min_addr = Debugger::hex_from_str(parameters[0]);
             let max_addr = Debugger::hex_from_str(parameters[1]);
-            if min_addr != None && max_addr != None {
+            if min_addr.is_some() && max_addr.is_some() {
                 println!("{}", mem.format(min_addr, max_addr));
             }
         } else {
