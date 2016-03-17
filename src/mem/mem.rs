@@ -147,7 +147,7 @@ impl Memory {
             0xA000...0xBFFF => {
                 let bank_addr: usize = self.current_ram_bank as usize *
                                        consts::RAM_BANK_SIZE as usize;
-                self.external_ram[address as usize - 0xA000 + bank_addr];
+                self.external_ram[address as usize - 0xA000 + bank_addr]
             }
             0xC000...0xDFFF => self.wram[(address - 0xC000) as usize],
             0xE000...0xFDFF => self.wram[(address - 0xE000) as usize],
