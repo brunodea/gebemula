@@ -783,12 +783,14 @@ impl Cpu {
                 if util::is_neg16(imm) {
                     let res: u16 = sp.wrapping_sub(util::twos_complement(imm));
                     self.reg_set16(Reg::SP, res);
-                    self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
+                    //self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
+                    self.flag_set(sp < util::twos_complement(imm), Flag::C);
                     self.flag_set((res & 0xf) <= (sp & 0xf), Flag::H);
                 } else {
                     let res: u16 = sp.wrapping_add(imm);
                     self.reg_set16(Reg::SP, res);
-                    self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
+                   // self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
+                    self.flag_set(util::has_carry16(sp, imm), Flag::C);
                     self.flag_set((sp & 0xf) + (imm & 0xf) > 0xf, Flag::H);
                 }
                 self.flag_set(false, Flag::Z);
@@ -825,7 +827,7 @@ impl Cpu {
                 self.push_sp16(pc, memory);
                 let addr: u16 = byte as u16 & 0b0011_1000;
                 self.reg_set16(Reg::PC, addr);
-                instruction.cycles = 32;
+                instruction.cycles = 16;
             },
             _ => panic!("Unknown instruction: {:#x}", byte),
         }
@@ -923,6 +925,8 @@ impl Cpu {
         // Z80 manual says Z flag is not affected;
         // Gameboy manual says it is.
         // self.flag_set(value == 0, Flag::Z);
+
+        self.flag_set(false, Flag::Z);
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
 
@@ -1128,19 +1132,20 @@ impl Cpu {
         let cycles: u32;
         let mut imm16: Option<u16> = None;
         if should_jump {
-            cycles = 16;
             let val: u16 = if jump_to_hl {
+                cycles = 4;
                 self.reg16(Reg::HL)
             } else {
+                cycles = 16;
                 let imm: u16 = self.mem_next16(memory);
                 imm16 = Some(imm);
                 imm
             };
             self.reg_set16(Reg::PC, val);
+        } else if jump_to_hl {
+                cycles = 4;
         } else {
-            if !jump_to_hl {
-                imm16 = Some(self.mem_next16(memory)); //mem_next increments PC twice.
-            }
+            imm16 = Some(self.mem_next16(memory)); //mem_next increments PC twice.
             cycles = 12;
         }
 
@@ -1153,10 +1158,12 @@ impl Cpu {
 
     fn exec_jr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let should_jump: bool;
+        let mut cycles: u32 = 8;
         match opcode {
             0x18 => {
                 // JR n
                 should_jump = true;
+                cycles = 12;
             }
             0x20 => {
                 // JR NZ,r8
@@ -1177,7 +1184,6 @@ impl Cpu {
             _ => unreachable!(),
         }
 
-        let cycles: u32;
         let imm8: u8 = self.mem_next8(memory);
         if should_jump {
             let imm: u16 = util::sign_extend(imm8);
@@ -1191,8 +1197,6 @@ impl Cpu {
             }
 
             self.reg_set16(Reg::PC, addr);
-        } else {
-            cycles = 8;
         }
 
         let mut instr: Instruction = Instruction::default();
