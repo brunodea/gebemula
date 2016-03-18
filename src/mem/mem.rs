@@ -247,7 +247,7 @@ impl Memory {
                     }
                     CartridgeType::Mbc3 => {
                         match byte {
-                            0x0 ... 0x3 => {
+                            0x0...0x3 => {
                                 self.change_ram_bank(byte);
                             }
                             0x8 => {
@@ -312,10 +312,10 @@ impl Memory {
                                     self.write_byte(addr, now.tm_yday as u8);
                                 }
                                 if let Some(addr) = self.rtc.day_upper_bits_reg {
-                                    //tm_yday will limit the Rtc to '365' days and not
-                                    //511 as it should be. Also, the day counter carry bit
-                                    //will never be set.
-                                    //However, it doesn't really matter for this emulator.
+                                    // tm_yday will limit the Rtc to '365' days and not
+                                    // 511 as it should be. Also, the day counter carry bit
+                                    // will never be set.
+                                    // However, it doesn't really matter for this emulator.
                                     let day_ms_bit: u8 = ((now.tm_yday & 0x100) >> 8) as u8;
                                     self.write_byte(addr, day_ms_bit);
                                 }

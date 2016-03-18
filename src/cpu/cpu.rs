@@ -1143,7 +1143,7 @@ impl Cpu {
             };
             self.reg_set16(Reg::PC, val);
         } else if jump_to_hl {
-                cycles = 4;
+            cycles = 4;
         } else {
             imm16 = Some(self.mem_next16(memory)); //mem_next increments PC twice.
             cycles = 12;
