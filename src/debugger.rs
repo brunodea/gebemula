@@ -215,7 +215,7 @@ impl Debugger {
             self.read_loop(instruction, cpu, mem, timer);
         }
     }
-    fn display_info(&self, mem: &Memory) {
+    pub fn display_info(&self, mem: &Memory) {
         println!("Game: {}", mem::cartridge::game_title_str(mem));
         println!("Cartridge Type: {}",
                  mem::cartridge::cartridge_type_str(mem));

@@ -265,6 +265,9 @@ impl Gebemula {
         let target_fps: u32 = 60;
         let mut desired_frametime_ns: u32 = 1_000_000_000 / target_fps;
         let mut fps: u32 = 0;
+        if !cfg!(debug_assertions) {
+            self.debugger.display_info(&self.mem);
+        }
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
