@@ -1300,7 +1300,6 @@ impl Cpu {
             }
             0x98...0x9F | 0xDE => {
                 // SBC
-                //result = reg_a_val.wrapping_sub(value.wrapping_add(self.flag_bit(Flag::C)));
                 let value: u8 = value.wrapping_add(self.flag_bit(Flag::C));
                 result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
