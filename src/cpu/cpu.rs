@@ -69,8 +69,8 @@ pub struct Instruction {
     pub cycles: u32,
 }
 
-impl Instruction {
-    pub fn new() -> Instruction {
+impl Default for Instruction {
+    fn default() -> Instruction {
         Instruction {
             prefix: None,
             opcode: 0x0,
@@ -148,8 +148,8 @@ impl fmt::Display for Cpu {
     }
 }
 
-impl Cpu {
-    pub fn new() -> Cpu {
+impl Default for Cpu {
+    fn default() -> Cpu {
         Cpu {
             regs: [0; 12],
             ime_flag: true,
@@ -159,7 +159,9 @@ impl Cpu {
             enable_interrupts: false,
         }
     }
+}
 
+impl Cpu {
     #[inline]
     fn reg_index(reg: Reg) -> usize {
         match reg {
@@ -414,7 +416,7 @@ impl Cpu {
         let mut event: Option<Event> = None;
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
-        let mut instruction: Instruction = Instruction::new();
+        let mut instruction: Instruction = Instruction::default();
         instruction.opcode = byte;
         match byte {
             /***************************************/
@@ -424,7 +426,7 @@ impl Cpu {
                 //NOP
                 instruction.cycles = 4;
                 if addr == 0x100 {
-                    event = Some(Event::new(0, EventType::DISABLE_BOOTSTRAP));
+                    event = Some(Event::new(0, EventType::BootstrapFinished));
                 }
             },
             0x10 => {
@@ -488,12 +490,47 @@ impl Cpu {
             0x0E | 0x1E | 0x2E |
             0x3E | 0x36 => {
                 //LD r,n; LD (HL),n
-                instruction = self.exec_ld_r_n(byte, memory);
+                let reg: Reg = Reg::pair_from_ddd(byte >> 3);
+                let immediate: u8 = self.mem_next8(memory);
+
+                let cycles: u32;
+                if reg == Reg::HL {
+                    // LD (HL),n
+                    let addr: u16 = self.reg16(Reg::HL);
+                    self.mem_write(addr, immediate, memory);
+                    cycles = 12;
+                } else {
+                    // LD r,n
+                    self.reg_set8(reg, immediate);
+                    cycles = 8
+                }
+
+                instruction.cycles = cycles;
+                instruction.imm8 = Some(immediate);
             },
-            0x40 ... 0x6F | 0x70 ... 0x75 |
+            0x40 ... 0x75 |
             0x77 ... 0x7F => {
                 //LD r,r; LD r,(HL); LD (HL),r
-                instruction = self.exec_ld_r_r(byte, memory);
+                let reg_rhs: Reg = Reg::pair_from_ddd(byte);
+                let reg_lhs: Reg = Reg::pair_from_ddd(byte >> 3);
+
+                let cycles: u32;
+                if reg_rhs == Reg::HL {
+                    let value: u8 = self.mem_at_reg(Reg::HL, memory);
+                    self.reg_set8(reg_lhs, value);
+                    cycles = 8;
+                } else if reg_lhs == Reg::HL {
+                    let addr: u16 = self.reg16(Reg::HL);
+                    let rhs_val: u8 = self.reg8(reg_rhs);
+                    self.mem_write(addr, rhs_val, memory);
+                    cycles = 8;
+                } else {
+                    let rhs_val: u8 = self.reg8(reg_rhs);
+                    self.reg_set8(reg_lhs, rhs_val);
+                    cycles = 4;
+                }
+
+                instruction.cycles = cycles;
             },
             0xE0 => {
                 //LDH (n),A
@@ -501,12 +538,12 @@ impl Cpu {
                 if immediate == consts::DMA_REGISTER_ADDR {
                     let mut e: Event = Event::new(
                         consts::DMA_DURATION_CYCLES,
-                        EventType::DMA_TRANSFER);
+                        EventType::DMATransfer);
                     e.additional_value = self.reg8(Reg::A);
                     event = Some(e);
                 } else if immediate == consts::JOYPAD_REGISTER_ADDR {
                     let e: Event = Event::new(
-                        0, EventType::JOYPAD);
+                        0, EventType::JoypadPressed);
                     event = Some(e);
                 }
                 self.mem_write(immediate, self.reg8(Reg::A), memory);
@@ -527,12 +564,12 @@ impl Cpu {
                 if addr == consts::DMA_REGISTER_ADDR {
                     let mut e: Event = Event::new(
                         consts::DMA_DURATION_CYCLES,
-                        EventType::DMA_TRANSFER);
+                        EventType::DMATransfer);
                     e.additional_value = self.reg8(Reg::A);
                     event = Some(e);
                 } else if addr == consts::JOYPAD_REGISTER_ADDR {
                     let e: Event = Event::new(
-                        0, EventType::JOYPAD);
+                        0, EventType::JoypadPressed);
                     event = Some(e);
                 }
                 self.mem_write(addr, self.reg8(Reg::A), memory);
@@ -659,16 +696,16 @@ impl Cpu {
                 //the N flag isn't strictly necessary here, so it can be removed in the future.
                 let (add_value, new_c_flag) =
                     match (n_flag, c_flag, upper_nibble, h_flag, lower_nibble) {
-                    (false, false, 0x0 ... 0x9, false, 0x0 ... 0x9) => (0x00, false),
-                    (false, false, 0x0 ... 0x8, false, 0xA ... 0xF) => (0x06, false),
-                    (false, false, 0x0 ... 0x9, true, 0x0 ... 0x3) => (0x06, false),
-                    (false, false, 0xA ... 0xF, false, 0x0 ... 0x9) => (0x60, true),
-                    (false, false, 0x9 ... 0xF, false, 0xA ... 0xF) => (0x66, true),
-                    (false, false, 0xA ... 0xF, true, 0x0 ... 0x3) => (0x66, true),
-                    (false, true, 0x0 ... 0x2, false, 0x0 ... 0x9) => (0x60, true),
-                    (false, true, 0x0 ... 0x2, false, 0xA ... 0xF) => (0x66, true),
-                    (false, true, 0x0 ... 0x3, true, 0x0 ... 0x3) => (0x66, true),
+                    (false, false, 0x0 ... 0x9, false, 0x0 ... 0x9) |
                     (true, false, 0x0 ... 0x9, false, 0x0 ... 0x9) => (0x00, false),
+                    (false, false, 0x0 ... 0x8, false, 0xA ... 0xF) |
+                    (false, false, 0x0 ... 0x9, true, 0x0 ... 0x3) => (0x06, false),
+                    (false, false, 0xA ... 0xF, false, 0x0 ... 0x9) |
+                    (false, true, 0x0 ... 0x2, false, 0x0 ... 0x9) => (0x60, true),
+                    (false, false, 0x9 ... 0xF, false, 0xA ... 0xF) |
+                    (false, false, 0xA ... 0xF, true, 0x0 ... 0x3) |
+                    (false, true, 0x0 ... 0x2, false, 0xA ... 0xF) |
+                    (false, true, 0x0 ... 0x3, true, 0x0 ... 0x3) => (0x66, true),
                     (true, false, 0x0 ... 0x8, true, 0x6 ... 0xF) => (0xFA, false),
                     (true, true, 0x7 ... 0xF, false, 0x0 ... 0x9) => (0xA0, true),
                     (true, true, 0x6 ... 0xF, true, 0x6 ... 0xF) => (0x9A, true),
@@ -843,7 +880,7 @@ impl Cpu {
         } else {
             cycles = 8;
         }
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
 
         instr
@@ -889,7 +926,7 @@ impl Cpu {
         self.flag_set(false, Flag::N);
         self.flag_set(false, Flag::H);
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = 4;
 
         instr
@@ -930,7 +967,7 @@ impl Cpu {
             self.reg_set16(Reg::PC, immediate);
             cycles = 24;
         }
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
         instr.imm16 = Some(immediate);
 
@@ -1048,7 +1085,7 @@ impl Cpu {
             self.flag_set(false, Flag::H);
         }
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.prefix = Some(0xCB);
         instr.opcode = opcode;
         instr.cycles = cycles;
@@ -1092,13 +1129,13 @@ impl Cpu {
         let mut imm16: Option<u16> = None;
         if should_jump {
             cycles = 16;
-            let val: u16;
-            if jump_to_hl {
-                val = self.reg16(Reg::HL);
+            let val: u16 = if jump_to_hl {
+                self.reg16(Reg::HL)
             } else {
-                val = self.mem_next16(memory);
-                imm16 = Some(val);
-            }
+                let imm: u16 = self.mem_next16(memory);
+                imm16 = Some(imm);
+                imm
+            };
             self.reg_set16(Reg::PC, val);
         } else {
             if !jump_to_hl {
@@ -1107,7 +1144,7 @@ impl Cpu {
             cycles = 12;
         }
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
         instr.imm16 = imm16;
 
@@ -1158,7 +1195,7 @@ impl Cpu {
             cycles = 8;
         }
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
         instr.imm8 = Some(imm8);
 
@@ -1213,7 +1250,7 @@ impl Cpu {
             self.reg_set8(reg, result);
         }
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
 
         instr
@@ -1248,11 +1285,7 @@ impl Cpu {
             }
             0x88...0x8F | 0xCE => {
                 // ADC
-                let value: u8 = if self.flag_is_set(Flag::C) {
-                    value.wrapping_add(1)
-                } else {
-                    value
-                };
+                let value: u8 = value.wrapping_add(self.flag_bit(Flag::C));
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
@@ -1267,11 +1300,8 @@ impl Cpu {
             }
             0x98...0x9F | 0xDE => {
                 // SBC
-                let value: u8 = if self.flag_is_set(Flag::C) {
-                    value.wrapping_add(1)
-                } else {
-                    value
-                };
+                //result = reg_a_val.wrapping_sub(value.wrapping_add(self.flag_bit(Flag::C)));
+                let value: u8 = value.wrapping_add(self.flag_bit(Flag::C));
                 result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
@@ -1318,7 +1348,7 @@ impl Cpu {
             self.reg_set8(Reg::A, result);
         }
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = cycles;
         instr.imm8 = imm8;
 
@@ -1333,7 +1363,7 @@ impl Cpu {
         let val: u8 = self.mem_at_reg(reg, memory);
         self.reg_set8(Reg::A, val);
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = 8;
 
         instr
@@ -1348,57 +1378,8 @@ impl Cpu {
         let val: u8 = self.reg8(Reg::A);
         self.mem_write(addr, val, memory);
 
-        let mut instr: Instruction = Instruction::new();
+        let mut instr: Instruction = Instruction::default();
         instr.cycles = 8;
-
-        instr
-    }
-
-    fn exec_ld_r_n(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
-        let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
-        let immediate: u8 = self.mem_next8(memory);
-
-        let cycles: u32;
-        if reg == Reg::HL {
-            // LD (HL),n
-            let addr: u16 = self.reg16(Reg::HL);
-            self.mem_write(addr, immediate, memory);
-            cycles = 12;
-        } else {
-            // LD r,n
-            self.reg_set8(reg, immediate);
-            cycles = 8
-        }
-
-        let mut instr: Instruction = Instruction::new();
-        instr.cycles = cycles;
-        instr.imm8 = Some(immediate);
-
-        instr
-    }
-
-    fn exec_ld_r_r(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
-        let reg_rhs: Reg = Reg::pair_from_ddd(opcode);
-        let reg_lhs: Reg = Reg::pair_from_ddd(opcode >> 3);
-
-        let cycles: u32;
-        if reg_rhs == Reg::HL {
-            let value: u8 = self.mem_at_reg(Reg::HL, memory);
-            self.reg_set8(reg_lhs, value);
-            cycles = 8;
-        } else if reg_lhs == Reg::HL {
-            let addr: u16 = self.reg16(Reg::HL);
-            let rhs_val: u8 = self.reg8(reg_rhs);
-            self.mem_write(addr, rhs_val, memory);
-            cycles = 8;
-        } else {
-            let rhs_val: u8 = self.reg8(reg_rhs);
-            self.reg_set8(reg_lhs, rhs_val);
-            cycles = 4;
-        }
-
-        let mut instr: Instruction = Instruction::new();
-        instr.cycles = cycles;
 
         instr
     }

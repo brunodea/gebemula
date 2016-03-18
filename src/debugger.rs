@@ -14,8 +14,8 @@ struct BreakCommand {
     is_running: bool,
 }
 
-impl BreakCommand {
-    fn new() -> BreakCommand {
+impl Default for BreakCommand {
+    fn default() -> BreakCommand {
         BreakCommand {
             break_addr: None,
             break_reg: None,
@@ -25,7 +25,9 @@ impl BreakCommand {
             is_running: false,
         }
     }
+}
 
+impl BreakCommand {
     // true if should go to read loop;
     fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) -> bool {
         let go_to_read_loop: bool;
@@ -138,10 +140,10 @@ impl BreakCommand {
                 should_run_cpu = false;
             }
 
-            if !should_run_cpu {
-                Debugger::display_help(&format!("Invalid register value: {}", params[1]));
-            } else {
+            if should_run_cpu {
                 self.is_running = true;
+            } else {
+                Debugger::display_help(&format!("Invalid register value: {}", params[1]));
             }
         }
 
@@ -171,18 +173,20 @@ pub struct Debugger {
     display_header: bool,
 }
 
-impl Debugger {
-    pub fn new() -> Debugger {
+impl Default for Debugger {
+    fn default() -> Debugger {
         Debugger {
             should_run_cpu: false,
             run_debug: None,
-            break_command: BreakCommand::new(),
+            break_command: BreakCommand::default(),
             steps_debug: 0b0,
             num_steps: 0,
             display_header: true,
         }
     }
+}
 
+impl Debugger {
     pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
         if self.display_header {
             println!("##################################");
@@ -349,7 +353,7 @@ impl Debugger {
         self.should_run_cpu = false;
         self.steps_debug = 0b0;
         self.num_steps = 0;
-        self.break_command = BreakCommand::new();
+        self.break_command = BreakCommand::default();
     }
 
     fn parse_run(&mut self, parameters: &[&str]) {

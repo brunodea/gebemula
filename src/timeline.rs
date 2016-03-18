@@ -2,13 +2,13 @@ use cpu;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum EventType {
-    S_OAM,
-    S_VRAM,
-    H_BLANK,
-    V_BLANK,
-    DISABLE_BOOTSTRAP,
-    DMA_TRANSFER,
-    JOYPAD,
+    OAM,
+    Vram,
+    HorizontalBlank,
+    VerticalBlank,
+    BootstrapFinished,
+    DMATransfer,
+    JoypadPressed,
 }
 
 #[derive(Copy, Clone)]
@@ -33,18 +33,20 @@ pub struct EventTimeline {
     pub curr_event_type: EventType,
 }
 
-impl EventTimeline {
-    pub fn new() -> EventTimeline {
-        let h_blank = Event::new(cpu::consts::STAT_MODE_0_DURATION_CYCLES, EventType::H_BLANK);
-        let v_blank = Event::new(cpu::consts::STAT_MODE_1_DURATION_CYCLES, EventType::V_BLANK);
-        let scanline_oam = Event::new(cpu::consts::STAT_MODE_2_DURATION_CYCLES, EventType::S_OAM);
-        let scanline_vram = Event::new(cpu::consts::STAT_MODE_3_DURATION_CYCLES, EventType::S_VRAM);
+impl Default for EventTimeline {
+    fn default() -> EventTimeline {
+        let h_blank = Event::new(cpu::consts::STAT_MODE_0_DURATION_CYCLES, EventType::HorizontalBlank);
+        let v_blank = Event::new(cpu::consts::STAT_MODE_1_DURATION_CYCLES, EventType::VerticalBlank);
+        let scanline_oam = Event::new(cpu::consts::STAT_MODE_2_DURATION_CYCLES, EventType::OAM);
+        let scanline_vram = Event::new(cpu::consts::STAT_MODE_3_DURATION_CYCLES, EventType::Vram);
         EventTimeline {
             periodic_events: [scanline_oam, scanline_vram, h_blank, v_blank],
-            curr_event_type: EventType::S_OAM,
+            curr_event_type: EventType::OAM,
         }
     }
+}
 
+impl EventTimeline {
     pub fn curr_event(&self) -> Option<Event> {
         let mut res: Option<Event> = None;
         for i in 0..self.periodic_events.len() {

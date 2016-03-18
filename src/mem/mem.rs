@@ -30,8 +30,8 @@ pub struct Memory {
     can_access_oam: bool,
 }
 
-impl Memory {
-    pub fn new() -> Memory {
+impl Default for Memory {
+    fn default() -> Memory {
         Memory {
             bootstrap_rom: [0; 0x100],
             vram: [0; 0x2000],
@@ -52,7 +52,9 @@ impl Memory {
             can_access_oam: true,
         }
     }
+}
 
+impl Memory {
     // returns a string with the memory data from min_addr to max_addr.
     pub fn format(&self, min_addr: Option<u16>, max_addr: Option<u16>) -> String {
         let columns: u8 = 16;

@@ -13,8 +13,8 @@ pub struct Graphics {
     sprites_on: bool,
 }
 
-impl Graphics {
-    pub fn new() -> Graphics {
+impl Default for Graphics {
+    fn default() -> Graphics {
         Graphics {
             screen_buffer: [255; 160 * 144 * 4],
             bg_wn_pixel_indexes: [0; 160 * 144 * 4],
@@ -23,7 +23,9 @@ impl Graphics {
             sprites_on: true,
         }
     }
+}
 
+impl Graphics {
     pub fn restart(&mut self) {
         self.screen_buffer = [255; 160 * 144 * 4];
         self.bg_wn_pixel_indexes = [0; 160 * 144 * 4];
@@ -99,18 +101,17 @@ impl Graphics {
                 self.bg_wn_pixel_indexes[buffer_pos] = 0;
                 continue;
             }
+
             let addr_start = if is_window {
                 if ioregister::LCDCRegister::is_window_tile_map_display_normal(&memory) {
                     consts::BG_NORMAL_ADDR_START
                 } else {
                     consts::BG_WINDOW_ADDR_START
                 }
+            } else if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
+                consts::BG_NORMAL_ADDR_START
             } else {
-                if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
-                    consts::BG_NORMAL_ADDR_START
-                } else {
-                    consts::BG_WINDOW_ADDR_START
-                }
+                consts::BG_WINDOW_ADDR_START
             };
 
             let tile_col_bg: u16 = xpos >> 3;

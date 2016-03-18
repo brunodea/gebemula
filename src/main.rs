@@ -27,7 +27,7 @@ fn main() {
         let mut game_data: Vec<u8> = Vec::new();
         File::open(&args[2]).unwrap().read_to_end(&mut game_data).unwrap();
 
-        let mut gebemula: Gebemula = Gebemula::new();
+        let mut gebemula: Gebemula = Gebemula::default();
         gebemula.load_game_rom(&game_data);
         gebemula.load_bootstrap_rom(&bootstrap_data);
         gebemula.run_sdl();

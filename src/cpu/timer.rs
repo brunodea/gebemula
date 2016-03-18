@@ -42,14 +42,16 @@ pub struct Timer {
     tima_event: Event,
 }
 
-impl Timer {
-    pub fn new() -> Timer {
+impl Default for Timer {
+    fn default() -> Timer {
         Timer {
             div_event: Event::new(consts::DIV_REGISTER_UPDATE_RATE_CYCLES),
             tima_event: Event::new(0),
         }
     }
+}
 
+impl Timer {
     pub fn update(&mut self, cycles: u32, memory: &mut mem::Memory) {
         if self.div_event.update(cycles) {
             let div: u8 = memory.read_byte(consts::DIV_REGISTER_ADDR);

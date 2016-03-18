@@ -33,30 +33,32 @@ pub struct Gebemula {
     joypad: u8, // nibble to the left are direction keys and to the right button keys.
 }
 
-impl Gebemula {
-    pub fn new() -> Gebemula {
+impl Default for Gebemula {
+    fn default() -> Gebemula {
         Gebemula {
-            cpu: Cpu::new(),
-            mem: Memory::new(),
-            timer: Timer::new(),
-            debugger: Debugger::new(),
+            cpu: Cpu::default(),
+            mem: Memory::default(),
+            timer: Timer::default(),
+            debugger: Debugger::default(),
             game_rom: Vec::new(),
             cycles_per_sec: 0,
-            graphics: Graphics::new(),
+            graphics: Graphics::default(),
             should_display_screen: false,
-            timeline: EventTimeline::new(),
+            timeline: EventTimeline::default(),
             joypad: 0,
         }
     }
+}
 
+impl Gebemula {
     pub fn restart(&mut self) {
         self.cpu.restart();
         self.mem.restart();
-        self.timer = Timer::new();
+        self.timer = Timer::default();
         self.cycles_per_sec = 0;
         self.graphics.restart();
         self.should_display_screen = false;
-        self.timeline = EventTimeline::new();
+        self.timeline = EventTimeline::default();
         self.joypad = 0;
         ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
         self.mem.set_access_vram(true);
@@ -77,52 +79,52 @@ impl Gebemula {
     fn run_event(&mut self, event: Event) {
         let mut gpu_mode_number: Option<u8> = None;
         match event.event_type {
-            EventType::S_OAM => {
+            EventType::OAM => {
                 gpu_mode_number = Some(0b11);
-                self.timeline.curr_event_type = EventType::S_VRAM;
+                self.timeline.curr_event_type = EventType::Vram;
                 self.mem.set_access_vram(true);
                 self.mem.set_access_oam(true);
                 self.graphics.update(&mut self.mem);
             }
-            EventType::S_VRAM => {
+            EventType::Vram => {
                 gpu_mode_number = Some(0b00);
-                self.timeline.curr_event_type = EventType::H_BLANK;
+                self.timeline.curr_event_type = EventType::HorizontalBlank;
             }
-            EventType::H_BLANK => {
+            EventType::HorizontalBlank => {
                 let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 ly += 1;
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX {
                     self.should_display_screen = true;
                     gpu_mode_number = Some(0b01);
-                    self.timeline.curr_event_type = EventType::V_BLANK;
+                    self.timeline.curr_event_type = EventType::VerticalBlank;
                     interrupt::request(interrupt::Interrupt::VBlank, &mut self.mem);
                 } else {
-                    self.timeline.curr_event_type = EventType::S_OAM;
+                    self.timeline.curr_event_type = EventType::OAM;
                     gpu_mode_number = Some(0b10);
                 }
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
             }
-            EventType::V_BLANK => {
+            EventType::VerticalBlank => {
                 let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
-                    self.timeline.curr_event_type = EventType::S_OAM;
+                    self.timeline.curr_event_type = EventType::OAM;
                     gpu_mode_number = Some(0b10);
                     ly = 0;
                 } else {
-                    self.timeline.curr_event_type = EventType::V_BLANK;
+                    self.timeline.curr_event_type = EventType::VerticalBlank;
                     ly += 1;
                 }
                 self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
             }
-            EventType::DISABLE_BOOTSTRAP => {
+            EventType::BootstrapFinished => {
                 self.mem.disable_bootstrap();
             }
-            EventType::DMA_TRANSFER => {
+            EventType::DMATransfer => {
                 self.mem.set_access_oam(true);
                 ioregister::dma_transfer(event.additional_value, &mut self.mem);
                 self.mem.set_access_oam(false);
             }
-            EventType::JOYPAD => {
+            EventType::JoypadPressed => {
                 let buttons: u8 = if ioregister::joypad_buttons_selected(&self.mem) {
                     self.joypad & 0b0000_1111
                 } else {
