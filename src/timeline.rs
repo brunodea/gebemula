@@ -35,8 +35,10 @@ pub struct EventTimeline {
 
 impl Default for EventTimeline {
     fn default() -> EventTimeline {
-        let h_blank = Event::new(cpu::consts::STAT_MODE_0_DURATION_CYCLES, EventType::HorizontalBlank);
-        let v_blank = Event::new(cpu::consts::STAT_MODE_1_DURATION_CYCLES, EventType::VerticalBlank);
+        let h_blank = Event::new(cpu::consts::STAT_MODE_0_DURATION_CYCLES,
+                                 EventType::HorizontalBlank);
+        let v_blank = Event::new(cpu::consts::STAT_MODE_1_DURATION_CYCLES,
+                                 EventType::VerticalBlank);
         let scanline_oam = Event::new(cpu::consts::STAT_MODE_2_DURATION_CYCLES, EventType::OAM);
         let scanline_vram = Event::new(cpu::consts::STAT_MODE_3_DURATION_CYCLES, EventType::Vram);
         EventTimeline {
