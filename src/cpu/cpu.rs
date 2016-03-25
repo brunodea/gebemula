@@ -622,7 +622,12 @@ impl Cpu {
                 if reg == Reg::SP {
                     reg = Reg::AF;
                 }
-                let sp_val: u16 = self.pop_sp16(memory);
+                let mut sp_val: u16 = self.pop_sp16(memory);
+                if reg == Reg::AF {
+                    // The lower 4 bits of flags are zero even when set
+                    // otherwise.
+                    sp_val &= !0xF;
+                }
                 self.reg_set16(reg, sp_val);
                 instruction.cycles = 12;
             },
