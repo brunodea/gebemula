@@ -126,8 +126,6 @@ pub struct Cpu {
     ime_flag: bool, // interrupt master enable flag
     halt_flag: bool, // cpu doesn't run until an interrupt occurs.
     last_instruction: Option<Instruction>,
-    disable_interrupts: bool,
-    enable_interrupts: bool,
 }
 
 impl fmt::Display for Cpu {
@@ -155,8 +153,6 @@ impl Default for Cpu {
             ime_flag: true,
             halt_flag: false,
             last_instruction: None,
-            disable_interrupts: false,
-            enable_interrupts: false,
         }
     }
 }
@@ -198,8 +194,6 @@ impl Cpu {
         self.ime_flag = true;
         self.halt_flag = false;
         self.last_instruction = None;
-        self.disable_interrupts = false;
-        self.enable_interrupts = false;
     }
 
     #[inline]
@@ -389,26 +383,10 @@ impl Cpu {
             return (self.last_instruction.unwrap(), None);
         }
 
-        // Actually performs DI and EI at the right time.
-        // The order of these if's *has* to be like this.
-        if self.disable_interrupts {
-            self.ime_flag = false;
-            self.disable_interrupts = false;
-        } else if self.enable_interrupts {
-            self.ime_flag = true;
-            self.enable_interrupts = false;
-        }
         if let Some(ref last_instr) = self.last_instruction {
-            match last_instr.opcode {
-                0xF3 => {
-                    // DI
-                    self.disable_interrupts = true;
-                }
-                0xFB => {
-                    // EI
-                    self.enable_interrupts = true;
-                }
-                _ => (),
+            if last_instr.opcode == 0xFB {
+                // EI
+                self.ime_flag = true;
             }
         }
         // *********************************************
@@ -440,8 +418,13 @@ impl Cpu {
                 instruction.cycles = 4;
                 self.halt_flag = true;
             },
-            0xF3 | 0xFB => {
-                //DI | EI
+            0xF3 => {
+                //DI
+                instruction.cycles = 4;
+                self.ime_flag = false
+            },
+            0xFB => {
+                //EI
                 instruction.cycles = 4;
             },
             0xCB => {
