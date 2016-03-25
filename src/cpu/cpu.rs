@@ -1273,9 +1273,10 @@ impl Cpu {
                 result = reg_a_val.wrapping_add(val2);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, val2) ||
-                              util::has_half_carry(value, c), Flag::H);
-                self.flag_set(util::has_carry(reg_a_val, val2) ||
-                              util::has_carry(value, c), Flag::C);
+                              util::has_half_carry(value, c),
+                              Flag::H);
+                self.flag_set(util::has_carry(reg_a_val, val2) || util::has_carry(value, c),
+                              Flag::C);
             }
             0x90...0x97 | 0xD6 => {
                 // SUB
@@ -1290,10 +1291,9 @@ impl Cpu {
                 let val2: u8 = value.wrapping_add(c);
                 result = reg_a_val.wrapping_sub(val2);
                 self.flag_set(true, Flag::N);
-                self.flag_set(util::has_borrow(reg_a_val, val2) ||
-                              util::has_half_carry(value, c), Flag::H);
-                self.flag_set(val2 > reg_a_val ||
-                              util::has_carry(value, c), Flag::C);
+                self.flag_set(util::has_borrow(reg_a_val, val2) || util::has_half_carry(value, c),
+                              Flag::H);
+                self.flag_set(val2 > reg_a_val || util::has_carry(value, c), Flag::C);
             }
             0xA0...0xA7 | 0xE6 => {
                 // AND
