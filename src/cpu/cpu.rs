@@ -621,23 +621,24 @@ impl Cpu {
             },
             0xF8 => {
                 //LD HL,SP+n
-                let immediate: u16 = util::sign_extend(self.mem_next8(memory));
+                let imm: u16 = util::sign_extend(self.mem_next8(memory));
                 let sp: u16 = self.reg16(Reg::SP);
-                if util::is_neg16(immediate) {
-                    let res: u16 = sp.wrapping_sub(util::twos_complement(immediate));
+                if util::is_neg16(imm) {
+                    let imm_ts: u16 = util::twos_complement(imm);
+                    let res: u16 = sp.wrapping_sub(imm_ts);
                     self.reg_set16(Reg::HL, res);
                     self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
                     self.flag_set((res & 0xf) <= (sp & 0xf), Flag::H);
                 } else {
-                    let res: u16 = sp.wrapping_add(immediate);
+                    let res: u16 = sp.wrapping_add(imm);
                     self.reg_set16(Reg::HL, res);
-                    self.flag_set((sp & 0xff) as u32 + immediate as u32 > 0xff, Flag::C);
-                    self.flag_set((sp & 0xf) + (immediate & 0xf) > 0xf, Flag::H);
+                    self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
+                    self.flag_set((sp & 0xf) + (imm & 0xf) > 0xf, Flag::H);
                 }
                 self.flag_set(false, Flag::Z);
                 self.flag_set(false, Flag::N);
                 instruction.cycles = 12;
-                instruction.imm8 = Some(immediate as u8);
+                instruction.imm8 = Some(imm as u8);
             },
             0xF9 => {
                 //LD SP,HL
@@ -764,16 +765,15 @@ impl Cpu {
                 let imm: u16 = util::sign_extend(self.mem_next8(memory));
                 let sp: u16 = self.reg16(Reg::SP);
                 if util::is_neg16(imm) {
-                    let res: u16 = sp.wrapping_sub(util::twos_complement(imm));
+                    let imm_ts: u16 = util::twos_complement(imm);
+                    let res: u16 = sp.wrapping_sub(imm_ts);
                     self.reg_set16(Reg::SP, res);
-                    //self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
-                    self.flag_set(sp < util::twos_complement(imm), Flag::C);
+                    self.flag_set((res & 0xff) <= (sp & 0xff), Flag::C);
                     self.flag_set((res & 0xf) <= (sp & 0xf), Flag::H);
                 } else {
                     let res: u16 = sp.wrapping_add(imm);
                     self.reg_set16(Reg::SP, res);
-                   // self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
-                    self.flag_set(util::has_carry16(sp, imm), Flag::C);
+                    self.flag_set((sp & 0xff) as u32 + imm as u32 > 0xff, Flag::C);
                     self.flag_set((sp & 0xf) + (imm & 0xf) > 0xf, Flag::H);
                 }
                 self.flag_set(false, Flag::Z);
@@ -971,7 +971,6 @@ impl Cpu {
             value = self.reg8(reg);
         }
         let bit: u8 = (opcode >> 3) & 0b111;
-        let mut should_change_reg: bool = true;
 
         let cycles: u32 = if reg == Reg::HL {
             16
@@ -1041,7 +1040,6 @@ impl Cpu {
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
-                should_change_reg = false;
             }
             0x80...0xBF => {
                 // RES b,r; RES b,(HL)
@@ -1058,12 +1056,10 @@ impl Cpu {
             }
         }
 
-        if should_change_reg {
-            if reg == Reg::HL {
-                self.mem_write(self.reg16(Reg::HL), value, memory)
-            } else {
-                self.reg_set8(reg, value);
-            }
+        if reg == Reg::HL {
+            self.mem_write(self.reg16(Reg::HL), value, memory)
+        } else {
+            self.reg_set8(reg, value);
         }
 
         if opcode <= 0x3F {
@@ -1272,11 +1268,14 @@ impl Cpu {
             }
             0x88...0x8F | 0xCE => {
                 // ADC
-                let value: u8 = value.wrapping_add(self.flag_bit(Flag::C));
-                result = reg_a_val.wrapping_add(value);
+                let c: u8 = self.flag_bit(Flag::C);
+                let val2: u8 = value.wrapping_add(c);
+                result = reg_a_val.wrapping_add(val2);
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
-                self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
+                self.flag_set(util::has_half_carry(reg_a_val, val2) ||
+                              util::has_half_carry(value, c), Flag::H);
+                self.flag_set(util::has_carry(reg_a_val, val2) ||
+                              util::has_carry(value, c), Flag::C);
             }
             0x90...0x97 | 0xD6 => {
                 // SUB
@@ -1287,11 +1286,14 @@ impl Cpu {
             }
             0x98...0x9F | 0xDE => {
                 // SBC
-                let value: u8 = value.wrapping_add(self.flag_bit(Flag::C));
-                result = reg_a_val.wrapping_sub(value);
+                let c: u8 = self.flag_bit(Flag::C);
+                let val2: u8 = value.wrapping_add(c);
+                result = reg_a_val.wrapping_sub(val2);
                 self.flag_set(true, Flag::N);
-                self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
-                self.flag_set(value > reg_a_val, Flag::C);
+                self.flag_set(util::has_borrow(reg_a_val, val2) ||
+                              util::has_half_carry(value, c), Flag::H);
+                self.flag_set(val2 > reg_a_val ||
+                              util::has_carry(value, c), Flag::C);
             }
             0xA0...0xA7 | 0xE6 => {
                 // AND
