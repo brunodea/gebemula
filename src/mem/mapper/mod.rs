@@ -1,5 +1,7 @@
-pub mod rom;
 pub mod mbc1;
+pub mod mbc3;
+pub mod rom;
+pub mod rtc;
 
 const ROM_BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;

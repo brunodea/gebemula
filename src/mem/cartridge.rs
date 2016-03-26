@@ -5,6 +5,7 @@ use mem::mem::Memory;
 use mem::mapper::{Mapper, NullMapper};
 use mem::mapper::rom::RomMapper;
 use mem::mapper::mbc1::Mbc1Mapper;
+use mem::mapper::mbc3::Mbc3Mapper;
 use std::str;
 use std::cmp;
 
@@ -172,7 +173,7 @@ pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
     }
 
     let cart_type_id = rom[CARTRIDGE_TYPE_ADDR as usize];
-    let (mapper_type, _) = cart_type_from_id(cart_type_id);
+    let (mapper_type, extra_hw_flags) = cart_type_from_id(cart_type_id);
     let rom_size = parse_rom_size(rom[ROM_SIZE_ADDR as usize]);
     let ram_size = parse_ram_size(rom[RAM_SIZE_ADDR as usize]);
 
@@ -188,9 +189,9 @@ pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
     match mapper_type {
         MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data)),
         MapperType::Mbc1 => Box::new(Mbc1Mapper::new(rom_data, ram_data)),
+        MapperType::Mbc3 => Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw_flags.contains(RTC))),
 
-        MapperType::Mbc2 | MapperType::Mbc3 |
-        MapperType::Mbc5 | _ => {
+        MapperType::Mbc2 | MapperType::Mbc5 | _ => {
             panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
         },
     }
