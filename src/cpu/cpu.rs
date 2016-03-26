@@ -675,41 +675,40 @@ impl Cpu {
             },
             0x27 => {
                 //DAA
-                let reg_a_val: u8 = self.reg8(Reg::A);
-                let upper_nibble: u8 = reg_a_val >> 4;
-                let lower_nibble: u8 = reg_a_val & 0b0000_1111;
                 let c_flag: bool = self.flag_is_set(Flag::C);
                 let h_flag: bool = self.flag_is_set(Flag::H);
                 let n_flag: bool = self.flag_is_set(Flag::N);
-                let mut as_nop: bool = false;
-                //the N flag isn't strictly necessary here, so it can be removed in the future.
-                let (add_value, new_c_flag) =
-                    match (n_flag, c_flag, upper_nibble, h_flag, lower_nibble) {
-                    (false, false, 0x0 ... 0x9, false, 0x0 ... 0x9) |
-                    (true, false, 0x0 ... 0x9, false, 0x0 ... 0x9) => (0x00, false),
-                    (false, false, 0x0 ... 0x8, false, 0xA ... 0xF) |
-                    (false, false, 0x0 ... 0x9, true, 0x0 ... 0x3) => (0x06, false),
-                    (false, false, 0xA ... 0xF, false, 0x0 ... 0x9) |
-                    (false, true, 0x0 ... 0x2, false, 0x0 ... 0x9) => (0x60, true),
-                    (false, false, 0x9 ... 0xF, false, 0xA ... 0xF) |
-                    (false, false, 0xA ... 0xF, true, 0x0 ... 0x3) |
-                    (false, true, 0x0 ... 0x2, false, 0xA ... 0xF) |
-                    (false, true, 0x0 ... 0x3, true, 0x0 ... 0x3) => (0x66, true),
-                    (true, false, 0x0 ... 0x8, true, 0x6 ... 0xF) => (0xFA, false),
-                    (true, true, 0x7 ... 0xF, false, 0x0 ... 0x9) => (0xA0, true),
-                    (true, true, 0x6 ... 0xF, true, 0x6 ... 0xF) => (0x9A, true),
-                    _ => {
-                        as_nop = true;
-                        (0, false)
-                    },
-                };
-                if !as_nop {
-                    let res: u8 = reg_a_val.wrapping_add(add_value);
-                    self.reg_set8(Reg::A, res);
-                    self.flag_set(res == 0, Flag::Z);
-                    self.flag_set(false, Flag::H);
-                    self.flag_set(new_c_flag, Flag::C);
+
+                let mut reg_a: u16 = self.reg8(Reg::A) as u16;
+
+                if n_flag {
+                    if h_flag {
+                        reg_a = reg_a.wrapping_sub(0x06) & 0xFF;
+                    }
+
+                    if c_flag {
+                        reg_a = reg_a.wrapping_sub(0x60);
+                    }
+                } else {
+                    if h_flag || (reg_a & 0xF) >= 0xA {
+                        reg_a += 0x06;
+                    }
+
+                    if c_flag || reg_a >= 0xA0 {
+                        reg_a += 0x60;
+                    }
                 }
+
+                self.flag_set(false, Flag::H);
+
+                if reg_a & 0x100 == 0x100 {
+                    self.flag_set(true, Flag::C);
+                }
+
+                reg_a &= 0xFF;
+
+                self.flag_set(reg_a == 0, Flag::Z);
+                self.reg_set8(Reg::A, reg_a as u8);
 
                 instruction.cycles = 4;
             },
