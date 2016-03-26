@@ -1,4 +1,6 @@
 #![feature(box_syntax)]
+// This is soon going to be stabilized in 1.9.0
+#![feature(copy_from_slice)]
 #![feature(plugin)]
 #![plugin(clippy)]
 

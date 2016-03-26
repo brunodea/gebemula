@@ -25,7 +25,6 @@ pub struct Gebemula {
     mem: Memory,
     timer: Timer,
     debugger: Debugger,
-    game_rom: Vec<u8>,
     cycles_per_sec: u32,
     graphics: Graphics,
     should_display_screen: bool,
@@ -40,7 +39,6 @@ impl Default for Gebemula {
             mem: Memory::default(),
             timer: Timer::default(),
             debugger: Debugger::default(),
-            game_rom: Vec::new(),
             cycles_per_sec: 0,
             graphics: Graphics::default(),
             should_display_screen: false,
@@ -70,9 +68,6 @@ impl Gebemula {
     }
 
     pub fn load_game_rom(&mut self, game_rom: &[u8]) {
-        for byte in game_rom {
-            self.game_rom.push(*byte);
-        }
         self.mem.load_game_rom(game_rom);
     }
 

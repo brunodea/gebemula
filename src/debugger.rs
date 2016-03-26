@@ -217,7 +217,7 @@ impl Debugger {
     }
     pub fn display_info(&self, mem: &Memory) {
         println!("Game: {}", mem::cartridge::game_title_str(mem));
-        let cart_type_id = mem.read_byte(mem::consts::CARTRIDGE_TYPE_ADDR);
+        let cart_type_id = mem.read_byte(mem::cartridge::CARTRIDGE_TYPE_ADDR);
         let (mapper_type, extra_cart_hw) = mem::cartridge::cart_type_from_id(cart_type_id);
         let cart_string = mem::cartridge::cartridge_type_string(mapper_type, extra_cart_hw);
         println!("Cartridge Type: {}", cart_string);
