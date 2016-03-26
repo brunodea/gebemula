@@ -94,8 +94,8 @@ pub fn joypad_buttons(memory: &mem::Memory) -> u8 {
     memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0x0F
 }
 
-pub fn joypad_buttons_selected(memory: &mem::Memory) -> bool {
-    memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0b0010_0000 == 0b0
+pub fn joypad_selectors(memory: &mem::Memory) -> u8 {
+    (memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0b0011_0000) >> 4
 }
 
 pub fn joypad_set_buttons(new_buttons: u8, memory: &mut mem::Memory) {
