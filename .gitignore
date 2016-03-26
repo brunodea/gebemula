@@ -1,2 +1,6 @@
 target
 *.swp
+*.dll
+*.gb
+*.gbc
+DMG_ROM.bin
