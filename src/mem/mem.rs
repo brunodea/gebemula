@@ -182,6 +182,7 @@ impl Memory {
                     0xFF
                 }
             }
+            0xFEA0...0xFEFF => 0x0,
             0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize],
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
             0xFFFF => self.interrupts_enable,
