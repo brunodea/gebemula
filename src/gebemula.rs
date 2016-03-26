@@ -228,6 +228,7 @@ impl Gebemula {
         println!(" F1: toggle background");
         println!(" F2: toggle window");
         println!(" F3: toggle sprites");
+        println!("Tab: speed up while being held down");
         println!("Esc: quit");
         println!("######################");
     }
@@ -286,6 +287,16 @@ impl Gebemula {
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                         self.restart();
+                    }
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Tab), repeat: false, .. } => {
+                        speed_mul += 1;
+                        println!("speed x{}", speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
+                    }
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Tab), repeat: false, .. } => {
+                        speed_mul -= 1;
+                        println!("speed x{}", speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
                         speed_mul += 1;
