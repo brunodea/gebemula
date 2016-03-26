@@ -354,7 +354,7 @@ impl Gebemula {
             if now - last_time_seconds >= time::Duration::seconds(1) {
                 last_time_seconds = now;
                 let title: &str = &format!("{} Gebemula - {}", fps, self.cycles_per_sec);
-                renderer.window_mut().unwrap().set_title(title);
+                renderer.window_mut().unwrap().set_title(title).unwrap();
                 self.cycles_per_sec = 0;
                 fps = 0;
             }
