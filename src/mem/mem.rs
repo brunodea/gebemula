@@ -1,6 +1,7 @@
-use util::util;
 use mem::consts;
+use super::cartridge;
 use time;
+use util::util;
 
 use super::cartridge::MapperType;
 
@@ -444,16 +445,18 @@ impl Memory {
         for (i, byte) in rom.iter().enumerate() {
             self.cartridge[i] = *byte;
         }
-        match self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize] {
-            0x0 => self.cartridge_type = MapperType::Rom,
-            0x1...0x3 => self.cartridge_type = MapperType::Mbc1,
-            0x5...0x6 => self.cartridge_type = MapperType::Mbc2,
-            0x11...0x13 => self.cartridge_type = MapperType::Mbc3,
-            0x19...0x1E => self.cartridge_type = MapperType::Mbc5,
+
+        let cart_type_id = self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize];
+        let (mapper_type, _) = cartridge::cart_type_from_id(cart_type_id);
+        match mapper_type {
+            MapperType::Rom | MapperType::Mbc1 | MapperType::Mbc2 | MapperType::Mbc3 |
+            MapperType::Mbc5 => {
+                self.cartridge_type = mapper_type;
+            },
             _ => {
                 panic!("Cartridges of type {:#X} are not yet supported.",
                        self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize])
-            }
-        }
+            },
+        };
     }
 }
