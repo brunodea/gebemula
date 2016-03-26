@@ -90,6 +90,10 @@ pub fn sprite_palette(obp0: bool, pixel_data: u8, memory: &mem::Memory) -> u8 {
     (memory.read_byte(addr) >> (pixel_data * 2)) & 0b11
 }
 
+pub fn joypad_buttons(memory: &mem::Memory) -> u8 {
+    memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0x0F
+}
+
 pub fn joypad_buttons_selected(memory: &mem::Memory) -> bool {
     memory.read_byte(consts::JOYPAD_REGISTER_ADDR) & 0b0010_0000 == 0b0
 }

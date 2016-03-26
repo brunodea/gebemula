@@ -133,7 +133,9 @@ impl Gebemula {
                     self.joypad >> 4
                 };
 
-                if buttons < 0b0000_1111 {
+                // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
+                // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
+                if ioregister::joypad_buttons(&self.mem) & !buttons != 0 && buttons < 0b1111 {
                     // interrupt is requested when a button goes from 1 to 0.
                     interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
                 }
