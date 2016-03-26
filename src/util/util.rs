@@ -1,7 +1,9 @@
 fn has_carry_on_bit(bit: u8, lhs: u16, rhs: u16) -> bool {
-    let c: u32 = 1 << (bit as u32 + 1);
-    let f: u32 = c - 1;
-    ((lhs as u32 & f) + (rhs as u32 & f)) & c == c
+    let res_b: bool = ((lhs as u32 + rhs as u32) >> bit) & 0b1 == 1;
+    let lhs_b: bool = (lhs >> bit) & 0b1 == 1;
+    let rhs_b: bool = (rhs >> bit) & 0b1 == 1;
+
+    (rhs_b & !res_b) | (lhs_b & !res_b) | (lhs_b & rhs_b)
 }
 
 pub fn has_carry(lhs: u8, rhs: u8) -> bool {
