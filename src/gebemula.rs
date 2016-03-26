@@ -138,6 +138,7 @@ impl Gebemula {
         if let Some(gpu_mode) = gpu_mode_number {
             self.mem.set_access_vram(true);
             self.mem.set_access_oam(true);
+            //FIXME: actually use can_access_vram/oram instead of always setting to true.
             // self.mem.set_access_vram(gpu_mode <= 2);
             // self.mem.set_access_oam(gpu_mode <= 1);
 
@@ -152,10 +153,10 @@ impl Gebemula {
         let event: Event = self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
         while cycles < event.duration {
-            if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
-                self.mem.set_access_vram(true);
-                self.mem.set_access_oam(true);
-            }
+            //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+            //    self.mem.set_access_vram(true);
+            //    self.mem.set_access_oam(true);
+            //}
             let (instruction, one_event): (Instruction, Option<Event>) =
                 self.cpu.run_instruction(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
