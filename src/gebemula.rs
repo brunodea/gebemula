@@ -249,8 +249,8 @@ impl Gebemula {
 
         let mut texture =
             renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
-                                              (graphics::consts::DISPLAY_WIDTH_PX as u32,
-                                               graphics::consts::DISPLAY_HEIGHT_PX as u32))
+                                              graphics::consts::DISPLAY_WIDTH_PX as u32,
+                                              graphics::consts::DISPLAY_HEIGHT_PX as u32)
                     .unwrap();
 
         renderer.clear();
