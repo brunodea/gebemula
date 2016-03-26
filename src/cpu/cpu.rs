@@ -363,9 +363,9 @@ impl Cpu {
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
-        if self.ime_flag {
-            if let Some(interrupt) = interrupt::next_request(memory) {
-                self.halt_flag = false;
+        if let Some(interrupt) = interrupt::next_request(memory) {
+            self.halt_flag = false;
+            if self.ime_flag {
                 self.ime_flag = false;
                 let pc: u16 = self.reg16(Reg::PC);
                 self.push_sp16(pc, memory);
