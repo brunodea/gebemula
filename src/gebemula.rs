@@ -97,7 +97,9 @@ impl Gebemula {
                     self.should_display_screen = true;
                     gpu_mode_number = Some(0b01);
                     self.timeline.curr_event_type = EventType::VerticalBlank;
-                    interrupt::request(interrupt::Interrupt::VBlank, &mut self.mem);
+                    if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+                        interrupt::request(interrupt::Interrupt::VBlank, &mut self.mem);
+                    }
                 } else {
                     self.timeline.curr_event_type = EventType::OAM;
                     gpu_mode_number = Some(0b10);
