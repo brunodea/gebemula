@@ -127,23 +127,20 @@ impl Gebemula {
                 self.mem.set_access_oam(false);
             }
             EventType::JoypadPressed => {
-                let joypad_selector: u8 = ioregister::joypad_selectors(&self.mem);
-                if joypad_selector != 0b11 {
-                    let buttons: u8 = if joypad_selector & 0b10 == 0b0 {
-                        self.joypad & 0b0000_1111
-                    } else {
-                        self.joypad >> 4
-                    };
+                let buttons: u8 = if ioregister::joypad_buttons_selected(&self.mem) {
+                    self.joypad & 0b0000_1111
+                } else {
+                    self.joypad >> 4
+                };
 
-                    // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
-                    // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
-                    if ioregister::joypad_buttons(&self.mem) & !buttons != 0 && buttons < 0b1111 {
-                        // interrupt is requested when a button goes from 1 to 0.
-                        interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
-                    }
-
-                    ioregister::joypad_set_buttons(buttons, &mut self.mem);
+                // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
+                // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
+                if ioregister::joypad_buttons(&self.mem) & !buttons != 0 && buttons < 0b1111 {
+                    // interrupt is requested when a button goes from 1 to 0.
+                    interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
                 }
+
+                ioregister::joypad_set_buttons(buttons, &mut self.mem);
             }
         }
 
@@ -188,43 +185,38 @@ impl Gebemula {
     }
 
     #[inline]
-    fn adjust_joypad(&mut self, bit: u8, pressed: bool) -> bool {
+    fn adjust_joypad(&mut self, bit: u8, pressed: bool) {
         self.joypad = if pressed {
             self.joypad & !(1 << bit)
         } else {
             self.joypad | (1 << bit)
         };
-
-        pressed
     }
 
+    // returns true if joypad changed (i.e. some button was pressed or released);
     fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) {
-        let mut pressed: bool = false;
-        pressed |= self.adjust_joypad(0,
+        self.adjust_joypad(0,
                            event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
-        pressed |= self.adjust_joypad(1,
+        self.adjust_joypad(1,
                            event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
-        pressed |= self.adjust_joypad(2,
+        self.adjust_joypad(2,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::LShift));
-        pressed |= self.adjust_joypad(3,
+        self.adjust_joypad(3,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::LCtrl));
-        pressed |= self.adjust_joypad(4,
+        self.adjust_joypad(4,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::Right));
-        pressed |= self.adjust_joypad(5,
+        self.adjust_joypad(5,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::Left));
-        pressed |= self.adjust_joypad(6,
+        self.adjust_joypad(6,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::Up));
-        pressed |= self.adjust_joypad(7,
+        self.adjust_joypad(7,
                            event_pump.keyboard_state()
                                      .is_scancode_pressed(Scancode::Down));
-        if pressed && ioregister::joypad_selectors(&self.mem) == 0b11 {
-            ioregister::joypad_set_buttons(0b1111, &mut self.mem);
-        }
     }
 
     fn print_buttons() {
