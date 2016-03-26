@@ -133,6 +133,11 @@ impl Gebemula {
                     self.joypad >> 4
                 };
 
+                if buttons < 0b0000_1111 {
+                    // interrupt is requested when a button goes from 1 to 0.
+                    interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
+                }
+
                 ioregister::joypad_set_buttons(buttons, &mut self.mem);
             }
         }
@@ -177,42 +182,39 @@ impl Gebemula {
         cycles
     }
 
-    fn adjust_joypad(&mut self, bit: u8, pressed: bool) -> bool {
+    #[inline]
+    fn adjust_joypad(&mut self, bit: u8, pressed: bool) {
         self.joypad = if pressed {
             self.joypad & !(1 << bit)
         } else {
             self.joypad | (1 << bit)
         };
-        pressed
     }
 
     // returns true if joypad changed (i.e. some button was pressed or released);
-    fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) -> bool {
-        let mut pressed: bool;
-        pressed = self.adjust_joypad(0,
-                                     event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
-        pressed |= self.adjust_joypad(1,
-                                      event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
-        pressed |= self.adjust_joypad(2,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::LShift));
-        pressed |= self.adjust_joypad(3,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::LCtrl));
-        pressed |= self.adjust_joypad(4,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::Right));
-        pressed |= self.adjust_joypad(5,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::Left));
-        pressed |= self.adjust_joypad(6,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::Up));
-        pressed |= self.adjust_joypad(7,
-                                      event_pump.keyboard_state()
-                                                .is_scancode_pressed(Scancode::Down));
-
-        pressed
+    fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) {
+        self.adjust_joypad(0,
+                           event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
+        self.adjust_joypad(1,
+                           event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
+        self.adjust_joypad(2,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::LShift));
+        self.adjust_joypad(3,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::LCtrl));
+        self.adjust_joypad(4,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::Right));
+        self.adjust_joypad(5,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::Left));
+        self.adjust_joypad(6,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::Up));
+        self.adjust_joypad(7,
+                           event_pump.keyboard_state()
+                                     .is_scancode_pressed(Scancode::Down));
     }
 
     fn print_buttons() {
@@ -324,10 +326,7 @@ impl Gebemula {
                 }
             }
 
-            if self.adjust_joypad_buttons(&event_pump) {
-                interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
-            }
-
+            self.adjust_joypad_buttons(&event_pump);
             self.cycles_per_sec += self.step();
 
             /*
