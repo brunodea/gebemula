@@ -6,6 +6,8 @@
 #![allow(similar_names)]
 #![allow(many_single_char_names)]
 
+#[macro_use]
+extern crate bitflags;
 extern crate sdl2;
 extern crate time;
 

@@ -2,14 +2,7 @@ use util::util;
 use mem::consts;
 use time;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-enum CartridgeType {
-    RomOnly,
-    Mbc1,
-    Mbc2,
-    Mbc3,
-    Mbc5,
-}
+use super::cartridge::MapperType;
 
 struct Rtc {
     seconds_reg: Option<u16>,
@@ -43,7 +36,7 @@ pub struct Memory {
     hram: [u8; 0x7F],
     interrupts_enable: u8,
     cartridge: Vec<u8>,
-    cartridge_type: CartridgeType,
+    cartridge_type: MapperType,
     current_rom_bank: u16,
     current_ram_bank: u16,
     rom_banking_enabled: bool,
@@ -66,7 +59,7 @@ impl Default for Memory {
             hram: [0; 0x7F],
             interrupts_enable: 0x0,
             cartridge: vec![0; 0x200000],
-            cartridge_type: CartridgeType::RomOnly,
+            cartridge_type: MapperType::Rom,
             current_rom_bank: 0x1,
             current_ram_bank: 0x0,
             rom_banking_enabled: true,
@@ -115,7 +108,7 @@ impl Memory {
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
             0x0000...0x7FFF => {
-                if self.cartridge_type == CartridgeType::RomOnly {
+                if self.cartridge_type == MapperType::Rom {
                     // self.cartridge[address as usize] = value;
                 } else {
                     self.handle_banking(address, value);
@@ -195,21 +188,21 @@ impl Memory {
     fn handle_banking(&mut self, address: u16, byte: u8) {
         match address {
             0x0000...0x1FFF => {
-                if self.cartridge_type == CartridgeType::Mbc2 {
+                if self.cartridge_type == MapperType::Mbc2 {
                     self.external_ram_enabled = util::is_bit_one(address, 8);
-                } else if self.cartridge_type != CartridgeType::RomOnly {
+                } else if self.cartridge_type != MapperType::Rom{
                     self.external_ram_enabled = (byte & 0x0F) == 0x0A;
                 }
             }
             0x2000...0x2FFF => {
                 match self.cartridge_type {
-                    CartridgeType::Mbc1 | CartridgeType::Mbc2 => {
+                    MapperType::Mbc1 | MapperType::Mbc2 => {
                         self.change_rom_bank_lower_bits(address, byte);
                     }
-                    CartridgeType::Mbc3 => {
+                    MapperType::Mbc3 => {
                         self.change_rom_bank_mbc3(byte);
                     }
-                    CartridgeType::Mbc5 => {
+                    MapperType::Mbc5 => {
                         self.change_rom_bank_lower_bits_mbc5(byte);
                     }
                     _ => unreachable!(),
@@ -217,13 +210,13 @@ impl Memory {
             }
             0x3000...0x3FFF => {
                 match self.cartridge_type {
-                    CartridgeType::Mbc1 | CartridgeType::Mbc2 => {
+                    MapperType::Mbc1 | MapperType::Mbc2 => {
                         self.change_rom_bank_lower_bits(address, byte);
                     }
-                    CartridgeType::Mbc3 => {
+                    MapperType::Mbc3 => {
                         self.change_rom_bank_mbc3(byte);
                     }
-                    CartridgeType::Mbc5 => {
+                    MapperType::Mbc5 => {
                         self.change_rom_bank_9th_bit_mbc5(byte);
                     }
                     _ => unreachable!(),
@@ -231,7 +224,7 @@ impl Memory {
             }
             0x4000...0x5FFF => {
                 match self.cartridge_type {
-                    CartridgeType::Mbc1 => {
+                    MapperType::Mbc1 => {
                         if self.rom_banking_enabled {
                             self.current_rom_bank = (self.current_rom_bank & 0b0001_1111) |
                                                     ((byte as u16 & 0b11) << 5);
@@ -245,7 +238,7 @@ impl Memory {
                             self.change_ram_bank(byte);
                         }
                     }
-                    CartridgeType::Mbc3 => {
+                    MapperType::Mbc3 => {
                         match byte {
                             0x0...0x3 => {
                                 self.change_ram_bank(byte);
@@ -268,7 +261,7 @@ impl Memory {
                             _ => (),
                         }
                     }
-                    CartridgeType::Mbc5 => {
+                    MapperType::Mbc5 => {
                         if self.rom_banking_enabled {
                             self.change_rom_bank_9th_bit_mbc5(byte);
                         } else {
@@ -280,7 +273,7 @@ impl Memory {
             }
             0x6000...0x7FFF => {
                 match self.cartridge_type {
-                    CartridgeType::Mbc1 => {
+                    MapperType::Mbc1 => {
                         self.rom_banking_enabled = byte & 0b1 == 0;
                         if self.rom_banking_enabled {
                             self.current_ram_bank = 0;
@@ -288,7 +281,7 @@ impl Memory {
                             self.current_rom_bank &= 0b0001_1111;
                         }
                     }
-                    CartridgeType::Mbc3 => {
+                    MapperType::Mbc3 => {
                         if self.rtc.latch_clock_data.is_none() {
                             self.rtc.latch_clock_data = Some(byte);
                         } else {
@@ -332,7 +325,7 @@ impl Memory {
 
     fn change_rom_bank_lower_bits(&mut self, address: u16, byte: u8) {
         match self.cartridge_type {
-            CartridgeType::Mbc1 => {
+            MapperType::Mbc1 => {
                 let lower_bits: u16 = byte as u16 & 0x1F;
                 self.current_rom_bank &= 0b1110_0000;
                 self.current_rom_bank |= lower_bits;
@@ -342,7 +335,7 @@ impl Memory {
                     self.current_rom_bank += 0x1;
                 }
             }
-            CartridgeType::Mbc2 => {
+            MapperType::Mbc2 => {
                 if util::is_bit_one(address, 8) {
                     self.current_rom_bank = byte as u16 & 0xF;
                     if self.current_rom_bank == 0x0 {
@@ -355,7 +348,7 @@ impl Memory {
     }
 
     fn change_rom_bank_lower_bits_mbc5(&mut self, byte: u8) {
-        if self.cartridge_type == CartridgeType::Mbc5 {
+        if self.cartridge_type == MapperType::Mbc5 {
             let lower_bits: u16 = byte as u16 & 0xFF;
             self.current_rom_bank &= 0xF00;
             self.current_rom_bank |= lower_bits;
@@ -365,7 +358,7 @@ impl Memory {
     }
 
     fn change_rom_bank_9th_bit_mbc5(&mut self, byte: u8) {
-        if self.cartridge_type == CartridgeType::Mbc5 {
+        if self.cartridge_type == MapperType::Mbc5 {
             let upper_bit: u16 = byte as u16 & (0x1 << 8);
             self.current_rom_bank &= 0xFF;
             self.current_rom_bank |= upper_bit;
@@ -454,11 +447,11 @@ impl Memory {
             self.cartridge[i] = *byte;
         }
         match self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize] {
-            0x0 => self.cartridge_type = CartridgeType::RomOnly,
-            0x1...0x3 => self.cartridge_type = CartridgeType::Mbc1,
-            0x5...0x6 => self.cartridge_type = CartridgeType::Mbc2,
-            0x11...0x13 => self.cartridge_type = CartridgeType::Mbc3,
-            0x19...0x1E => self.cartridge_type = CartridgeType::Mbc5,
+            0x0 => self.cartridge_type = MapperType::Rom,
+            0x1...0x3 => self.cartridge_type = MapperType::Mbc1,
+            0x5...0x6 => self.cartridge_type = MapperType::Mbc2,
+            0x11...0x13 => self.cartridge_type = MapperType::Mbc3,
+            0x19...0x1E => self.cartridge_type = MapperType::Mbc5,
             _ => {
                 panic!("Cartridges of type {:#X} are not yet supported.",
                        self.cartridge[consts::CARTRIDGE_TYPE_ADDR as usize])
