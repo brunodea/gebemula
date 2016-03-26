@@ -101,11 +101,8 @@ impl Memory {
             if i as u8 % columns == 0 {
                 res = res + &format!("\n{:01$x}: ", i, 8);
             }
-            let lhs: u8 = self.read_byte(i as u16);
-            i += 1;
-            let rhs: u8 = self.read_byte(i as u16);
-            res = res + &format!("{:01$x}", lhs, 2);
-            res = res + &format!("{:01$x} ", rhs, 2);
+            let byte: u8 = self.read_byte(i as u16);
+            res = res + &format!("{:01$x} ", byte, 2);
 
             i += 1;
         }
