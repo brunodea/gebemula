@@ -1,7 +1,8 @@
 pub mod rom;
+pub mod mbc1;
 
-const ROM_BANK_SIZE: u16 = 0x4000;
-const RAM_BANK_SIZE: u16 = 0x2000;
+const ROM_BANK_SIZE: usize = 0x4000;
+const RAM_BANK_SIZE: usize = 0x2000;
 
 pub trait Mapper {
     /// Handles a read from the 0x0000-0x7FFF ROM/MBC area.

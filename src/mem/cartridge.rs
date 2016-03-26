@@ -4,6 +4,7 @@
 use mem::mem::Memory;
 use mem::mapper::{Mapper, NullMapper};
 use mem::mapper::rom::RomMapper;
+use mem::mapper::mbc1::Mbc1Mapper;
 use std::str;
 use std::cmp;
 
@@ -186,8 +187,9 @@ pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
 
     match mapper_type {
         MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data)),
+        MapperType::Mbc1 => Box::new(Mbc1Mapper::new(rom_data, ram_data)),
 
-        MapperType::Mbc1 | MapperType::Mbc2 | MapperType::Mbc3 |
+        MapperType::Mbc2 | MapperType::Mbc3 |
         MapperType::Mbc5 | _ => {
             panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
         },
