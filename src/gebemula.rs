@@ -353,9 +353,16 @@ impl Gebemula {
                 renderer.present();
 
                 //clear buffer
-                self.graphics.screen_buffer = [255;
-                (graphics::consts::DISPLAY_HEIGHT_PX as usize *
-                 graphics::consts::DISPLAY_WIDTH_PX as usize * 4)];
+                let mut i: usize = 0;
+                while i < self.graphics.screen_buffer.len() { 
+                    self.graphics.screen_buffer[i] = graphics::consts::PALETTE_COLOR_0.0;
+                    self.graphics.screen_buffer[i + 1] = graphics::consts::PALETTE_COLOR_0.1;
+                    self.graphics.screen_buffer[i + 2] = graphics::consts::PALETTE_COLOR_0.2;
+                    self.graphics.screen_buffer[i + 3] = 255;
+
+                    i += 4;
+                }
+
                 let now = time::now();
                 let elapsed: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
                 if elapsed < desired_frametime_ns {
