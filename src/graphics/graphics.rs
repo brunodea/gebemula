@@ -136,11 +136,11 @@ impl Graphics {
             let pixel_index: u8 = ioregister::bg_window_palette(pixel_data, memory);
 
             // Apply palette
-            let (r, g, b) = match pixel_index {
-                0b00 => (255, 255, 255),
-                0b01 => (192, 192, 192),
-                0b10 => (96, 96, 96),
-                0b11 => (0, 0, 0),
+            let (r, g, b, a) = match pixel_index {
+                0b00 => (224, 248, 209, 255),
+                0b01 => (144, 188, 122, 255),
+                0b10 => (49, 103, 80, 255),
+                0b11 => (16, 31, 35, 255),
                 _ => unreachable!(),
             };
 
@@ -218,11 +218,12 @@ impl Graphics {
                     continue;
                 }
                 let pixel_index: u8 = ioregister::sprite_palette(obp0, pixel_data, memory);
+                // sprite color pallete
                 let (r, g, b, a) = match pixel_index {
-                    0b00 => (255, 255, 255, 255),
-                    0b01 => (192, 192, 192, 255),
-                    0b10 => (96, 96, 96, 255),
-                    0b11 => (0, 0, 0, 255),
+                    0b00 => (224, 248, 209, 255),
+                    0b01 => (144, 188, 122, 255),
+                    0b10 => (49, 103, 80, 255),
+                    0b11 => (16, 31, 35, 255),
                     _ => unreachable!(),
                 };
 
