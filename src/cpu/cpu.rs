@@ -981,6 +981,8 @@ impl Cpu {
         } else {
             8
         };
+
+        let mut is_bit_op: bool = false;
         match opcode {
             0x00...0x07 => {
                 // RLC b
@@ -1044,6 +1046,7 @@ impl Cpu {
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
 
+                is_bit_op = true;
             }
             0x80...0xBF => {
                 // RES b,r; RES b,(HL)
@@ -1060,10 +1063,12 @@ impl Cpu {
             }
         }
 
-        if reg == Reg::HL {
-            self.mem_write(self.reg16(Reg::HL), value, memory)
-        } else {
-            self.reg_set8(reg, value);
+        if !is_bit_op {
+            if reg == Reg::HL {
+                self.mem_write(self.reg16(Reg::HL), value, memory)
+            } else {
+                self.reg_set8(reg, value);
+            }
         }
 
         if opcode <= 0x3F {
