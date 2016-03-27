@@ -10,22 +10,29 @@ pub struct RomMapper {
 impl RomMapper {
     pub fn new(rom: Box<[u8]>, ram: Box<[u8]>) -> RomMapper {
         assert!(rom.len() <= 32 << 10);
+        assert!(rom.len().is_power_of_two());
         assert!(ram.len() <=  8 << 10);
+        assert!(ram.len() == 0 || ram.len().is_power_of_two());
+
         RomMapper {
             rom: rom,
             ram: ram,
         }
+    }
+
+    fn rom_mask(&self) -> usize {
+        self.rom.len() - 1
+    }
+
+    fn ram_mask(&self) -> usize {
+        self.ram.len() - 1
     }
 }
 
 impl Mapper for RomMapper {
     fn read_rom(&self, address: u16) -> u8 {
         let offset = (address & 0x7FFF) as usize;
-        if offset < self.rom.len() {
-            self.rom[offset]
-        } else {
-            0xFF
-        }
+        self.rom[offset & self.rom_mask()]
     }
 
     fn write_rom(&mut self, _address: u16, _data: u8) {
@@ -33,18 +40,19 @@ impl Mapper for RomMapper {
     }
 
     fn read_ram(&self, address: u16) -> u8 {
-        let offset = (address & 0x1FFF) as usize;
-        if offset < self.ram.len() {
-            self.ram[offset]
+        if !self.ram.is_empty() {
+            let offset = (address & 0x1FFF) as usize;
+            self.ram[offset & self.ram_mask()]
         } else {
             0xFF
         }
     }
 
     fn write_ram(&mut self, address: u16, data: u8) {
-        let offset = (address & 0x1FFF) as usize;
-        if offset < self.ram.len() {
-            self.ram[offset] = data;
+        if !self.ram.is_empty() {
+            let offset = (address & 0x1FFF) as usize;
+            let mask = self.ram_mask();
+            self.ram[offset & mask] = data;
         }
     }
 }

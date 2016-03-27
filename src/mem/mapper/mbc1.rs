@@ -15,7 +15,10 @@ pub struct Mbc1Mapper {
 impl Mbc1Mapper {
     pub fn new(rom: Box<[u8]>, ram: Box<[u8]>) -> Mbc1Mapper {
         assert!(rom.len() <=  2 << 20);
+        assert!(rom.len().is_power_of_two());
         assert!(ram.len() <= 32 << 10);
+        assert!(ram.is_empty() || ram.len().is_power_of_two());
+
         Mbc1Mapper {
             rom: rom,
             ram: ram,
@@ -25,6 +28,14 @@ impl Mbc1Mapper {
             ram_banking_enabled: false,
         }
     }
+
+    fn rom_mask(&self) -> usize {
+        self.rom.len() - 1
+    }
+
+    fn ram_mask(&self) -> usize {
+        self.ram.len() - 1
+    }
 }
 
 impl Mapper for Mbc1Mapper {
@@ -32,11 +43,7 @@ impl Mapper for Mbc1Mapper {
         let bank = if address & 0x4000 == 0 { 0 } else { self.current_rom_bank };
         let offset = bank as usize * ROM_BANK_SIZE + (address & 0x3FFF) as usize;
 
-        if offset < self.rom.len() {
-            self.rom[offset]
-        } else {
-            0xFF
-        }
+        self.rom[offset & self.rom_mask()]
     }
 
     fn write_rom(&mut self, address: u16, data: u8) {
@@ -73,18 +80,20 @@ impl Mapper for Mbc1Mapper {
     }
 
     fn read_ram(&self, address: u16) -> u8 {
-        let offset = self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
-        if self.ram_enabled && offset < self.ram.len() {
-            self.ram[offset]
+        if self.ram_enabled && !self.ram.is_empty() {
+            let offset = self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
+            self.ram[offset & self.ram_mask()]
         } else {
             0xFF
         }
     }
 
     fn write_ram(&mut self, address: u16, data: u8) {
-        let offset = self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
-        if self.ram_enabled && offset < self.ram.len() {
-            self.ram[offset] = data;
+        if self.ram_enabled && !self.ram.is_empty() {
+            let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
+                         (address & 0x1FFF) as usize;
+            let ram_mask = self.ram_mask();
+            self.ram[offset & ram_mask] = data;
         }
     }
 }
