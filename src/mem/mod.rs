@@ -1,3 +1,3 @@
-pub mod mem;
-pub mod consts;
+mod mapper;
 pub mod cartridge;
+pub mod mem;

@@ -2,10 +2,19 @@
 #![allow(if_not_else)]
 
 use mem::mem::Memory;
-use mem::consts;
+use mem::mapper::{Mapper, NullMapper};
+use mem::mapper::rom::RomMapper;
+use mem::mapper::mbc1::Mbc1Mapper;
+use mem::mapper::mbc3::Mbc3Mapper;
 use std::str;
+use std::cmp;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub const GAME_TITLE_ADDR_START: u16 = 0x134;
+pub const GAME_TITLE_ADDR_END: u16 = 0x142;
+pub const CARTRIDGE_TYPE_ADDR: u16 = 0x147;
+const ROM_SIZE_ADDR: u16 = 0x148;
+const RAM_SIZE_ADDR: u16 = 0x149;
+
 pub enum MapperType {
     Rom,
 
@@ -119,7 +128,7 @@ pub fn cart_type_from_id(id: u8) -> (MapperType, CartExtraHardware) {
 
 pub fn game_title_str(memory: &Memory) -> String {
     let game_title_u8: &mut Vec<u8> = &mut Vec::new();
-    for byte in consts::GAME_TITLE_ADDR_START..(consts::GAME_TITLE_ADDR_END + 1) {
+    for byte in GAME_TITLE_ADDR_START..(GAME_TITLE_ADDR_END + 1) {
         if byte == 0 {
             break;
         }
@@ -131,4 +140,59 @@ pub fn game_title_str(memory: &Memory) -> String {
     };
 
     game_title.to_owned()
+}
+
+pub fn parse_rom_size(id: u8) -> usize {
+    match id {
+        0x00...0x08 => (32 * 1024) << id,
+        _ => panic!("Unknown ROM size: {:#02X}", id),
+    }
+}
+
+pub fn parse_ram_size(id: u8) -> usize {
+    match id {
+        0x00 =>   0,
+        0x01 =>   2 * 1024,
+        0x02 =>   8 * 1024,
+        0x03 =>  32 * 1024,
+        0x04 => 128 * 1024,
+        0x05 =>  64 * 1024,
+        _ => panic!("Unknown cartridge RAM size: {:#02X}", id),
+    }
+}
+
+pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
+    if rom.len() == 0 {
+        println!("Warning: No cartridge inserted.");
+        return Box::new(NullMapper);
+    }
+
+    if rom.len() < 0x200 {
+        // Files this small aren't even large enough to have a header.
+        panic!("Input ROM is too small. ({} bytes)", rom.len());
+    }
+
+    let cart_type_id = rom[CARTRIDGE_TYPE_ADDR as usize];
+    let (mapper_type, extra_hw_flags) = cart_type_from_id(cart_type_id);
+    let rom_size = parse_rom_size(rom[ROM_SIZE_ADDR as usize]);
+    let ram_size = parse_ram_size(rom[RAM_SIZE_ADDR as usize]);
+
+    // Copy ROM data from file to backing memory
+    let mut rom_data = vec![0xFF; rom_size].into_boxed_slice();
+    let copy_len = cmp::min(rom.len(), rom_data.len());
+    &rom_data[..copy_len].copy_from_slice(&rom[..copy_len]);
+
+    // Initialize RAM backing memory
+    // TODO: Load from file for battery-backed SRAM
+    let ram_data = vec![0xFF; ram_size].into_boxed_slice();
+
+    match mapper_type {
+        MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data)),
+        MapperType::Mbc1 => Box::new(Mbc1Mapper::new(rom_data, ram_data)),
+        MapperType::Mbc3 => Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw_flags.contains(RTC))),
+
+        MapperType::Mbc2 | MapperType::Mbc5 | _ => {
+            panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
+        },
+    }
 }
