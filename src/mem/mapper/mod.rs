@@ -16,6 +16,9 @@ pub trait Mapper {
     fn read_ram(&self, address: u16) -> u8;
     /// Handles a write to the 0xA000-0xBFFF SRAM/IO area.
     fn write_ram(&mut self, address: u16, data: u8);
+
+    /// Saves battery-backed SRAM, if any.
+    fn save_battery(&mut self) -> Vec<u8>;
 }
 
 /// Mapper that simulates having no cartridge inserted.
@@ -27,4 +30,6 @@ impl Mapper for NullMapper {
 
     fn read_ram(&self, _address: u16) -> u8 { 0xFF }
     fn write_ram(&mut self, _address: u16, _data: u8) {}
+
+    fn save_battery(&mut self) -> Vec<u8> { Vec::new() }
 }

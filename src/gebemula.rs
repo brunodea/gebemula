@@ -20,7 +20,7 @@ use time;
 use std;
 use std::thread;
 
-pub struct Gebemula {
+pub struct Gebemula<'a> {
     cpu: Cpu,
     mem: Memory,
     timer: Timer,
@@ -30,10 +30,13 @@ pub struct Gebemula {
     should_display_screen: bool,
     timeline: EventTimeline,
     joypad: u8, // nibble to the left are direction keys and to the right button keys.
+
+    /// Used to periodically save the battery-backed cartridge SRAM to file.
+    battery_save_callback: Option<&'a Fn(&[u8])>,
 }
 
-impl Default for Gebemula {
-    fn default() -> Gebemula {
+impl<'a> Default for Gebemula<'a> {
+    fn default() -> Gebemula<'a> {
         Gebemula {
             cpu: Cpu::default(),
             mem: Memory::default(),
@@ -44,11 +47,12 @@ impl Default for Gebemula {
             should_display_screen: false,
             timeline: EventTimeline::default(),
             joypad: 0,
+            battery_save_callback: None,
         }
     }
 }
 
-impl Gebemula {
+impl<'a> Gebemula<'a> {
     pub fn restart(&mut self) {
         self.cpu.restart();
         self.mem.restart();
@@ -67,8 +71,21 @@ impl Gebemula {
         self.mem.load_bootstrap_rom(bootstrap_rom);
     }
 
-    pub fn load_game_rom(&mut self, game_rom: &[u8]) {
-        self.mem.load_game_rom(game_rom);
+    pub fn load_cartridge(&mut self, game_rom: &[u8], battery: &[u8]) {
+        self.mem.load_cartridge(game_rom, battery);
+    }
+
+    pub fn set_save_battery_callback(&mut self, callback: &'a Fn(&[u8])) {
+        self.battery_save_callback = Some(callback);
+    }
+
+    fn update_battery(&mut self) {
+        if let Some(ref callback) = self.battery_save_callback {
+            let data = self.mem.save_battery();
+            if !data.is_empty() {
+                callback(&data);
+            }
+        }
     }
 
     fn run_event(&mut self, event: Event) {
@@ -374,7 +391,10 @@ impl Gebemula {
                 renderer.window_mut().unwrap().set_title(title).unwrap();
                 self.cycles_per_sec = 0;
                 fps = 0;
+
+                self.update_battery();
             }
         }
+        self.update_battery();
     }
 }

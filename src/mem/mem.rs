@@ -175,7 +175,11 @@ impl Memory {
         }
     }
 
-    pub fn load_game_rom(&mut self, rom: &[u8]) {
-        self.cartridge = cartridge::load_cartridge(rom);
+    pub fn load_cartridge(&mut self, rom: &[u8], battery: &[u8]) {
+        self.cartridge = cartridge::load_cartridge(rom, battery);
+    }
+
+    pub fn save_battery(&mut self) -> Vec<u8> {
+        self.cartridge.save_battery()
     }
 }

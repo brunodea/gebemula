@@ -3,4 +3,5 @@ target
 *.dll
 *.gb
 *.gbc
+*.sav
 DMG_ROM.bin

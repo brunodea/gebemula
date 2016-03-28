@@ -161,7 +161,7 @@ pub fn parse_ram_size(id: u8) -> usize {
     }
 }
 
-pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
+pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     if rom.len() == 0 {
         println!("Warning: No cartridge inserted.");
         return Box::new(NullMapper);
@@ -173,7 +173,7 @@ pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
     }
 
     let cart_type_id = rom[CARTRIDGE_TYPE_ADDR as usize];
-    let (mapper_type, extra_hw_flags) = cart_type_from_id(cart_type_id);
+    let (mapper_type, extra_hw) = cart_type_from_id(cart_type_id);
     let rom_size = parse_rom_size(rom[ROM_SIZE_ADDR as usize]);
     let ram_size = parse_ram_size(rom[RAM_SIZE_ADDR as usize]);
 
@@ -183,15 +183,28 @@ pub fn load_cartridge(rom: &[u8]) -> Box<Mapper> {
     &rom_data[..copy_len].copy_from_slice(&rom[..copy_len]);
 
     // Initialize RAM backing memory
-    // TODO: Load from file for battery-backed SRAM
-    let ram_data = vec![0xFF; ram_size].into_boxed_slice();
+    let expected_battery_size = ram_size + if extra_hw.contains(BATTERY) { 48 } else { 0 };
+    if !battery.is_empty() && battery.len() != expected_battery_size {
+        println!("WARNING: Battery file has unexpected size: {:#X}, expected {:#X}",
+                 battery.len(), expected_battery_size);
+    }
+
+    let mut ram_data = vec![0xFF; ram_size].into_boxed_slice();
+    let copy_len = cmp::min(battery.len(), ram_data.len());
+    &ram_data[..copy_len].copy_from_slice(&battery[..copy_len]);
 
     match mapper_type {
-        MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data)),
-        MapperType::Mbc1 => Box::new(Mbc1Mapper::new(rom_data, ram_data)),
-        MapperType::Mbc3 => Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw_flags.contains(RTC))),
-
-        MapperType::Mbc2 | MapperType::Mbc5 | _ => {
+        MapperType::Rom => {
+            Box::new(RomMapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
+        },
+        MapperType::Mbc1 => {
+            Box::new(Mbc1Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
+        },
+        MapperType::Mbc3 => {
+            Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY),
+                                     extra_hw.contains(RTC)))
+        },
+        _ => {
             panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
         },
     }
