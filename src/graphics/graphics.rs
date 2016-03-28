@@ -136,14 +136,7 @@ impl Graphics {
             let pixel_index: u8 = ioregister::bg_window_palette(pixel_data, memory);
 
             // Apply palette
-            let (r, g, b) = match pixel_index {
-                0b00 => consts::PALETTE_COLOR_0,
-                0b01 => consts::PALETTE_COLOR_1,
-                0b10 => consts::PALETTE_COLOR_2,
-                0b11 => consts::PALETTE_COLOR_3,
-                _ => unreachable!(),
-            };
-
+            let (r, g, b) = consts::DMG_PALETTE[pixel_index as usize];
             self.bg_wn_pixel_indexes[buffer_pos] = pixel_data;
 
             let buffer_pos: usize = buffer_pos * 4; //*4 because of RGBA
@@ -219,13 +212,7 @@ impl Graphics {
                 }
                 let pixel_index: u8 = ioregister::sprite_palette(obp0, pixel_data, memory);
                 // sprite color pallete
-                let (r, g, b) = match pixel_index {
-                    0b00 => consts::PALETTE_COLOR_0,
-                    0b01 => consts::PALETTE_COLOR_1,
-                    0b10 => consts::PALETTE_COLOR_2,
-                    0b11 => consts::PALETTE_COLOR_3,
-                    _ => unreachable!(),
-                };
+                let (r, g, b) = consts::DMG_PALETTE[pixel_index as usize];
 
                 let mut buffer_pos: usize;
 

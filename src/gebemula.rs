@@ -365,14 +365,15 @@ impl<'a> Gebemula<'a> {
                 renderer.present();
 
                 //clear buffer
-                let mut i: usize = 0;
-                while i < self.graphics.screen_buffer.len() { 
-                    self.graphics.screen_buffer[i] = graphics::consts::PALETTE_COLOR_0.0;
-                    self.graphics.screen_buffer[i + 1] = graphics::consts::PALETTE_COLOR_0.1;
-                    self.graphics.screen_buffer[i + 2] = graphics::consts::PALETTE_COLOR_0.2;
-                    self.graphics.screen_buffer[i + 3] = 255;
+                for p in self.graphics.screen_buffer.chunks_mut(4) {
+                    // This actually makes the code faster by skipping redundant bound checking:
+                    assert!(p.len() == 4);
 
-                    i += 4;
+                    let color = graphics::consts::DMG_PALETTE[0];
+                    p[0] = color.0;
+                    p[1] = color.1;
+                    p[2] = color.2;
+                    p[3] = 255;
                 }
 
                 let now = time::now();
