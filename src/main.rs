@@ -11,6 +11,7 @@
 
 #[macro_use]
 extern crate bitflags;
+extern crate clap;
 extern crate sdl2;
 extern crate time;
 
@@ -22,28 +23,41 @@ mod util;
 mod gebemula;
 mod timeline;
 
-use std::env;
-use std::io::Read;
+use clap::{Arg, App};
 use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 use gebemula::Gebemula;
 
 #[allow(boxed_local)]
 fn main() {
-    let args: Vec<_> = env::args().collect();
-    if args.len() == 3 {
-        let mut bootstrap_data: Vec<u8> = Vec::new();
-        File::open(&args[1]).unwrap().read_to_end(&mut bootstrap_data).unwrap();
+    let args = App::new("Gebemula")
+            .author("Bruno Romero de Azevedo <brunodea@inf.ufsm.br>")
+            .about("Emulator for GameBoy written in Rust.")
+            .arg(Arg::with_name("INPUT_ROM")
+                 .index(1).required(true)
+                 .help("Path to the game ROM."))
+            .arg(Arg::with_name("bootstrap_rom")
+                 .short("b").long("bootstrap")
+                 .help("Sets the path to the Gameboy bootstrap ROM.")
+                 .value_name("DMG_ROM.bin")
+                 .takes_value(true)
+                 .default_value("DMG_ROM.bin"))
+            .get_matches();
 
-        let mut game_data: Vec<u8> = Vec::new();
-        File::open(&args[2]).unwrap().read_to_end(&mut game_data).unwrap();
+    let bootstrap_path = Path::new(args.value_of("bootstrap_rom").unwrap());
+    let rom_path = Path::new(args.value_of("INPUT_ROM").unwrap());
 
-        // This variable needs to be boxed since it's large and causes a stack overflow in Windows
-        let mut gebemula = box Gebemula::default();
-        gebemula.load_game_rom(&game_data);
-        gebemula.load_bootstrap_rom(&bootstrap_data);
-        gebemula.run_sdl();
-    } else {
-        println!("Invalid number of arguments.");
-    }
+    let mut bootstrap_data = Vec::new();
+    File::open(bootstrap_path).unwrap().read_to_end(&mut bootstrap_data).unwrap();
+
+    let mut game_data = Vec::new();
+    File::open(rom_path).unwrap().read_to_end(&mut game_data).unwrap();
+
+    // This variable needs to be boxed since it's large and causes a stack overflow in Windows
+    let mut gebemula = box Gebemula::default();
+    gebemula.load_game_rom(&game_data);
+    gebemula.load_bootstrap_rom(&bootstrap_data);
+    gebemula.run_sdl();
 }
