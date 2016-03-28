@@ -25,7 +25,7 @@ mod timeline;
 
 use clap::{Arg, App};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 
 use gebemula::Gebemula;
@@ -51,6 +51,7 @@ fn main() {
 
     let bootstrap_path = Path::new(args.value_of("bootstrap_rom").unwrap());
     let rom_path = Path::new(args.value_of("INPUT_ROM").unwrap());
+    let battery_path = rom_path.with_extension("sav");
 
     let mut bootstrap_data = Vec::new();
     File::open(bootstrap_path).unwrap().read_to_end(&mut bootstrap_data).unwrap();
@@ -58,9 +59,22 @@ fn main() {
     let mut game_data = Vec::new();
     File::open(rom_path).unwrap().read_to_end(&mut game_data).unwrap();
 
+    let mut battery_data = Vec::new();
+    if battery_path.exists() {
+        println!("Loaded battery: {}", battery_path.display());
+        File::open(&battery_path).unwrap().read_to_end(&mut battery_data).unwrap();
+    }
+
+    let save_battery_callback = |data: &[u8]| {
+        File::create(&battery_path).unwrap().write_all(data).unwrap();
+        // Some games use SRAM as non-save scratch space, so this tends to get a bit spammy:
+        //println!("Saved battery: {}", battery_path.display());
+    };
+
     // This variable needs to be boxed since it's large and causes a stack overflow in Windows
     let mut gebemula = box Gebemula::default();
-    gebemula.load_game_rom(&game_data);
+    gebemula.set_save_battery_callback(&save_battery_callback);
     gebemula.load_bootstrap_rom(&bootstrap_data);
+    gebemula.load_cartridge(&game_data, &battery_data);
     gebemula.run_sdl();
 }

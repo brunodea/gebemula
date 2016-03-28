@@ -5,10 +5,14 @@ pub struct RomMapper {
     rom: Box<[u8]>,
     /// Mapped to the RAM area. Up to 8 KiB in size.
     ram: Box<[u8]>,
+
+    has_battery: bool,
+    /// True is SRAM has been written to since the last time it was saved.
+    ram_modified: bool,
 }
 
 impl RomMapper {
-    pub fn new(rom: Box<[u8]>, ram: Box<[u8]>) -> RomMapper {
+    pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_battery: bool) -> RomMapper {
         assert!(rom.len() <= 32 << 10);
         assert!(rom.len().is_power_of_two());
         assert!(ram.len() <=  8 << 10);
@@ -17,6 +21,8 @@ impl RomMapper {
         RomMapper {
             rom: rom,
             ram: ram,
+            has_battery: has_battery,
+            ram_modified: false,
         }
     }
 
@@ -53,6 +59,16 @@ impl Mapper for RomMapper {
             let offset = (address & 0x1FFF) as usize;
             let mask = self.ram_mask();
             self.ram[offset & mask] = data;
+            self.ram_modified = true;
+        }
+    }
+
+    fn save_battery(&mut self) -> Vec<u8> {
+        if self.has_battery && self.ram_modified {
+            self.ram_modified = false;
+            Vec::from(&*self.ram)
+        } else {
+            Vec::new()
         }
     }
 }

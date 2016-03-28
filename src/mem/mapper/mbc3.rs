@@ -11,11 +11,15 @@ pub struct Mbc3Mapper {
     current_ram_bank: u8,
     ram_enabled: bool,
 
+    has_battery: bool,
+    /// True is SRAM has been written to since the last time it was saved.
+    ram_modified: bool,
+
     rtc: Option<Rtc>,
 }
 
 impl Mbc3Mapper {
-    pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_rtc: bool) -> Mbc3Mapper {
+    pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_battery: bool, has_rtc: bool) -> Mbc3Mapper {
         assert!(rom.len() <=  2 << 20);
         assert!(rom.len().is_power_of_two());
         assert!(ram.len() <= 64 << 10);
@@ -27,6 +31,8 @@ impl Mbc3Mapper {
             current_rom_bank: 1,
             current_ram_bank: 0,
             ram_enabled: false,
+            has_battery: has_battery,
+            ram_modified: false,
             rtc: if has_rtc { Some(Rtc::new()) } else { None },
         }
     }
@@ -104,11 +110,21 @@ impl Mapper for Mbc3Mapper {
                              (address & 0x1FFF) as usize;
                 let ram_mask = self.ram_mask();
                 self.ram[offset & ram_mask] = data;
+                self.ram_modified = true;
             },
             0x8...0xF if self.rtc.is_some() => {
                 self.rtc.as_mut().unwrap().write(self.current_ram_bank, data);
             },
             _ => (),
+        }
+    }
+
+    fn save_battery(&mut self) -> Vec<u8> {
+        if self.has_battery && self.ram_modified {
+            self.ram_modified = false;
+            Vec::from(&*self.ram)
+        } else {
+            Vec::new()
         }
     }
 }
