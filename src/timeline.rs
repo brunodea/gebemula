@@ -49,15 +49,9 @@ impl Default for EventTimeline {
 }
 
 impl EventTimeline {
-    pub fn curr_event(&self) -> Option<Event> {
-        let mut res: Option<Event> = None;
-        for i in 0..self.periodic_events.len() {
-            let e: Event = self.periodic_events[i];
-            if e.event_type == self.curr_event_type {
-                res = Some(e);
-                break;
-            }
-        }
-        res
+    pub fn curr_event(&self) -> Option<&Event> {
+        self.periodic_events.iter().find(|&&e| {
+            e.event_type == self.curr_event_type
+        })
     }
 }

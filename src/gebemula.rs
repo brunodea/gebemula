@@ -154,7 +154,7 @@ impl Gebemula {
 
     fn step(&mut self) -> u32 {
         self.should_display_screen = false;
-        let event: Event = self.timeline.curr_event().unwrap();
+        let event: Event = *self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
         while cycles < event.duration {
             //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
