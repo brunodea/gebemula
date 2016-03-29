@@ -22,7 +22,7 @@ mod mem;
 mod util;
 mod gebemula;
 mod timeline;
-mod joypad;
+mod peripherals;
 
 use clap::{Arg, App};
 use std::fs::File;

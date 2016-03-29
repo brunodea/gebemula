@@ -1,15 +1,14 @@
-use timeline::{EventType, Event, EventTimeline};
+use timeline::{EventType, Event};
 
-use joypad::{self, Joypad, JoypadKey};
+use peripherals::Peripheral;
+use peripherals::joypad::{self, Joypad, JoypadKey};
+use peripherals::lcd::LCD;
 
-use cpu;
-use cpu::ioregister;
-use cpu::interrupt;
+use cpu::{ioregister, interrupt};
 use cpu::cpu::{Cpu, Instruction};
 use cpu::timer::Timer;
 
 use graphics;
-use graphics::graphics::Graphics;
 
 use mem::mem::Memory;
 use debugger::Debugger;
@@ -19,8 +18,7 @@ use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::keyboard::{Scancode, Keycode};
 
 use time;
-use std;
-use std::thread;
+use std::{self, thread};
 
 pub struct Gebemula<'a> {
     cpu: Cpu,
@@ -28,9 +26,7 @@ pub struct Gebemula<'a> {
     timer: Timer,
     debugger: Debugger,
     cycles_per_sec: u32,
-    graphics: Graphics,
-    should_display_screen: bool,
-    timeline: EventTimeline,
+    lcd: LCD,
     joypad: Joypad,
 
     /// Used to periodically save the battery-backed cartridge SRAM to file.
@@ -45,9 +41,7 @@ impl<'a> Default for Gebemula<'a> {
             timer: Timer::default(),
             debugger: Debugger::default(),
             cycles_per_sec: 0,
-            graphics: Graphics::default(),
-            should_display_screen: false,
-            timeline: EventTimeline::default(),
+            lcd: LCD::default(),
             joypad: Joypad::default(),
             battery_save_callback: None,
         }
@@ -58,15 +52,10 @@ impl<'a> Gebemula<'a> {
     pub fn restart(&mut self) {
         self.cpu.restart();
         self.mem.restart();
+        self.lcd.restart(&mut self.mem);
         self.timer = Timer::default();
         self.cycles_per_sec = 0;
-        self.graphics.restart();
-        self.should_display_screen = false;
-        self.timeline = EventTimeline::default();
         self.joypad = Joypad::default();
-        ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
-        self.mem.set_access_vram(true);
-        self.mem.set_access_oam(false);
     }
 
     pub fn load_bootstrap_rom(&mut self, bootstrap_rom: &[u8]) {
@@ -91,47 +80,7 @@ impl<'a> Gebemula<'a> {
     }
 
     fn run_event(&mut self, event: Event) {
-        let mut gpu_mode_number: Option<u8> = None;
         match event.event_type {
-            EventType::OAM => {
-                gpu_mode_number = Some(0b11);
-                self.timeline.curr_event_type = EventType::Vram;
-                self.mem.set_access_vram(true);
-                self.mem.set_access_oam(true);
-                self.graphics.update(&mut self.mem);
-            }
-            EventType::Vram => {
-                gpu_mode_number = Some(0b00);
-                self.timeline.curr_event_type = EventType::HorizontalBlank;
-            }
-            EventType::HorizontalBlank => {
-                let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
-                ly += 1;
-                if ly == graphics::consts::DISPLAY_HEIGHT_PX {
-                    self.should_display_screen = true;
-                    gpu_mode_number = Some(0b01);
-                    self.timeline.curr_event_type = EventType::VerticalBlank;
-                    if ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
-                        interrupt::request(interrupt::Interrupt::VBlank, &mut self.mem);
-                    }
-                } else {
-                    self.timeline.curr_event_type = EventType::OAM;
-                    gpu_mode_number = Some(0b10);
-                }
-                self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
-            }
-            EventType::VerticalBlank => {
-                let mut ly: u8 = self.mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
-                if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
-                    self.timeline.curr_event_type = EventType::OAM;
-                    gpu_mode_number = Some(0b10);
-                    ly = 0;
-                } else {
-                    self.timeline.curr_event_type = EventType::VerticalBlank;
-                    ly += 1;
-                }
-                self.mem.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
-            }
             EventType::BootstrapFinished => {
                 self.mem.disable_bootstrap();
             }
@@ -142,7 +91,6 @@ impl<'a> Gebemula<'a> {
             }
             EventType::JoypadPressed => {
                 let buttons = self.joypad.keys(ioregister::joypad_buttons_selected(&self.mem));
-
                 // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
                 // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
                 if ioregister::joypad_buttons(&self.mem) & !buttons != 0 && buttons < 0b1111 {
@@ -154,30 +102,17 @@ impl<'a> Gebemula<'a> {
             }
         }
 
-        if let Some(gpu_mode) = gpu_mode_number {
-            self.mem.set_access_vram(true);
-            self.mem.set_access_oam(true);
-            //FIXME: actually use can_access_vram/oram instead of always setting to true.
-            // self.mem.set_access_vram(gpu_mode <= 2);
-            // self.mem.set_access_oam(gpu_mode <= 1);
-
-            ioregister::update_stat_reg_mode_flag(gpu_mode, &mut self.mem);
-        }
-        ioregister::update_stat_reg_coincidence_flag(&mut self.mem);
-        ioregister::lcdc_stat_interrupt(&mut self.mem);
     }
 
     fn step(&mut self) -> u32 {
-        self.should_display_screen = false;
-        let event: Event = *self.timeline.curr_event().unwrap();
         let mut cycles: u32 = 0;
-        while cycles < event.duration {
+        while cycles < self.lcd.stat_mode_duration() {
             //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
             //    self.mem.set_access_vram(true);
             //    self.mem.set_access_oam(true);
             //}
             let (instruction, one_event): (Instruction, Option<Event>) =
-                self.cpu.run_instruction(&mut self.mem);
+                                           self.cpu.run_instruction(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = one_event {
                 self.run_event(e);
@@ -190,7 +125,7 @@ impl<'a> Gebemula<'a> {
             }
             cycles += instruction.cycles;
         }
-        self.run_event(event);
+        self.lcd.handle_event(&mut self.mem);
         cycles
     }
 
@@ -243,9 +178,9 @@ impl<'a> Gebemula<'a> {
         let window = vide_subsystem.window("Gebemula Emulator",
                                            graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
                                            graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
-                                   .opengl()
-                                   .build()
-                                   .unwrap();
+            .opengl()
+            .build()
+            .unwrap();
 
         let mut renderer = window.renderer().build().unwrap();
         renderer.set_draw_color(Color::RGBA(0, 0, 0, 255));
@@ -254,7 +189,7 @@ impl<'a> Gebemula<'a> {
             renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
                                               graphics::consts::DISPLAY_WIDTH_PX as u32,
                                               graphics::consts::DISPLAY_HEIGHT_PX as u32)
-                    .unwrap();
+            .unwrap();
 
         renderer.clear();
         renderer.present();
@@ -274,13 +209,13 @@ impl<'a> Gebemula<'a> {
             for event in event_pump.poll_iter() {
                 match event {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
-                        self.graphics.toggle_bg();
+                        self.lcd.graphics.toggle_bg();
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
-                        self.graphics.toggle_wn();
+                        self.lcd.graphics.toggle_wn();
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
-                        self.graphics.toggle_sprites();
+                        self.lcd.graphics.toggle_sprites();
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                         self.debugger.cancel_run();
@@ -339,15 +274,15 @@ impl<'a> Gebemula<'a> {
              *
              * https://github.com/yuriks/super-match-5-dx/blob/master/src/main.cpp#L224
              */
-            if self.should_display_screen {
+            if self.lcd.has_entered_vblank(&self.mem) {
                 renderer.clear();
-                texture.update(None, &self.graphics.screen_buffer,
+                texture.update(None, &self.lcd.graphics.screen_buffer,
                                graphics::consts::DISPLAY_WIDTH_PX as usize * 4).unwrap();
                 renderer.copy(&texture, None, None);
                 renderer.present();
 
                 //clear buffer
-                for p in self.graphics.screen_buffer.chunks_mut(4) {
+                for p in self.lcd.graphics.screen_buffer.chunks_mut(4) {
                     // This actually makes the code faster by skipping redundant bound checking:
                     assert!(p.len() == 4);
 
