@@ -33,21 +33,21 @@ use gebemula::Gebemula;
 #[allow(boxed_local)]
 fn main() {
     let args = App::new("Gebemula")
-            .author("Bruno Romero de Azevedo <brunordea@gmail.com\n\
+        .author("Bruno Romero de Azevedo <brunordea@gmail.com\n\
                     Hugo Stefan Kaus Puhlmann <hugopuhlmann@gmail.com>\n\
                     Vitor da Silva <vitords@inf.ufsm.br>\n\
                     Yuri Kunde Schlesner <yuriks@yuriks.net>")
-            .about("Emulator for GameBoy written in Rust.")
-            .arg(Arg::with_name("INPUT_ROM")
-                 .index(1).required(true)
-                 .help("Path to the game ROM."))
-            .arg(Arg::with_name("bootstrap_rom")
-                 .short("b").long("bootstrap")
-                 .help("Sets the path to the Gameboy bootstrap ROM.")
-                 .value_name("DMG_ROM.bin")
-                 .takes_value(true)
-                 .default_value("DMG_ROM.bin"))
-            .get_matches();
+        .about("Emulator for GameBoy written in Rust.")
+        .arg(Arg::with_name("INPUT_ROM")
+             .index(1).required(true)
+             .help("Path to the game ROM."))
+        .arg(Arg::with_name("bootstrap_rom")
+             .short("b").long("bootstrap")
+             .help("Sets the path to the Gameboy bootstrap ROM.")
+             .value_name("DMG_ROM.bin")
+             .takes_value(true)
+             .default_value("DMG_ROM.bin"))
+        .get_matches();
 
     let bootstrap_path = Path::new(args.value_of("bootstrap_rom").unwrap());
     let rom_path = Path::new(args.value_of("INPUT_ROM").unwrap());
