@@ -54,15 +54,18 @@ fn main() {
     let battery_path = rom_path.with_extension("sav");
 
     let mut bootstrap_data = Vec::new();
-    File::open(bootstrap_path).unwrap().read_to_end(&mut bootstrap_data).unwrap();
+    File::open(bootstrap_path).expect("Unable to open Bootstrap Rom")
+        .read_to_end(&mut bootstrap_data).unwrap();
 
     let mut game_data = Vec::new();
-    File::open(rom_path).unwrap().read_to_end(&mut game_data).unwrap();
+    File::open(rom_path).expect("Unable to open Game Rom")
+        .read_to_end(&mut game_data).unwrap();
 
     let mut battery_data = Vec::new();
     if battery_path.exists() {
         println!("Loaded battery: {}", battery_path.display());
-        File::open(&battery_path).unwrap().read_to_end(&mut battery_data).unwrap();
+        File::open(&battery_path).expect("Unable to open Save file")
+            .read_to_end(&mut battery_data).unwrap();
     }
 
     let save_battery_callback = |data: &[u8]| {
