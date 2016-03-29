@@ -1,5 +1,7 @@
 use timeline::{EventType, Event, EventTimeline};
 
+use joypad::{self, Joypad, JoypadKey};
+
 use cpu;
 use cpu::ioregister;
 use cpu::interrupt;
@@ -29,7 +31,7 @@ pub struct Gebemula<'a> {
     graphics: Graphics,
     should_display_screen: bool,
     timeline: EventTimeline,
-    joypad: u8, // nibble to the left are direction keys and to the right button keys.
+    joypad: Joypad,
 
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
@@ -46,7 +48,7 @@ impl<'a> Default for Gebemula<'a> {
             graphics: Graphics::default(),
             should_display_screen: false,
             timeline: EventTimeline::default(),
-            joypad: 0,
+            joypad: Joypad::default(),
             battery_save_callback: None,
         }
     }
@@ -61,7 +63,7 @@ impl<'a> Gebemula<'a> {
         self.graphics.restart();
         self.should_display_screen = false;
         self.timeline = EventTimeline::default();
-        self.joypad = 0;
+        self.joypad = Joypad::default();
         ioregister::update_stat_reg_mode_flag(0b10, &mut self.mem);
         self.mem.set_access_vram(true);
         self.mem.set_access_oam(false);
@@ -139,11 +141,7 @@ impl<'a> Gebemula<'a> {
                 self.mem.set_access_oam(false);
             }
             EventType::JoypadPressed => {
-                let buttons: u8 = if ioregister::joypad_buttons_selected(&self.mem) {
-                    self.joypad & 0b0000_1111
-                } else {
-                    self.joypad >> 4
-                };
+                let buttons = self.joypad.keys(ioregister::joypad_buttons_selected(&self.mem));
 
                 // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
                 // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
@@ -196,39 +194,24 @@ impl<'a> Gebemula<'a> {
         cycles
     }
 
-    #[inline]
-    fn adjust_joypad(&mut self, bit: u8, pressed: bool) {
-        self.joypad = if pressed {
-            self.joypad & !(1 << bit)
+    fn set_joypad_key(&mut self, key: JoypadKey, code: Scancode, event_pump: &sdl2::EventPump) {
+        if event_pump.keyboard_state().is_scancode_pressed(code) {
+            self.joypad.press_key(key);
         } else {
-            self.joypad | (1 << bit)
-        };
+            self.joypad.release_key(key);
+        }
     }
 
-    // returns true if joypad changed (i.e. some button was pressed or released);
-    fn adjust_joypad_buttons(&mut self, event_pump: &sdl2::EventPump) {
-        self.adjust_joypad(0,
-                           event_pump.keyboard_state().is_scancode_pressed(Scancode::Z));
-        self.adjust_joypad(1,
-                           event_pump.keyboard_state().is_scancode_pressed(Scancode::X));
-        self.adjust_joypad(2,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::LShift));
-        self.adjust_joypad(3,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::LCtrl));
-        self.adjust_joypad(4,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::Right));
-        self.adjust_joypad(5,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::Left));
-        self.adjust_joypad(6,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::Up));
-        self.adjust_joypad(7,
-                           event_pump.keyboard_state()
-                                     .is_scancode_pressed(Scancode::Down));
+    fn adjust_joypad_keys(&mut self, event_pump: &sdl2::EventPump) {
+        self.set_joypad_key(joypad::A, Scancode::Z, event_pump);
+        self.set_joypad_key(joypad::B, Scancode::X, event_pump);
+        self.set_joypad_key(joypad::SELECT, Scancode::LShift, event_pump);
+        self.set_joypad_key(joypad::START, Scancode::LCtrl, event_pump);
+
+        self.set_joypad_key(joypad::RIGHT, Scancode::Right, event_pump);
+        self.set_joypad_key(joypad::LEFT, Scancode::Left, event_pump);
+        self.set_joypad_key(joypad::UP, Scancode::Up, event_pump);
+        self.set_joypad_key(joypad::DOWN, Scancode::Down, event_pump);
     }
 
     fn print_buttons() {
@@ -280,7 +263,6 @@ impl<'a> Gebemula<'a> {
         let mut last_time_seconds = time::now();
         let mut last_time = time::now();
 
-        self.joypad = 0b1111_1111;
         let mut speed_mul: u32 = 1;
         let target_fps: u32 = 60;
         let mut desired_frametime_ns: u32 = 1_000_000_000 / target_fps;
@@ -340,7 +322,7 @@ impl<'a> Gebemula<'a> {
                 }
             }
 
-            self.adjust_joypad_buttons(&event_pump);
+            self.adjust_joypad_keys(&event_pump);
             self.cycles_per_sec += self.step();
 
             /*
