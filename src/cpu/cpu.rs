@@ -3,7 +3,12 @@ use super::super::mem::mem;
 use super::super::util::util;
 use super::super::debugger;
 use cpu::{ioregister, interrupt, consts};
-use super::super::timeline::{Event, EventType};
+
+pub enum EventRequest {
+    BootstrapDisable,
+    DMATransfer(u8), //left nibble of address to be used.
+    JoypadUpdate,
+}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Flag {
@@ -377,7 +382,7 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> (Instruction, Option<Event>) {
+    pub fn run_instruction(&mut self, memory: &mut mem::Memory) -> (Instruction, Option<EventRequest>) {
 
         if self.halt_flag {
             return (self.last_instruction.unwrap(), None);
@@ -391,7 +396,7 @@ impl Cpu {
         }
         // *********************************************
 
-        let mut event: Option<Event> = None;
+        let mut event: Option<EventRequest> = None;
         let addr: u16 = self.reg16(Reg::PC);
         let byte: u8 = self.mem_next8(memory);
         let mut instruction: Instruction = Instruction::default();
@@ -404,7 +409,7 @@ impl Cpu {
                 //NOP
                 instruction.cycles = 4;
                 if addr == 0x100 {
-                    event = Some(Event::new(0, EventType::BootstrapFinished));
+                    event = Some(EventRequest::BootstrapDisable);
                 }
             },
             0x10 => {
@@ -519,15 +524,9 @@ impl Cpu {
                 //LDH (n),A
                 let immediate: u16 = 0xFF00 + (self.mem_next8(memory) as u16);
                 if immediate == consts::DMA_REGISTER_ADDR {
-                    let mut e: Event = Event::new(
-                        consts::DMA_DURATION_CYCLES,
-                        EventType::DMATransfer);
-                    e.additional_value = self.reg8(Reg::A);
-                    event = Some(e);
+                    event = Some(EventRequest::DMATransfer(self.reg8(Reg::A)));
                 } else if immediate == consts::JOYPAD_REGISTER_ADDR {
-                    let e: Event = Event::new(
-                        0, EventType::JoypadPressed);
-                    event = Some(e);
+                    event = Some(EventRequest::JoypadUpdate);
                 }
                 self.mem_write(immediate, self.reg8(Reg::A), memory);
                 instruction.cycles = 12;
@@ -545,15 +544,9 @@ impl Cpu {
                 //LD (C),A
                 let addr: u16 = 0xFF00 + (self.reg8(Reg::C) as u16);
                 if addr == consts::DMA_REGISTER_ADDR {
-                    let mut e: Event = Event::new(
-                        consts::DMA_DURATION_CYCLES,
-                        EventType::DMATransfer);
-                    e.additional_value = self.reg8(Reg::A);
-                    event = Some(e);
+                    event = Some(EventRequest::DMATransfer(self.reg8(Reg::A)));
                 } else if addr == consts::JOYPAD_REGISTER_ADDR {
-                    let e: Event = Event::new(
-                        0, EventType::JoypadPressed);
-                    event = Some(e);
+                    event = Some(EventRequest::JoypadUpdate);
                 }
                 self.mem_write(addr, self.reg8(Reg::A), memory);
                 instruction.cycles = 8

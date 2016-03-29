@@ -21,7 +21,6 @@ mod cpu;
 mod mem;
 mod util;
 mod gebemula;
-mod timeline;
 mod peripherals;
 
 use clap::{Arg, App};

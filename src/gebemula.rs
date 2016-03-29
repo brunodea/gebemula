@@ -1,11 +1,9 @@
-use timeline::{EventType, Event};
-
-use peripherals::Peripheral;
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
 
-use cpu::{ioregister, interrupt};
-use cpu::cpu::{Cpu, Instruction};
+use cpu;
+use cpu::ioregister;
+use cpu::cpu::{Cpu, Instruction, EventRequest};
 use cpu::timer::Timer;
 
 use graphics;
@@ -79,45 +77,32 @@ impl<'a> Gebemula<'a> {
         }
     }
 
-    fn run_event(&mut self, event: Event) {
-        match event.event_type {
-            EventType::BootstrapFinished => {
-                self.mem.disable_bootstrap();
-            }
-            EventType::DMATransfer => {
-                self.mem.set_access_oam(true);
-                ioregister::dma_transfer(event.additional_value, &mut self.mem);
-                self.mem.set_access_oam(false);
-            }
-            EventType::JoypadPressed => {
-                let buttons = self.joypad.keys(ioregister::joypad_buttons_selected(&self.mem));
-                // old buttons & !new_buttons != 0 -> true if there was a change from 1 to 0.
-                // new_buttons < 0b1111 -> make sure at least 1 button was pressed.
-                if ioregister::joypad_buttons(&self.mem) & !buttons != 0 && buttons < 0b1111 {
-                    // interrupt is requested when a button goes from 1 to 0.
-                    interrupt::request(interrupt::Interrupt::Joypad, &mut self.mem);
-                }
-
-                ioregister::joypad_set_buttons(buttons, &mut self.mem);
-            }
-        }
-
-    }
-
     fn step(&mut self) -> u32 {
+        let mut extra_cycles: u32 = 0;
         let mut cycles: u32 = 0;
-        while cycles < self.lcd.stat_mode_duration() {
+        while cycles < self.lcd.stat_mode_duration() + extra_cycles {
             //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
             //    self.mem.set_access_vram(true);
             //    self.mem.set_access_oam(true);
             //}
-            let (instruction, one_event): (Instruction, Option<Event>) =
+            let (instruction, event_request): (Instruction, Option<EventRequest>) =
                                            self.cpu.run_instruction(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
-            if let Some(e) = one_event {
-                self.run_event(e);
-                cycles += e.duration;
-                self.timer.update(e.duration, &mut self.mem);
+            if let Some(e) = event_request {
+                match e {
+                    EventRequest::BootstrapDisable => {
+                        self.mem.disable_bootstrap();
+                    },
+                    EventRequest::DMATransfer(l_nibble) => {
+                        self.mem.set_access_oam(true);
+                        ioregister::dma_transfer(l_nibble, &mut self.mem);
+                        self.mem.set_access_oam(false);
+                        extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
+                    },
+                    EventRequest::JoypadUpdate => {
+                        self.joypad.update_joypad_register(&mut self.mem);
+                    },
+                }
             }
             self.cpu.handle_interrupts(&mut self.mem);
             if cfg!(debug_assertions) {
@@ -125,7 +110,7 @@ impl<'a> Gebemula<'a> {
             }
             cycles += instruction.cycles;
         }
-        self.lcd.handle_event(&mut self.mem);
+        self.lcd.stat_mode_change(&mut self.mem);
         cycles
     }
 

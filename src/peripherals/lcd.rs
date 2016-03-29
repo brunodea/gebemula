@@ -4,8 +4,6 @@ use super::super::cpu::{self, ioregister, interrupt};
 use super::super::graphics;
 use super::super::graphics::graphics::Graphics;
 
-use peripherals::Peripheral;
-
 #[derive(Copy, Clone, PartialEq)]
 enum StatMode {
     HBlank,
@@ -48,8 +46,22 @@ impl Default for LCD {
     }
 }
 
-impl Peripheral for LCD {
-    fn handle_event(&mut self, memory: &mut Memory) {
+impl LCD {
+    pub fn has_entered_vblank(&self, memory: &Memory) -> bool {
+        self.curr_stat_mode == StatMode::VBlank &&
+            memory.read_byte(cpu::consts::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
+    }
+    pub fn stat_mode_duration(&self) -> u32 {
+        self.curr_stat_mode.duration()
+    }
+    pub fn restart(&mut self, memory: &mut Memory) {
+        self.curr_stat_mode = StatMode::OAM;
+        self.graphics.restart();
+        ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
+        memory.set_access_vram(true);
+        memory.set_access_oam(false);
+    }
+    pub fn stat_mode_change(&mut self, memory: &mut Memory) {
         match self.curr_stat_mode {
             StatMode::HBlank => {
                 let mut ly: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
@@ -93,22 +105,5 @@ impl Peripheral for LCD {
         ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
         ioregister::update_stat_reg_coincidence_flag(memory);
         ioregister::lcdc_stat_interrupt(memory);
-    }
-}
-
-impl LCD {
-    pub fn has_entered_vblank(&self, memory: &Memory) -> bool {
-        self.curr_stat_mode == StatMode::VBlank &&
-            memory.read_byte(cpu::consts::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
-    }
-    pub fn stat_mode_duration(&self) -> u32 {
-        self.curr_stat_mode.duration()
-    }
-    pub fn restart(&mut self, memory: &mut Memory) {
-        self.curr_stat_mode = StatMode::OAM;
-        self.graphics.restart();
-        ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
-        memory.set_access_vram(true);
-        memory.set_access_oam(false);
     }
 }
