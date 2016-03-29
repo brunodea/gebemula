@@ -36,7 +36,7 @@ fn main() {
     let args = App::new("Gebemula")
         .author("Bruno Romero de Azevedo <brunordea@gmail.com\n\
                     Hugo Stefan Kaus Puhlmann <hugopuhlmann@gmail.com>\n\
-                    Vitor da Silva <vitords@inf.ufsm.br>\n\
+                    Vitor da Silva <vitords.42@gmail.com>\n\
                     Yuri Kunde Schlesner <yuriks@yuriks.net>")
         .about("Emulator for GameBoy written in Rust.")
         .arg(Arg::with_name("INPUT_ROM")
