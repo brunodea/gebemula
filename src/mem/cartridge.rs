@@ -6,6 +6,7 @@ use mem::mapper::{Mapper, NullMapper};
 use mem::mapper::rom::RomMapper;
 use mem::mapper::mbc1::Mbc1Mapper;
 use mem::mapper::mbc3::Mbc3Mapper;
+use mem::mapper::mbc5::Mbc5Mapper;
 use std::str;
 use std::cmp;
 
@@ -203,6 +204,9 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
         MapperType::Mbc3 => {
             Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY),
                                      extra_hw.contains(RTC)))
+        },
+        MapperType::Mbc5 => {
+            Box::new(Mbc5Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
         },
         _ => {
             panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
