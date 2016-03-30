@@ -5,6 +5,7 @@ use mem::mem::Memory;
 use mem::mapper::{Mapper, NullMapper};
 use mem::mapper::rom::RomMapper;
 use mem::mapper::mbc1::Mbc1Mapper;
+use mem::mapper::mbc2::Mbc2Mapper;
 use mem::mapper::mbc3::Mbc3Mapper;
 use mem::mapper::mbc5::Mbc5Mapper;
 use std::str;
@@ -176,7 +177,10 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     let cart_type_id = rom[CARTRIDGE_TYPE_ADDR as usize];
     let (mapper_type, extra_hw) = cart_type_from_id(cart_type_id);
     let rom_size = parse_rom_size(rom[ROM_SIZE_ADDR as usize]);
-    let ram_size = parse_ram_size(rom[RAM_SIZE_ADDR as usize]);
+    let ram_size = match mapper_type {
+        MapperType::Mbc2 => 512, // MBC2 always has 512 nibbles of internal SRAM
+        _ => parse_ram_size(rom[RAM_SIZE_ADDR as usize]),
+    };
 
     // Copy ROM data from file to backing memory
     let mut rom_data = vec![0xFF; rom_size].into_boxed_slice();
@@ -200,6 +204,9 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
         },
         MapperType::Mbc1 => {
             Box::new(Mbc1Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
+        },
+        MapperType::Mbc2 => {
+            Box::new(Mbc2Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
         },
         MapperType::Mbc3 => {
             Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY),
