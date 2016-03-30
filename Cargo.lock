@@ -3,9 +3,9 @@ name = "gebemula"
 version = "0.1.0"
 dependencies = [
  "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "clap 2.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "clippy 0.0.56 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2 0.16.1 (git+https://github.com/AngryLawyer/rust-sdl2)",
+ "clap 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clippy 0.0.58 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.17.0 (git+https://github.com/AngryLawyer/rust-sdl2)",
  "time 0.1.34 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -31,7 +31,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "clap"
-version = "2.2.2"
+version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "ansi_term 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -44,10 +44,10 @@ dependencies = [
 
 [[package]]
 name = "clippy"
-version = "0.0.56"
+version = "0.0.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "regex-syntax 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex-syntax 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "semver 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-normalization 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -106,8 +106,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sdl2"
-version = "0.16.1"
-source = "git+https://github.com/AngryLawyer/rust-sdl2#159c6af7a2fed4741b86cdd782d4f48be04cf537"
+version = "0.17.0"
+source = "git+https://github.com/AngryLawyer/rust-sdl2#ed5a755e849e9fbe8c1840720b3800d841ff3afb"
 dependencies = [
  "bitflags 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -120,7 +120,7 @@ dependencies = [
 [[package]]
 name = "sdl2-sys"
 version = "0.8.1"
-source = "git+https://github.com/AngryLawyer/rust-sdl2#159c6af7a2fed4741b86cdd782d4f48be04cf537"
+source = "git+https://github.com/AngryLawyer/rust-sdl2#ed5a755e849e9fbe8c1840720b3800d841ff3afb"
 dependencies = [
  "libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
