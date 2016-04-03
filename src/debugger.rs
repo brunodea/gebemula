@@ -1,6 +1,5 @@
 use cpu;
 use cpu::cpu::{Cpu, Reg, Instruction};
-use cpu::timer::Timer;
 use mem;
 use mem::mem::Memory;
 use std::io::{self, Write};
@@ -187,7 +186,7 @@ impl Default for Debugger {
 }
 
 impl Debugger {
-    pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
+    pub fn run(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
         if self.display_header {
             println!("##################################");
             println!("#     Gebemula Debug Console     #");
@@ -212,7 +211,7 @@ impl Debugger {
             }
         };
         if go_to_loop {
-            self.read_loop(instruction, cpu, mem, timer);
+            self.read_loop(instruction, cpu, mem);
         }
     }
     pub fn display_info(&self, mem: &Memory) {
@@ -222,7 +221,7 @@ impl Debugger {
         let cart_string = mem::cartridge::cartridge_type_string(mapper_type, extra_cart_hw);
         println!("Cartridge Type: {}", cart_string);
     }
-    fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory, timer: &Timer) {
+    fn read_loop(&mut self, instruction: &Instruction, cpu: &Cpu, mem: &Memory) {
         loop {
             self.should_run_cpu = false;
             print!("gdc> "); //gdc: gebemula debugger console
@@ -231,7 +230,7 @@ impl Debugger {
             match io::stdin().read_line(&mut input) {
                 Ok(_) => {
                     input.pop(); //removes the '\n'.
-                    self.parse(&input, instruction, cpu, mem, timer);
+                    self.parse(&input, instruction, cpu, mem);
                 }
                 Err(error) => println!("error: {}", error),
             }
@@ -262,8 +261,7 @@ impl Debugger {
              command: &str,
              instruction: &Instruction,
              cpu: &Cpu,
-             mem: &Memory,
-             timer: &Timer) {
+             mem: &Memory) {
         let aux: &mut Vec<&str> = &mut command.trim().split(' ').collect();
         let mut words: Vec<&str> = Vec::new();
         for w in aux.iter().filter(|x| *x.to_owned() != "") {
@@ -273,7 +271,7 @@ impl Debugger {
         if !words.is_empty() {
             match words[0] {
                 "show" => {
-                    Debugger::parse_show(&words[1..], cpu, mem, timer);
+                    Debugger::parse_show(&words[1..], cpu, mem);
                     self.should_run_cpu = false;
                 }
                 "step" => {
@@ -310,7 +308,7 @@ impl Debugger {
         if error_msg != "" {
             println!("***ERROR: {}", error_msg);
         }
-        println!("- show [cpu|ioregs|events|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state \
+        println!("- show [cpu|ioregs|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state \
                   of component.");
         println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print \
                   it.\n\tIf a number is set, run step num times and print the last one.\n\tIf a \
@@ -405,7 +403,7 @@ impl Debugger {
         Some(res)
     }
 
-    fn parse_show(parameters: &[&str], cpu: &Cpu, mem: &Memory, timer: &Timer) {
+    fn parse_show(parameters: &[&str], cpu: &Cpu, mem: &Memory) {
         if parameters.is_empty() {
             Debugger::display_help("Invalid number of parameters for 'show'.");
             return;
@@ -449,9 +447,6 @@ impl Debugger {
             }
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);
-            }
-            "events" => {
-                println!("{}", timer.events_to_str());
             }
             _ => {
                 Debugger::display_help(&format!("Invalid parameter for 'show': {}\n",

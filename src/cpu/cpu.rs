@@ -361,7 +361,12 @@ impl Cpu {
     #[inline]
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value: u8 = match address {
-            consts::DIV_REGISTER_ADDR | consts::LY_REGISTER_ADDR => 0,
+            consts::DIV_REGISTER_ADDR => {
+                //zero out the internal counter too
+                memory.write_byte(consts::TIMER_INTERNAL_COUNTER_ADDR, 0);
+                0
+            },
+            consts::LY_REGISTER_ADDR => 0,
             _ => value,
         };
         memory.write_byte(address, value);

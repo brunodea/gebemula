@@ -85,8 +85,10 @@ impl<'a> Gebemula<'a> {
             //    self.mem.set_access_vram(true);
             //    self.mem.set_access_oam(true);
             //}
+
             let (instruction, event_request): (Instruction, Option<EventRequest>) =
                                            self.cpu.run_instruction(&mut self.mem);
+            self.cpu.handle_interrupts(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = event_request {
                 match e {
@@ -104,9 +106,8 @@ impl<'a> Gebemula<'a> {
                     },
                 }
             }
-            self.cpu.handle_interrupts(&mut self.mem);
             if cfg!(debug_assertions) {
-                self.debugger.run(&instruction, &self.cpu, &self.mem, &self.timer);
+                self.debugger.run(&instruction, &self.cpu, &self.mem);
             }
             cycles += instruction.cycles;
         }
