@@ -453,30 +453,30 @@ impl Cpu {
             /**************************************/
             0x02 | 0x12 => {
                 //LD (rr),A;
-                instruction = self.exec_ld_nn_a(byte, memory);
+                instruction = self.exec_ld_rr_a(byte, memory);
             },
             0x22 => {
                 //LD (HL+),A
-                instruction = self.exec_ld_nn_a(byte, memory);
+                instruction = self.exec_ld_rr_a(byte, memory);
                 self.increment_reg(Reg::HL);
             },
             0x32 => {
                 //LD (HL-),A
-                instruction = self.exec_ld_nn_a(byte, memory);
+                instruction = self.exec_ld_rr_a(byte, memory);
                 self.decrement_reg(Reg::HL);
             },
             0x0A | 0x1A => {
                 //LD A,(rr);
-                instruction = self.exec_ld_a_nn(byte, memory);
+                instruction = self.exec_ld_a_rr(byte, memory);
             },
             0x2A => {
                 //LD A,(HL+);
-                instruction = self.exec_ld_a_nn(byte, memory);
+                instruction = self.exec_ld_a_rr(byte, memory);
                 self.increment_reg(Reg::HL);
             },
             0x3A => {
                 //LD A,(HL-)
-                instruction = self.exec_ld_a_nn(byte, memory);
+                instruction = self.exec_ld_a_rr(byte, memory);
                 self.decrement_reg(Reg::HL);
             },
             0x06 | 0x16 | 0x26 |
@@ -974,7 +974,7 @@ impl Cpu {
         }
         let bit: u8 = (opcode >> 3) & 0b111;
 
-        let cycles: u32 = if reg == Reg::HL {
+        let mut cycles: u32 = if reg == Reg::HL {
             16
         } else {
             8
@@ -1040,6 +1040,11 @@ impl Cpu {
             }
             0x40...0x7F => {
                 // BIT b,r; BIT b,(HL)
+                cycles = if reg == Reg::HL {
+                    12
+                } else {
+                    8
+                };
                 self.flag_set(((value >> bit) & 0b1) == 0b0, Flag::Z);
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
@@ -1054,11 +1059,7 @@ impl Cpu {
                 // SET b,r; SET b,(HL)
                 value = value | (1 << bit);
             }
-            _ => {
-                panic!("CB-prefixed opcode not yet implemented: {:#01$x}",
-                       opcode,
-                       2)
-            }
+            _ => unreachable!(),
         }
 
         if !is_bit_op {
@@ -1195,12 +1196,13 @@ impl Cpu {
     fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let reg: Reg = Reg::pair_from_ddd(opcode >> 3);
         let result: u8;
-        let mut cycles: u32 = 4;
+        let cycles: u32;
         let reg_val: u8;
         if reg == Reg::HL {
             cycles = 12;
             reg_val = self.mem_at_reg(Reg::HL, memory);
         } else {
+            cycles = 4;
             reg_val = self.reg8(reg);
         }
         match opcode {
@@ -1350,7 +1352,7 @@ impl Cpu {
         instr
     }
 
-    fn exec_ld_a_nn(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_a_rr(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
@@ -1364,7 +1366,7 @@ impl Cpu {
         instr
     }
 
-    fn exec_ld_nn_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_rr_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
         let mut reg: Reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
