@@ -1,5 +1,5 @@
 use cpu;
-use cpu::cpu::{Cpu, Reg, Instruction};
+use cpu::{Cpu, Reg, Instruction};
 use mem;
 use mem::mem::Memory;
 use std::io::{self, Write};

@@ -1,13 +1,7 @@
 #![feature(box_syntax)]
 // This is soon going to be stabilized in 1.9.0
-#![feature(copy_from_slice)]
 #![feature(plugin)]
-#![plugin(clippy)]
 
-// Disable some clippy warnings we don't particularly care about
-#![allow(similar_names)]
-#![allow(many_single_char_names)]
-#![allow(if_not_else)]
 
 #[macro_use]
 extern crate bitflags;

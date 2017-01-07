@@ -6,7 +6,6 @@ authors = ["Bruno Romero de Azevedo <brunodea@inf.ufsm.br>", "Hugo Stefan Kaus P
 [dependencies]
 bitflags = "0.5"
 clap = "2.2.2"
-clippy = "*"
 time = "0.1"
 
 [dependencies.sdl2]

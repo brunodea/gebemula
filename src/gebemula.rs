@@ -3,7 +3,7 @@ use peripherals::lcd::LCD;
 
 use cpu;
 use cpu::ioregister;
-use cpu::cpu::{Cpu, Instruction, EventRequest};
+use cpu::{Cpu, Instruction, EventRequest};
 use cpu::timer::Timer;
 
 use graphics;
