@@ -46,21 +46,21 @@ pub fn address(interrupt: Interrupt) -> u16 {
 
 #[inline]
 fn is_set_bit(bit: u8, addr: u16, memory: &mem::Memory) -> bool {
-    let reg: u8 = memory.read_byte(addr);
+    let reg = memory.read_byte(addr);
     ((reg >> bit) & 0b1) == 0b1
 }
 
 #[inline]
 fn set_bit(bit: u8, addr: u16, memory: &mut mem::Memory) {
-    let reg: u8 = memory.read_byte(addr);
-    let new: u8 = reg | (1 << bit);
+    let reg = memory.read_byte(addr);
+    let new = reg | (1 << bit);
     memory.write_byte(addr, new);
 }
 
 #[inline]
 fn unset_bit(bit: u8, addr: u16, memory: &mut mem::Memory) {
-    let reg: u8 = memory.read_byte(addr);
-    let new: u8 = reg & !(1 << bit);
+    let reg = memory.read_byte(addr);
+    let new = reg & !(1 << bit);
     memory.write_byte(addr, new);
 }
 
@@ -83,7 +83,7 @@ pub fn remove_request(interrupt: Interrupt, memory: &mut mem::Memory) {
 pub fn next_request(memory: &mem::Memory) -> Option<Interrupt> {
     // order of priority
     for bit in 0..5 {
-        let interrupt: Interrupt = from_bit(bit);
+        let interrupt = from_bit(bit);
         if is_enabled(interrupt, memory) && is_requested(interrupt, memory) {
             return Some(interrupt);
         }

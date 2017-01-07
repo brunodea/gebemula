@@ -36,12 +36,12 @@ impl Default for Memory {
 impl Memory {
     // returns a string with the memory data from min_addr to max_addr.
     pub fn format(&self, min_addr: Option<u16>, max_addr: Option<u16>) -> String {
-        let columns: u8 = 16;
+        let columns = 16;
 
-        let mut res: String = "".to_owned();
+        let mut res = "".to_owned();
 
-        let mut to: usize = 0xffff;
-        let mut from: usize = 0;
+        let mut to = 0xffff;
+        let mut from = 0;
 
         if let Some(fr) = min_addr {
             from = fr as usize;
@@ -50,12 +50,12 @@ impl Memory {
             to = t as usize;
         }
 
-        let mut i: usize = from;
+        let mut i = from;
         while i >= from && i < to {
             if i as u8 % columns == 0 {
                 res = res + &format!("\n{:01$x}: ", i, 8);
             }
-            let byte: u8 = self.read_byte(i as u16);
+            let byte = self.read_byte(i as u16);
             res = res + &format!("{:01$x} ", byte, 2);
 
             i += 1;

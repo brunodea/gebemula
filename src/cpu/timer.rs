@@ -32,7 +32,7 @@ impl Timer {
             interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
         } else {
             let tac = memory.read_byte(consts::TAC_REGISTER_ADDR);
-            let timer_bit: u8 = match tac & 0b11 {
+            let timer_bit = match tac & 0b11 {
                 0 => 9,
                 1 => 3,
                 2 => 5,
@@ -41,11 +41,11 @@ impl Timer {
             };
 
             //TODO implement glitch?
-            let old_bit: u8 = ((old_internal_timer >> timer_bit) & 0b1) as u8;
-            let new_bit: u8 = ((internal_timer >> timer_bit) & 0b1) as u8;
+            let old_bit = ((old_internal_timer >> timer_bit) & 0b1) as u8;
+            let new_bit = ((internal_timer >> timer_bit) & 0b1) as u8;
             // timer start bit & timer bit from 1 to 0.
             if ((tac >> 2) & 0b1) & (old_bit & !new_bit) == 0b1 {
-                let tima: u8 = memory.read_byte(consts::TIMA_REGISTER_ADDR).wrapping_add(1);
+                let tima = memory.read_byte(consts::TIMA_REGISTER_ADDR).wrapping_add(1);
                 if tima == 0 {
                     // overflows
                     self.timer_overflow = true;

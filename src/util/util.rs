@@ -39,7 +39,7 @@ pub fn twos_complement(mut value: u16) -> u16 {
 }
 
 pub fn sign_extend(value: u8) -> u16 {
-    let mut res: u16 = value as u16;
+    let mut res = value as u16;
     if (value >> 7) & 0b1 == 0b1 {
         res = 0xFF00 | res;
     }

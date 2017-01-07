@@ -64,7 +64,7 @@ impl LCD {
     pub fn stat_mode_change(&mut self, memory: &mut Memory) {
         match self.curr_stat_mode {
             StatMode::HBlank => {
-                let mut ly: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let mut ly = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 ly += 1;
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX {
                     self.curr_stat_mode = StatMode::VBlank;
@@ -77,7 +77,7 @@ impl LCD {
                 memory.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
             },
             StatMode::VBlank => {
-                let mut ly: u8 = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let mut ly = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
                     self.curr_stat_mode = StatMode::OAM;
                     ly = 0;

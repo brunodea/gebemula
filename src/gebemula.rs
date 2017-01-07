@@ -78,8 +78,8 @@ impl<'a> Gebemula<'a> {
     }
 
     fn step(&mut self) -> u32 {
-        let mut extra_cycles: u32 = 0;
-        let mut cycles: u32 = 0;
+        let mut extra_cycles = 0;
+        let mut cycles = 0;
         while cycles < self.lcd.stat_mode_duration() + extra_cycles {
             //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
             //    self.mem.set_access_vram(true);
@@ -184,10 +184,10 @@ impl<'a> Gebemula<'a> {
         let mut last_time_seconds = time::now();
         let mut last_time = time::now();
 
-        let mut speed_mul: u32 = 1;
-        let target_fps: u32 = 60;
-        let mut desired_frametime_ns: u32 = 1_000_000_000 / target_fps;
-        let mut fps: u32 = 0;
+        let mut speed_mul = 1;
+        let target_fps = 60;
+        let mut desired_frametime_ns = 1_000_000_000 / target_fps;
+        let mut fps = 0;
         if !cfg!(debug_assertions) {
             self.debugger.display_info(&self.mem);
         }
@@ -280,7 +280,7 @@ impl<'a> Gebemula<'a> {
                 }
 
                 let now = time::now();
-                let elapsed: u32 = (now - last_time).num_nanoseconds().unwrap() as u32;
+                let elapsed = (now - last_time).num_nanoseconds().unwrap() as u32;
                 if elapsed < desired_frametime_ns {
                     thread::sleep(std::time::Duration::new(0, desired_frametime_ns - elapsed));
                 }
@@ -291,7 +291,7 @@ impl<'a> Gebemula<'a> {
             let now = time::now();
             if now - last_time_seconds >= time::Duration::seconds(1) {
                 last_time_seconds = now;
-                let title: &str = &format!("{} Gebemula - {}", fps, self.cycles_per_sec);
+                let title = &format!("{} Gebemula - {}", fps, self.cycles_per_sec);
                 renderer.window_mut().unwrap().set_title(title).unwrap();
                 self.cycles_per_sec = 0;
                 fps = 0;

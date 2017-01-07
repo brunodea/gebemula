@@ -129,14 +129,14 @@ pub fn cart_type_from_id(id: u8) -> (MapperType, CartExtraHardware) {
 }
 
 pub fn game_title_str(memory: &Memory) -> String {
-    let game_title_u8: &mut Vec<u8> = &mut Vec::new();
+    let game_title_u8 = &mut Vec::new();
     for byte in GAME_TITLE_ADDR_START..(GAME_TITLE_ADDR_END + 1) {
         if byte == 0 {
             break;
         }
         game_title_u8.push(memory.read_byte(byte));
     }
-    let game_title: &str = match str::from_utf8(&game_title_u8) {
+    let game_title = match str::from_utf8(&game_title_u8) {
         Ok(v) => v,
         Err(_) => "Undefined",
     };

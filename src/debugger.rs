@@ -65,9 +65,9 @@ impl BreakCommand {
             Debugger::display_help("Invalid number of arguments for 'break'\n");
             return false;
         }
-        let mut should_run_cpu: bool = false;
-        let mut has_cpu_human: bool = false;
-        let mut cpu_human_param_index: usize = 1;
+        let mut should_run_cpu = false;
+        let mut has_cpu_human = false;
+        let mut cpu_human_param_index = 1;
         if params.len() == 1 || params[1] == "cpu" || params[1] == "human" {
             if let Some(addr) = Debugger::hex_from_str(&params[0]) {
                 self.break_addr = Some(addr);
@@ -79,7 +79,7 @@ impl BreakCommand {
             }
         } else {
             should_run_cpu = true;
-            let ioregister: Option<u16> = match params[0] {
+            let ioregister = match params[0] {
                 "LCDC" => Some(cpu::consts::LCDC_REGISTER_ADDR),
                 "LYC" => Some(cpu::consts::LYC_REGISTER_ADDR),
                 "LY" => Some(cpu::consts::LY_REGISTER_ADDR),
@@ -94,7 +94,7 @@ impl BreakCommand {
                 "TIMA" => Some(cpu::consts::TIMA_REGISTER_ADDR),
                 _ => None,
             };
-            let reg: Option<Reg> = match params[0] {
+            let reg = match params[0] {
                 "A" => Some(Reg::A),
                 "F" => Some(Reg::F),
                 "B" => Some(Reg::B),
@@ -200,7 +200,7 @@ impl Debugger {
             Debugger::print_cpu_human(self.run_debug.unwrap(), instruction, cpu);
             return;
         }
-        let mut go_to_loop: bool = self.break_command.run(instruction, cpu, mem);
+        let mut go_to_loop = self.break_command.run(instruction, cpu, mem);
         if go_to_loop && self.num_steps > 0 {
             self.num_steps -= 1;
             Debugger::print_cpu_human(self.steps_debug, instruction, cpu);
@@ -241,11 +241,11 @@ impl Debugger {
     }
 
     fn print_cpu_human(mask: u8, instruction: &Instruction, cpu: &Cpu) {
-        let debug_cpu: bool = mask & 0b1 == 0b1;
-        let debug_human: bool = (mask >> 1) & 0b1 == 0b1;
+        let debug_cpu = mask & 0b1 == 0b1;
+        let debug_human = (mask >> 1) & 0b1 == 0b1;
 
         if debug_human {
-            let v: &str = if debug_cpu {
+            let v = if debug_cpu {
                 ":\n\t"
             } else {
                 "\n"
@@ -263,7 +263,7 @@ impl Debugger {
              cpu: &Cpu,
              mem: &Memory) {
         let aux: &mut Vec<&str> = &mut command.trim().split(' ').collect();
-        let mut words: Vec<&str> = Vec::new();
+        let mut words = Vec::new();
         for w in aux.iter().filter(|x| *x.to_owned() != "") {
             words.push(w.trim());
         }
@@ -369,8 +369,8 @@ impl Debugger {
     }
 
     fn cpu_human_in_params(params: &[&str]) -> Option<u8> {
-        let mut cpu: bool = false;
-        let mut human: bool = false;
+        let mut cpu = false;
+        let mut human = false;
         for param in params {
             match *param {
                 "cpu" => {
@@ -386,7 +386,7 @@ impl Debugger {
                 }
             }
         }
-        let mut res: u8 = 0;
+        let mut res = 0;
         if cpu || human {
             res = if human {
                 0b10
@@ -413,21 +413,21 @@ impl Debugger {
                 println!("{}", cpu);
             }
             "ioregs" => {
-                let tima: u8 = mem.read_byte(cpu::consts::TIMA_REGISTER_ADDR);
-                let tma: u8 = mem.read_byte(cpu::consts::TMA_REGISTER_ADDR);
-                let tac: u8 = mem.read_byte(cpu::consts::TAC_REGISTER_ADDR);
-                let div: u8 = mem.read_byte(cpu::consts::DIV_REGISTER_ADDR);
-                let if_: u8 = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
-                let ie: u8 = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
-                let ly: u8 = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
-                let lcdc: u8 = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
-                let scx: u8 = mem.read_byte(cpu::consts::SCX_REGISTER_ADDR);
-                let scy: u8 = mem.read_byte(cpu::consts::SCY_REGISTER_ADDR);
-                let stat: u8 = mem.read_byte(cpu::consts::STAT_REGISTER_ADDR);
-                let lyc: u8 = mem.read_byte(cpu::consts::LYC_REGISTER_ADDR);
-                let wx: u8 = mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
-                let wy: u8 = mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
-                let p1: u8 = mem.read_byte(cpu::consts::JOYPAD_REGISTER_ADDR);
+                let tima = mem.read_byte(cpu::consts::TIMA_REGISTER_ADDR);
+                let tma = mem.read_byte(cpu::consts::TMA_REGISTER_ADDR);
+                let tac = mem.read_byte(cpu::consts::TAC_REGISTER_ADDR);
+                let div = mem.read_byte(cpu::consts::DIV_REGISTER_ADDR);
+                let if_ = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
+                let ie = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
+                let ly = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let lcdc = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
+                let scx = mem.read_byte(cpu::consts::SCX_REGISTER_ADDR);
+                let scy = mem.read_byte(cpu::consts::SCY_REGISTER_ADDR);
+                let stat = mem.read_byte(cpu::consts::STAT_REGISTER_ADDR);
+                let lyc = mem.read_byte(cpu::consts::LYC_REGISTER_ADDR);
+                let wx = mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
+                let wy = mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
+                let p1 = mem.read_byte(cpu::consts::JOYPAD_REGISTER_ADDR);
 
                 println!("IF: {:#b}", if_);
                 println!("IE: {:#b}", ie);
@@ -484,12 +484,12 @@ impl Debugger {
 pub fn instr_to_human(instruction: &Instruction) -> String {
     if let Some(_) = instruction.prefix {
         // CB-prefixed instructions
-        let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+        let reg = Reg::pair_from_ddd(instruction.opcode);
         let mut r = format!("{:?}", reg);
         if reg == Reg::HL {
             r = "(HL)".to_owned();
         }
-        let bit: u8 = instruction.opcode >> 3 & 0b111;
+        let bit = instruction.opcode >> 3 & 0b111;
         match instruction.opcode {
             0x00...0x07 => format!("rlc {}", r),
             0x08...0x0F => format!("rrc {}", r),
@@ -573,7 +573,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             /**************************************/
             0x02 | 0x12 => {
                 //LD (rr),A;
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("ld ({:?}),A", reg)
             },
             0x22 => {
@@ -586,7 +586,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0x0A | 0x1A => {
                 //LD A,(rr);
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("ld ({:?}),A", reg)
             },
             0x2A => {
@@ -601,7 +601,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             0x0E | 0x1E | 0x2E |
             0x3E | 0x36 => {
                 //LD r,n; LD (HL),n
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
+                let reg = Reg::pair_from_ddd(instruction.opcode >> 3);
                 let mut r = format!("{:?}", reg);
                 if reg == Reg::HL {
                     r = "(HL)".to_owned();
@@ -611,8 +611,8 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             0x40 ... 0x6F | 0x70 ... 0x75 |
             0x77 ... 0x7F => {
                 //LD r,r; LD r,(HL); LD (HL),r
-                let reg_rhs: Reg = Reg::pair_from_ddd(instruction.opcode);
-                let reg_lhs: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
+                let reg_rhs = Reg::pair_from_ddd(instruction.opcode);
+                let reg_lhs = Reg::pair_from_ddd(instruction.opcode >> 3);
 
                 let r: String;
                 let l: String;
@@ -658,7 +658,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             /***************************************/
             0x01 | 0x11 | 0x21 | 0x31 => {
                 //LD rr,nn
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("ld {:?},{:#x}", reg, instruction.imm16.unwrap())
             },
             0x08 => {
@@ -667,7 +667,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xC1 | 0xD1 | 0xE1 | 0xF1 => {
                 //POP rr
-                let mut reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let mut reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 if reg == Reg::SP {
                     reg = Reg::AF;
                 }
@@ -675,7 +675,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             },
             0xC5 | 0xD5 | 0xE5 | 0xF5 => {
                 //PUSH rr
-                let mut reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let mut reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 if reg == Reg::SP {
                     reg = Reg::AF;
                 }
@@ -693,7 +693,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             /* 8 bit arithmetic/logical instructions */
             /*****************************************/
             0x80 ... 0x87 => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -701,7 +701,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("add A,{}", v)
             },
             0x88 ... 0x8F => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -709,7 +709,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("adc A,{}", v)
             },
             0x90 ... 0x97 => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -717,7 +717,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("sub {}", v)
             },
             0x98 ... 0x9F => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -725,7 +725,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("sbc A,{}", v)
             },
             0xA0 ... 0xA7 => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -733,7 +733,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("and {}", v)
             },
             0xA8 ... 0xAF => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -741,7 +741,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("xor {}", v)
             },
             0xB0 ... 0xB7 => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -749,7 +749,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 format!("or {}", v)
             },
             0xB8 ... 0xBF => {
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode);
+                let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -783,7 +783,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             0x04 | 0x14 | 0x24 | 0x34 |
             0x0C | 0x1C | 0x2C | 0x3C => {
                 //INC r; INC (HL)
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
+                let reg = Reg::pair_from_ddd(instruction.opcode >> 3);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned()
@@ -793,7 +793,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             0x05 | 0x15 | 0x25 | 0x35 |
             0x0D | 0x1D | 0x2D | 0x3D => {
                 //DEC r; DEC (HL)
-                let reg: Reg = Reg::pair_from_ddd(instruction.opcode >> 3);
+                let reg = Reg::pair_from_ddd(instruction.opcode >> 3);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
                     v = "(HL)".to_owned();
@@ -817,17 +817,17 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             /******************************************/
             0x03 | 0x13 | 0x23 | 0x33 => {
                 //INC rr
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("inc {:?}", reg)
             },
             0x0B | 0x1B | 0x2B | 0x3B => {
                 //DEC rr
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("dec {:?}", reg)
             },
             0x09 | 0x19 | 0x29 | 0x39 => {
                 //ADD HL,rr
-                let reg: Reg = Reg::pair_from_dd(instruction.opcode >> 4);
+                let reg = Reg::pair_from_dd(instruction.opcode >> 4);
                 format!("add HL,{:?}", reg) },
             0xE8 => {
                 //ADD SP,n
