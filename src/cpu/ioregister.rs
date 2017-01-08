@@ -41,6 +41,43 @@ pub fn dma_transfer(start_address: u8, memory: &mut mem::Memory) {
     }
 }
 
+// returns true if finished the transfer.
+pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> bool {
+    let hdma1 = memory.read_byte(consts::HDMA1_REGISTER_ADDR) as u16;
+    let hdma2 = memory.read_byte(consts::HDMA2_REGISTER_ADDR) as u16 & 0b0000; //ignore lower 4 bits.
+    let hdma3 = ((memory.read_byte(consts::HDMA3_REGISTER_ADDR) & 0b0001_1111) | 0b1000_0000) as u16; //ignore upper 3 bits (always VRAM).
+    let hdma4 = memory.read_byte(consts::HDMA4_REGISTER_ADDR) as u16 & 0b0000; //ignore lower 4 bits.
+    let hdma5 = memory.read_byte(consts::HDMA5_REGISTER_ADDR);
+
+    let src_start = (hdma1 << 8) | hdma2;
+    let dst_start = (hdma3 << 8) | hdma4;
+    let mut len = ((hdma5 & 0b0111_1111) / 0x10).wrapping_sub(1);
+    // TODO: make sure it is len that has to be 0xFF and not the 7 bits of hdma5.
+    if len == 0xFF {
+        memory.write_byte(consts::HDMA5_REGISTER_ADDR, len);
+        
+        true
+    } else {
+        let mut mode = hdma5 >> 7;
+
+        if mode == 0b1 {
+            //H-Blank DMA
+            len = len.wrapping_sub(0x10);
+            mode = if len == 0 { 0 } else { 1 };
+            //TODO: make sure it is okay to change the length from here.
+            memory.write_byte(consts::HDMA5_REGISTER_ADDR, (mode << 7) | len);
+            len = 0x10;
+        }
+
+        for i in 0x0..(len as u16) {
+            let byte = memory.read_byte(src_start + i);
+            memory.write_byte(dst_start + i, byte);
+        }
+
+        mode == 0
+    }
+}
+
 pub struct LCDCRegister;
 
 impl LCDCRegister {

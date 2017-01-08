@@ -34,6 +34,7 @@ impl StatMode {
 pub struct LCD {
     curr_stat_mode: StatMode,
     pub graphics: Graphics,
+    cgb_dma_requested: bool,
 }
 
 impl Default for LCD {
@@ -41,6 +42,7 @@ impl Default for LCD {
         LCD {
             curr_stat_mode: StatMode::OAM,
             graphics: Graphics::default(),
+            cgb_dma_requested: false,
         }
     }
 }
@@ -55,11 +57,16 @@ impl LCD {
     }
     pub fn restart(&mut self, memory: &mut Memory) {
         self.curr_stat_mode = StatMode::OAM;
+        self.cgb_dma_requested = false;
         self.graphics.restart();
         ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
         memory.set_access_vram(true);
         memory.set_access_oam(false);
     }
+    pub fn request_cgb_dma_transfer(&mut self) {
+        self.cgb_dma_requested = true;
+    }
+
     pub fn stat_mode_change(&mut self, memory: &mut Memory) {
         match self.curr_stat_mode {
             StatMode::HBlank => {
@@ -93,6 +100,9 @@ impl LCD {
             },
             StatMode::VRam => {
                 self.curr_stat_mode = StatMode::HBlank;
+                if self.cgb_dma_requested {
+                    self.cgb_dma_requested = !ioregister::cgb_dma_transfer(memory);
+                }
             },
         }
         memory.set_access_vram(true);

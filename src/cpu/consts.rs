@@ -44,3 +44,10 @@ pub const BGPI_REGISTER_ADDR: u16 = 0xFF68;
 pub const BGPD_REGISTER_ADDR: u16 = 0xFF69;
 pub const OBPI_REGISTER_ADDR: u16 = 0xFF6A;
 pub const OBPD_REGISTER_ADDR: u16 = 0xFF6B;
+
+// CGB's DMA registers
+pub const HDMA1_REGISTER_ADDR: u16 = 0xFF51;
+pub const HDMA2_REGISTER_ADDR: u16 = 0xFF52;
+pub const HDMA3_REGISTER_ADDR: u16 = 0xFF53;
+pub const HDMA4_REGISTER_ADDR: u16 = 0xFF54;
+pub const HDMA5_REGISTER_ADDR: u16 = 0xFF55;

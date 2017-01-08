@@ -120,7 +120,14 @@ impl<'a> Gebemula<'a> {
                     },
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
-                        ioregister::dma_transfer(l_nibble, &mut self.mem);
+                        match self.gb_mode {
+                            GBMode::Mono => {
+                                ioregister::dma_transfer(l_nibble, &mut self.mem);
+                            }
+                            GBMode::Color => {
+                                self.lcd.request_cgb_dma_transfer();
+                            }
+                        }
                         self.mem.set_access_oam(false);
                         extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
                     },

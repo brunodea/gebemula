@@ -553,11 +553,13 @@ impl Cpu {
             0xE0 => {
                 //LDH (n),A
                 let immediate = 0xFF00 + (self.mem_next8(memory) as u16);
-                if immediate == consts::DMA_REGISTER_ADDR {
-                    event = Some(EventRequest::DMATransfer(self.reg8(Reg::A)));
-                } else if immediate == consts::JOYPAD_REGISTER_ADDR {
-                    event = Some(EventRequest::JoypadUpdate);
-                }
+                event = match immediate {
+                    consts::DMA_REGISTER_ADDR |
+                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
+                    consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
+                    _ => event,
+                };
+
                 self.mem_write(immediate, self.reg8(Reg::A), memory);
                 instruction.cycles = 12;
                 instruction.imm8 = Some(immediate as u8);
