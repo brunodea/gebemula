@@ -18,19 +18,19 @@ use sdl2::keyboard::{Scancode, Keycode};
 use time;
 use std::{self, thread};
 
-pub const GB_TYPE_ADDR: u16 = 0x143;
+pub const GB_MODE_ADDR: u16 = 0x143;
 
 #[derive(Copy, Clone, Debug)]
-pub enum GBType {
+pub enum GBMode {
     Mono,
     Color,
 }
 
-impl GBType {
+impl GBMode {
     pub fn get(value: u8) -> Self {
         match value {
-            0x80 => GBType::Color,
-            _ => GBType::Mono,
+            0x80 => GBMode::Color,
+            _ => GBMode::Mono,
         }
     }
 }
@@ -43,7 +43,7 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
-    gb_type: GBType,
+    gb_mode: GBMode,
 
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
@@ -59,7 +59,7 @@ impl<'a> Default for Gebemula<'a> {
             cycles_per_sec: 0,
             lcd: LCD::default(),
             joypad: Joypad::default(),
-            gb_type: GBType::Mono,
+            gb_mode: GBMode::Mono,
             battery_save_callback: None,
         }
     }
@@ -87,8 +87,8 @@ impl<'a> Gebemula<'a> {
         self.battery_save_callback = Some(callback);
     }
 
-    fn adjust_gb_type(&mut self) {
-        self.gb_type = GBType::get(self.mem.read_byte(GB_TYPE_ADDR)); 
+    fn adjust_gb_mode(&mut self) {
+        self.gb_mode = GBMode::get(self.mem.read_byte(GB_MODE_ADDR)); 
     }
 
     fn update_battery(&mut self) {
@@ -179,7 +179,7 @@ impl<'a> Gebemula<'a> {
     }
 
     pub fn run_sdl(&mut self) {
-        self.adjust_gb_type();
+        self.adjust_gb_mode();
         Gebemula::print_buttons();
 
         let sdl_context = sdl2::init().unwrap();
