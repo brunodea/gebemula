@@ -3,6 +3,7 @@ use cpu::{Cpu, Reg, Instruction};
 use mem;
 use mem::Memory;
 use std::io::{self, Write};
+use gebemula::{GBType, GB_TYPE_ADDR};
 
 struct BreakCommand {
     break_addr: Option<u16>,
@@ -215,6 +216,7 @@ impl Debugger {
         }
     }
     pub fn display_info(&self, mem: &Memory) {
+        println!("GB Type: {:?}", GBType::get(mem.read_byte(GB_TYPE_ADDR)));
         println!("Game: {}", mem::cartridge::game_title_str(mem));
         let cart_type_id = mem.read_byte(mem::cartridge::CARTRIDGE_TYPE_ADDR);
         let (mapper_type, extra_cart_hw) = mem::cartridge::cart_type_from_id(cart_type_id);
