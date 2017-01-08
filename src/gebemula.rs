@@ -126,11 +126,11 @@ impl<'a> Gebemula<'a> {
                                 extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
                             }
                             GBMode::Color => {
-                                let hdma5 = self.mem.read_byte(consts::HDMA5_REGISTER_ADDR);
+                                let hdma5 = self.mem.read_byte(cpu::consts::HDMA5_REGISTER_ADDR);
                                 // if dma transfer mode is h-blank dma we have to use lcd.
-                                if (hdma5 >> 1 == 0b1)
+                                if hdma5 >> 1 == 0b1 {
                                     self.lcd.request_cgb_dma_transfer();
-                                else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
+                                } else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
                                     extra_cycles += c;
                                 }
 
