@@ -5,7 +5,7 @@ use mem::mapper::Mapper;
 
 pub struct Memory {
     bootstrap_rom: [u8; 0x100],
-    vram: [u8; 0x2000],
+    vram: [u8; 0x2000 * 2], // two vram banks.
     wram: [u8; 0x2000],
     oam: [u8; 0xA0],
     io_registers: [u8; 0x80],
@@ -24,7 +24,7 @@ impl Default for Memory {
     fn default() -> Memory {
         Memory {
             bootstrap_rom: [0; 0x100],
-            vram: [0; 0x2000],
+            vram: [0; 0x2000 * 2],
             wram: [0; 0x2000],
             oam: [0; 0xA0],
             io_registers: [0; 0x80],
@@ -76,7 +76,10 @@ impl Memory {
             0x0000...0x7FFF => self.cartridge.write_rom(address, value),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
-                    self.vram[(address - 0x8000) as usize] = value;
+                    // VBK io register
+                    let vbk = self.read_byte(0xFF4F) & 0b1;
+                    let addr = (address - 0x8000) as usize + ((address - 0x8000) as usize * vbk as usize);
+                    self.vram[addr] = value;
                 }
             }
             0xA000...0xBFFF => self.cartridge.write_ram(address, value),
@@ -145,7 +148,7 @@ impl Memory {
     }
 
     pub fn restart(&mut self) {
-        self.vram = [0; 0x2000];
+        self.vram = [0; 0x2000 * 2];
         self.wram = [0; 0x2000];
         self.oam = [0; 0xA0];
         self.io_registers = [0; 0x80];
