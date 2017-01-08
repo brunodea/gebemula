@@ -123,13 +123,20 @@ impl<'a> Gebemula<'a> {
                         match self.gb_mode {
                             GBMode::Mono => {
                                 ioregister::dma_transfer(l_nibble, &mut self.mem);
+                                extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
                             }
                             GBMode::Color => {
-                                self.lcd.request_cgb_dma_transfer();
+                                let hdma5 = self.mem.read_byte(consts::HDMA5_REGISTER_ADDR);
+                                // if dma transfer mode is h-blank dma we have to use lcd.
+                                if (hdma5 >> 1 == 0b1)
+                                    self.lcd.request_cgb_dma_transfer();
+                                else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
+                                    extra_cycles += c;
+                                }
+
                             }
                         }
                         self.mem.set_access_oam(false);
-                        extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
                     },
                     EventRequest::JoypadUpdate => {
                         self.joypad.update_joypad_register(&mut self.mem);
@@ -141,7 +148,7 @@ impl<'a> Gebemula<'a> {
             }
             cycles += instruction.cycles;
         }
-        self.lcd.stat_mode_change(&mut self.mem);
+        cycles += self.lcd.stat_mode_change(&mut self.mem);
         cycles
     }
 

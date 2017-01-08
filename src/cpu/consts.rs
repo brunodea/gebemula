@@ -33,6 +33,7 @@ pub const JOYPAD_REGISTER_ADDR: u16 = 0xFF00;
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.
 
 pub const DMA_DURATION_CYCLES: u32 = CPU_FREQUENCY_HZ / (1000000 / 160);
+pub const CGB_DMA_DURATION_CYCLES: u32 = 8; //for a transfer of length 0x10.
 
 pub const STAT_MODE_0_DURATION_CYCLES: u32 = 201;
 pub const STAT_MODE_1_DURATION_CYCLES: u32 = 456;

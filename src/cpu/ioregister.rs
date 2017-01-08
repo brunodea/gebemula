@@ -41,8 +41,8 @@ pub fn dma_transfer(start_address: u8, memory: &mut mem::Memory) {
     }
 }
 
-// returns true if finished the transfer.
-pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> bool {
+// returns None if finished the transfer, otherwise, returns the number of cycles.
+pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> Option<u32> {
     let hdma1 = memory.read_byte(consts::HDMA1_REGISTER_ADDR) as u16;
     let hdma2 = memory.read_byte(consts::HDMA2_REGISTER_ADDR) as u16 & 0b0000; //ignore lower 4 bits.
     let hdma3 = ((memory.read_byte(consts::HDMA3_REGISTER_ADDR) & 0b0001_1111) | 0b1000_0000) as u16; //ignore upper 3 bits (always VRAM).
@@ -56,7 +56,7 @@ pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> bool {
     if len == 0xFF {
         memory.write_byte(consts::HDMA5_REGISTER_ADDR, len);
         
-        true
+        None
     } else {
         let mut mode = hdma5 >> 7;
 
@@ -69,12 +69,17 @@ pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> bool {
             len = 0x10;
         }
 
+        let mut cycles = 0;
         for i in 0x0..(len as u16) {
             let byte = memory.read_byte(src_start + i);
             memory.write_byte(dst_start + i, byte);
+            // add 8 cycles every 0x10 addresses.
+            if (i + 1) % 0x10 == 0 {
+                cycles += consts::CGB_DMA_DURATION_CYCLES;
+            }
         }
 
-        mode == 0
+        Some(cycles)
     }
 }
 

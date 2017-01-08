@@ -52,6 +52,9 @@ impl LCD {
         self.curr_stat_mode == StatMode::VBlank &&
             memory.read_byte(cpu::consts::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
     }
+    pub fn request_cgb_dma_transfer(&mut self) {
+        self.cgb_dma_requested = true;
+    }
     pub fn stat_mode_duration(&self) -> u32 {
         self.curr_stat_mode.duration()
     }
@@ -63,11 +66,10 @@ impl LCD {
         memory.set_access_vram(true);
         memory.set_access_oam(false);
     }
-    pub fn request_cgb_dma_transfer(&mut self) {
-        self.cgb_dma_requested = true;
-    }
 
-    pub fn stat_mode_change(&mut self, memory: &mut Memory) {
+    // return cycles (because of cgb dma transfer). TODO: find a better way.
+    pub fn stat_mode_change(&mut self, memory: &mut Memory) -> u32 {
+        let mut cycles = 0;
         match self.curr_stat_mode {
             StatMode::HBlank => {
                 let mut ly = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
@@ -101,7 +103,11 @@ impl LCD {
             StatMode::VRam => {
                 self.curr_stat_mode = StatMode::HBlank;
                 if self.cgb_dma_requested {
-                    self.cgb_dma_requested = !ioregister::cgb_dma_transfer(memory);
+                    if let Some(tmp) = ioregister::cgb_dma_transfer(memory) {
+                        cycles = tmp;
+                    } else {
+                        self.cgb_dma_requested = false;
+                    }
                 }
             },
         }
@@ -114,5 +120,7 @@ impl LCD {
         ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
         ioregister::update_stat_reg_coincidence_flag(memory);
         ioregister::lcdc_stat_interrupt(memory);
+
+        cycles
     }
 }
