@@ -362,6 +362,36 @@ impl Cpu {
                 0
             },
             consts::LY_REGISTER_ADDR => 0,
+            consts::BGPD_REGISTER_ADDR => {
+                // TODO: cgb only (do nothing otherwise?)
+                // TODO: bg palette data can't be written/read when STAT register is in mode 3.
+                let bgpi = memory.read_byte(consts::BGPI_REGISTER_ADDR);
+                let palette_addr = bgpi & 0b0011_1111;
+                let auto_incr_bit = bgpi >> 7;
+                
+                if auto_incr_bit == 0b1 {
+                    // auto-increment index
+                    memory.write_byte(consts::BGPI_REGISTER_ADDR, 0b1000_0000 | (palette_addr + 1));
+                }
+                memory.write_bg_palette(palette_addr, value);
+                
+                value
+            }
+            consts::OBPD_REGISTER_ADDR => {
+                // TODO: same as TODO above?
+                // TODO: cgb only (do nothing otherwise?)
+                let obpi = memory.read_byte(consts::OBPI_REGISTER_ADDR);
+                let palette_addr = obpi & 0b0011_1111;
+                let auto_incr_bit = obpi >> 7;
+                
+                if auto_incr_bit == 0b1 {
+                    // auto-increment index
+                    memory.write_byte(consts::OBPI_REGISTER_ADDR, 0b1000_0000 | (palette_addr + 1));
+                }
+                memory.write_sprite_palette(palette_addr, value);
+                
+                value
+            }
             _ => value,
         };
         memory.write_byte(address, value);

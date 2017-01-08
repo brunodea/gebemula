@@ -15,6 +15,9 @@ pub struct Memory {
     bootstrap_enabled: bool,
     can_access_vram: bool,
     can_access_oam: bool,
+    // color mode only
+    bg_palette_data: [u8; 2 * 4 * 8], // 2 bytes for each of the 4 colors for each of the 8 palettes.
+    sprite_palette_data: [u8; 2 * 4 * 8], // 2 bytes for each of the 4 colors for each of the 8 palettes.
 }
 
 impl Default for Memory {
@@ -31,6 +34,9 @@ impl Default for Memory {
             bootstrap_enabled: true,
             can_access_vram: true,
             can_access_oam: true,
+            // all colors are set to white
+            bg_palette_data: [255; 2 * 4 * 8],
+            sprite_palette_data: [255; 2 * 4 * 8],
         }
     }
 }
@@ -116,6 +122,19 @@ impl Memory {
             0xFFFF => self.interrupts_enable,
             _ => panic!("Out of bound! Tried to read from {:#x}.", address),
         }
+    }
+
+    pub fn write_bg_palette(&mut self, addr: u8, value: u8) {
+        self.bg_palette_data[addr as usize] = value;
+    }
+    pub fn read_bg_palette(&self, addr: u8) -> u8 {
+        self.bg_palette_data[addr as usize]
+    }
+    pub fn write_sprite_palette(&mut self, addr: u8, value: u8) {
+        self.sprite_palette_data[addr as usize] = value;
+    }
+    pub fn read_sprite_palette(&self, addr: u8) -> u8 {
+        self.sprite_palette_data[addr as usize]
     }
 
     pub fn set_access_vram(&mut self, can_access: bool) {

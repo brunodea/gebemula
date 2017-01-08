@@ -38,3 +38,9 @@ pub const STAT_MODE_0_DURATION_CYCLES: u32 = 201;
 pub const STAT_MODE_1_DURATION_CYCLES: u32 = 456;
 pub const STAT_MODE_2_DURATION_CYCLES: u32 = 77;
 pub const STAT_MODE_3_DURATION_CYCLES: u32 = 169;
+
+// CGB's graphics registers
+pub const BGPI_REGISTER_ADDR: u16 = 0xFF68;
+pub const BGPD_REGISTER_ADDR: u16 = 0xFF69;
+pub const OBPI_REGISTER_ADDR: u16 = 0xFF6A;
+pub const OBPD_REGISTER_ADDR: u16 = 0xFF6B;
