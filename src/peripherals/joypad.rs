@@ -1,4 +1,4 @@
-use super::super::mem::mem::Memory;
+use super::super::mem::Memory;
 use super::super::cpu::{ioregister, interrupt};
 
 bitflags! {

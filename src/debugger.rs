@@ -1,7 +1,7 @@
 use cpu;
 use cpu::{Cpu, Reg, Instruction};
 use mem;
-use mem::mem::Memory;
+use mem::Memory;
 use std::io::{self, Write};
 
 struct BreakCommand {

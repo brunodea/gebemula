@@ -1,8 +1,7 @@
-use super::super::mem::mem::Memory;
+use super::super::mem::Memory;
 use super::super::cpu::{self, ioregister, interrupt};
 
-use super::super::graphics;
-use super::super::graphics::graphics::Graphics;
+use super::super::graphics::{self, Graphics};
 
 #[derive(Copy, Clone, PartialEq)]
 enum StatMode {

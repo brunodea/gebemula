@@ -1,4 +1,4 @@
-use super::super::mem::mem;
+use super::super::mem;
 use cpu::consts;
 
 #[derive(Copy, Clone, PartialEq, Debug)]

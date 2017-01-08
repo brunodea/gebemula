@@ -8,7 +8,7 @@ use cpu::timer::Timer;
 
 use graphics;
 
-use mem::mem::Memory;
+use mem::Memory;
 use debugger::Debugger;
 
 use sdl2;

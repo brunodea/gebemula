@@ -1,4 +1,4 @@
-use super::super::mem::mem;
+use super::super::mem;
 use cpu::{interrupt, consts};
 
 pub struct Timer {

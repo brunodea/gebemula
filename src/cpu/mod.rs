@@ -4,8 +4,8 @@ pub mod timer;
 pub mod ioregister;
 
 use std::fmt;
-use super::mem::mem;
-use super::util::util;
+use super::mem;
+use super::util;
 use super::debugger;
 
 pub enum EventRequest {

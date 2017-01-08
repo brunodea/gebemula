@@ -9,11 +9,11 @@ extern crate clap;
 extern crate sdl2;
 extern crate time;
 
+mod util;
 mod graphics;
 mod debugger;
 mod cpu;
 mod mem;
-mod util;
 mod gebemula;
 mod peripherals;
 
