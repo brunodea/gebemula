@@ -4,7 +4,7 @@ pub mod cartridge;
 use mem::mapper::Mapper;
 
 pub struct Memory {
-    bootstrap_rom: [u8; 0x100],
+    bootstrap_rom: [u8; 0x2000],
     vram: [u8; 0x2000 * 2], // two vram banks.
     wram: [u8; 0x2000],
     oam: [u8; 0xA0],
@@ -23,7 +23,7 @@ pub struct Memory {
 impl Default for Memory {
     fn default() -> Memory {
         Memory {
-            bootstrap_rom: [0; 0x100],
+            bootstrap_rom: [0; 0x2000],
             vram: [0; 0x2000 * 2],
             wram: [0; 0x2000],
             oam: [0; 0xA0],
