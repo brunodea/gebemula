@@ -18,18 +18,18 @@ use sdl2::keyboard::{Scancode, Keycode};
 use time;
 use std::{self, thread};
 
-pub const GB_MODE_ADDR: u16 = 0x143;
+const GB_MODE_ADDR: u16 = 0x143;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GBMode {
     Mono,
     Color,
 }
 
 impl GBMode {
-    pub fn get(value: u8) -> Self {
-        match value {
-            0x80 => GBMode::Color,
+    pub fn get(memory: &Memory) -> Self {
+        match memory.read_byte(GB_MODE_ADDR) {
+            0x80 | 0xC0 => GBMode::Color,
             _ => GBMode::Mono,
         }
     }
@@ -43,7 +43,6 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
-    gb_mode: GBMode,
 
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
@@ -59,7 +58,6 @@ impl<'a> Default for Gebemula<'a> {
             cycles_per_sec: 0,
             lcd: LCD::default(),
             joypad: Joypad::default(),
-            gb_mode: GBMode::Mono,
             battery_save_callback: None,
         }
     }
@@ -85,10 +83,6 @@ impl<'a> Gebemula<'a> {
 
     pub fn set_save_battery_callback(&mut self, callback: &'a Fn(&[u8])) {
         self.battery_save_callback = Some(callback);
-    }
-
-    fn adjust_gb_mode(&mut self) {
-        self.gb_mode = GBMode::get(self.mem.read_byte(GB_MODE_ADDR)); 
     }
 
     fn update_battery(&mut self) {
@@ -120,7 +114,7 @@ impl<'a> Gebemula<'a> {
                     },
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
-                        match self.gb_mode {
+                        match GBMode::get(&self.mem) {
                             GBMode::Mono => {
                                 ioregister::dma_transfer(l_nibble, &mut self.mem);
                                 extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
@@ -193,7 +187,6 @@ impl<'a> Gebemula<'a> {
     }
 
     pub fn run_sdl(&mut self) {
-        self.adjust_gb_mode();
         Gebemula::print_buttons();
 
         let sdl_context = sdl2::init().unwrap();

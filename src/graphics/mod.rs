@@ -4,6 +4,7 @@ use super::util;
 use super::mem::Memory;
 use super::cpu::ioregister;
 use super::cpu;
+use super::gebemula::GBMode;
 
 pub struct Graphics {
     // FIXME: find the correct size to bg_wn_pixel_indexes
@@ -82,11 +83,12 @@ impl Graphics {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
 
+        let mode_color = GBMode::get(memory) == GBMode::Color;
+
         let mut tile_row = (ypos / 8) * 32;
         let mut tile_line = (ypos % 8) * 2;
         for i in startx..consts::DISPLAY_WIDTH_PX {
             if wn_on && !is_window && i >= wx && wx < consts::DISPLAY_WIDTH_PX && curr_line >= wy {
-
                 is_window = true;
                 ypos = (curr_line - wy) as u16;
                 tile_row = (ypos / 8) * 32;
@@ -163,6 +165,9 @@ impl Graphics {
         if curr_line >= consts::DISPLAY_HEIGHT_PX || !self.sprites_on {
             return;
         }
+
+        let mode_color = GBMode::get(memory) == GBMode::Color;
+
         let mut index = 160; //40*4: 40 sprites that use 4 bytes
         while index != 0 {
             index -= 4;
