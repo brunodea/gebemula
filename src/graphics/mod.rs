@@ -13,8 +13,6 @@ pub struct Graphics {
     bg_on: bool,
     wn_on: bool,
     sprites_on: bool,
-    // color mode only
-    bg_palette_data: [u8; 2 * 4 * 8], // 2 bytes for each of the 4 colors for each of the 8 palettes.
 }
 
 impl Default for Graphics {
@@ -25,8 +23,6 @@ impl Default for Graphics {
             bg_on: true,
             wn_on: true,
             sprites_on: true,
-            // all colors are set to white
-            bg_palette_data: [255; 2 * 4 * 8],
         }
     }
 }
