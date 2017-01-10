@@ -76,9 +76,9 @@ impl Memory {
             0x0000...0x7FFF => self.cartridge.write_rom(address, value),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
-                    // VBK io register
+                    // TODO: remove hardcoded stuff VBK io register
                     let vbk = self.read_byte(0xFF4F) & 0b1;
-                    let addr = (address - 0x8000) as usize + ((address - 0x8000) as usize * vbk as usize);
+                    let addr = (address - 0x8000) as usize + (0x2000 * vbk as usize);
                     self.vram[addr] = value;
                 }
             }
@@ -104,7 +104,10 @@ impl Memory {
             0x0000...0x7FFF => self.cartridge.read_rom(address),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
-                    self.vram[(address - 0x8000) as usize]
+                    // TODO: remove hardcoded stuff VBK io register
+                    let vbk = self.read_byte(0xFF4F) & 0b1;
+                    let addr = (address - 0x8000) as usize + (0x2000 * vbk as usize);
+                    self.vram[addr]
                 } else {
                     0xFF
                 }
@@ -190,6 +193,7 @@ impl Memory {
         self.write_byte(0xFF49, 0xFF);
         self.write_byte(0xFF4A, 0x00);
         self.write_byte(0xFF4B, 0x00);
+        self.write_byte(0xFF4F, 0x00);
         self.write_byte(0xFFFF, 0x00);
     }
 
