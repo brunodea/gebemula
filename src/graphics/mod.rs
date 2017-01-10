@@ -120,17 +120,14 @@ impl Graphics {
             let tile_col_bg = xpos >> 3;
             let tile_addr = addr_start + tile_row + tile_col_bg;
 
-            let mut tile_vram_bank = 0;
             let mut attr = None;
             if mode_color {
                 // change vbk to 1 so we can read the bg map attributes.
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
 
                 attr = Some(memory.read_byte(tile_addr));
-                tile_vram_bank = (attr.unwrap() >> 3) & 0b1;
-
                 // set vbk to use the correct bank for the tile data.
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, tile_vram_bank);
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, (attr.unwrap() >> 3) & 0b1);
             }
 
             let tile_location = if is_tile_number_signed {
@@ -164,7 +161,7 @@ impl Graphics {
                 let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
 
                 let r = palette_l & 0b0001_1111;
-                let g = (((palette_h & 0b11) << 3) | (palette_l >> 5));
+                let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                 let b = (palette_h >> 2) & 0b11111;
 
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
@@ -290,7 +287,7 @@ impl Graphics {
                     let palette_l = memory.read_sprite_palette((palette_num * 8) + 1);
 
                     let r = palette_l & 0b0001_1111;
-                    let g = (((palette_h & 0b11) << 3) | (palette_l >> 5));
+                    let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                     let b = (palette_h >> 2) & 0b11111;
 
                     self.screen_buffer[buffer_pos] = 255 * (r / 0x1F);
