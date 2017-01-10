@@ -303,7 +303,13 @@ impl<'a> Gebemula<'a> {
                     // This actually makes the code faster by skipping redundant bound checking:
                     assert!(p.len() == 4);
 
-                    let color = graphics::consts::DMG_PALETTE[0];
+                    let color = match GBMode::get(&self.mem) {
+                        GBMode::Color => {
+                            //TODO: remove hardcoded stuff?
+                            (255, 255, 255) //all white
+                        }
+                        GBMode::Mono => graphics::consts::DMG_PALETTE[0],
+                    };
                     p[0] = color.0;
                     p[1] = color.1;
                     p[2] = color.2;
