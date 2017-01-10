@@ -6,7 +6,7 @@ use mem::mapper::Mapper;
 pub struct Memory {
     bootstrap_rom: [u8; 0x2000],
     vram: [u8; 0x2000 * 2], // two vram banks.
-    wram: [u8; 0x2000],
+    wram: [u8; 0x1000 + (0x1000 * 7)], //7 extra wram banks
     oam: [u8; 0xA0],
     io_registers: [u8; 0x80],
     hram: [u8; 0x7F],
@@ -25,7 +25,7 @@ impl Default for Memory {
         Memory {
             bootstrap_rom: [0; 0x2000],
             vram: [0; 0x2000 * 2],
-            wram: [0; 0x2000],
+            wram: [0; 0x1000 + (0x1000 * 7)],
             oam: [0; 0xA0],
             io_registers: [0; 0x80],
             hram: [0; 0x7F],
@@ -83,8 +83,18 @@ impl Memory {
                 }
             }
             0xA000...0xBFFF => self.cartridge.write_ram(address, value),
-            0xC000...0xDFFF => self.wram[(address - 0xC000) as usize] = value,
-            0xE000...0xFDFF => self.wram[(address - 0xE000) as usize] = value,
+            0xC000...0xDFFF => {
+                let mut svbk = self.read_byte(0xFF70) & 0b111;
+                svbk = if svbk == 0 { 1 } else { svbk };
+                let addr = (address - 0xC000) as usize + (0x1000 * svbk as usize);
+                self.wram[addr] = value;
+            }
+            0xE000...0xFDFF => {
+                let mut svbk = self.read_byte(0xFF70) & 0b111;
+                svbk = if svbk == 0 { 1 } else { svbk };
+                let addr = (address - 0xE000) as usize + (0x1000 * svbk as usize);
+                self.wram[addr] = value;
+            }
             0xFE00...0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize] = value;
@@ -113,8 +123,16 @@ impl Memory {
                 }
             }
             0xA000...0xBFFF => self.cartridge.read_ram(address),
-            0xC000...0xDFFF => self.wram[(address - 0xC000) as usize],
-            0xE000...0xFDFF => self.wram[(address - 0xE000) as usize],
+            0xC000...0xDFFF => {
+                let svbk = self.read_byte(0xFF70) & 0b111;
+                let addr = (address - 0xC000) as usize + (0x1000 * svbk as usize);
+                self.wram[addr]
+            }
+            0xE000...0xFDFF => {
+                let svbk = self.read_byte(0xFF70) & 0b111;
+                let addr = (address - 0xE000) as usize + (0x1000 * svbk as usize);
+                self.wram[addr]
+            }
             0xFE00...0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize]
@@ -152,7 +170,7 @@ impl Memory {
 
     pub fn restart(&mut self) {
         self.vram = [0; 0x2000 * 2];
-        self.wram = [0; 0x2000];
+        self.wram = [0; 0x1000 + (0x1000 * 7)];
         self.oam = [0; 0xA0];
         self.io_registers = [0; 0x80];
         self.hram = [0; 0x7F];
