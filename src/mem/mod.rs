@@ -109,6 +109,7 @@ impl Memory {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
+        // TODO: replace hardcoded stuff
         let mode = self.cartridge.read_rom(0x143);
         let is_color = mode == 0x80 || mode == 0xC0;
 
@@ -231,6 +232,15 @@ impl Memory {
 
     pub fn load_cartridge(&mut self, rom: &[u8], battery: &[u8]) {
         self.cartridge = cartridge::load_cartridge(rom, battery);
+
+        // TODO: replace hardcoded stuff
+        let mode = self.cartridge.read_rom(0x143);
+        let is_color = mode == 0x80 || mode == 0xC0;
+        if is_color {
+            for i in 0x100..0x150 {
+                self.bootstrap_rom[i] = self.cartridge.read_rom(i as u16);
+            }
+        }
     }
 
     pub fn save_battery(&mut self) -> Vec<u8> {
