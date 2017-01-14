@@ -72,6 +72,8 @@ impl Graphics {
             wx
         };
 
+        let old_vbk = memory.read_byte(cpu::consts::VBK_REGISTER_ADDR);
+
         let (tile_table_addr_pattern_0, is_tile_number_signed) =
             if ioregister::LCDCRegister::is_tile_data_0(&memory) {
                 (consts::TILE_DATA_TABLE_0_ADDR_START, true)
@@ -120,16 +122,8 @@ impl Graphics {
             let tile_col_bg = xpos >> 3;
             let tile_addr = addr_start + tile_row + tile_col_bg;
 
-            let mut attr = None;
-            if mode_color {
-                // change vbk to 1 so we can read the bg map attributes.
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
-
-                attr = Some(memory.read_byte(tile_addr));
-                // set vbk to use the correct bank for the tile data.
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, (attr.unwrap() >> 3) & 0b1);
-            }
-
+            // tile map is on vram bank 0
+            memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
             let tile_location = if is_tile_number_signed {
                 let mut tile_number = util::sign_extend(memory.read_byte(tile_addr));
                 if util::is_neg16(tile_number) {
@@ -143,6 +137,17 @@ impl Graphics {
                 (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
             };
             let tile_col = xpos % 8;
+
+            let mut attr = None;
+            if mode_color {
+                // tile attribute is on vram bank 1
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
+
+                attr = Some(memory.read_byte(tile_addr));
+                // set vbk to use the correct bank for the tile data.
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, (attr.unwrap() >> 3) & 0b1);
+            }
+
             // two bytes representing 8 pixel indexes
             let lhs = memory.read_byte(tile_location + tile_line) >> (7 - tile_col);
             let rhs = memory.read_byte(tile_location + tile_line + 1) >> (7 - tile_col);
@@ -166,9 +171,9 @@ impl Graphics {
 
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
-                self.screen_buffer[buffer_pos] = 255 * (r / 0x1F);
-                self.screen_buffer[buffer_pos + 1] = 255 * (g / 0x1F);
-                self.screen_buffer[buffer_pos + 2] = 255 * (b / 0x1F);
+                self.screen_buffer[buffer_pos] = r; //255 * (r / 0x1F);
+                self.screen_buffer[buffer_pos + 1] = g; //255 * (g / 0x1F);
+                self.screen_buffer[buffer_pos + 2] = b; //255 * (b / 0x1F);
                 self.screen_buffer[buffer_pos + 3] = 255; //alpha
             } else {
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
@@ -185,6 +190,7 @@ impl Graphics {
                 self.screen_buffer[buffer_pos + 3] = 255; //alpha
             }
         }
+        memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, old_vbk);
     }
 
     fn draw_sprites(&mut self, memory: &Memory) {
