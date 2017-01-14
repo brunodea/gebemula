@@ -237,7 +237,7 @@ impl Memory {
         let mode = self.cartridge.read_rom(0x143);
         let is_color = mode == 0x80 || mode == 0xC0;
         if is_color {
-            for i in 0x100..0x150 {
+            for i in 0x100..0x200 {
                 self.bootstrap_rom[i] = self.cartridge.read_rom(i as u16);
             }
         }
