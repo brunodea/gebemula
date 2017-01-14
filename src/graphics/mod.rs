@@ -171,9 +171,9 @@ impl Graphics {
 
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
-                self.screen_buffer[buffer_pos] = r; //255 * (r / 0x1F);
-                self.screen_buffer[buffer_pos + 1] = g; //255 * (g / 0x1F);
-                self.screen_buffer[buffer_pos + 2] = b; //255 * (b / 0x1F);
+                self.screen_buffer[buffer_pos] = b * 8;
+                self.screen_buffer[buffer_pos + 1] = g * 8;
+                self.screen_buffer[buffer_pos + 2] = r * 8;
                 self.screen_buffer[buffer_pos + 3] = 255; //alpha
             } else {
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
@@ -193,7 +193,7 @@ impl Graphics {
         memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, old_vbk);
     }
 
-    fn draw_sprites(&mut self, memory: &Memory) {
+    fn draw_sprites(&mut self, memory: &mut Memory) {
         // TODO draw sprites based on X priority.
         if !ioregister::LCDCRegister::is_sprite_display_on(memory) || !self.sprites_on {
             return;
@@ -205,6 +205,7 @@ impl Graphics {
         }
 
         let mode_color = GBMode::get(memory) == GBMode::Color;
+        let old_vbk = memory.read_byte(cpu::consts::VBK_REGISTER_ADDR);
 
         let mut index = 160; //40*4: 40 sprites that use 4 bytes
         while index != 0 {
@@ -242,6 +243,10 @@ impl Graphics {
             let obp0 = (flags >> 4) & 0b1 == 0b0;
             let tile_vram_bank = (flags >> 3) & 0b1;
             let palette_num = flags & 0b111;
+            if mode_color {
+                // tile attribute is on vram bank 1
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, tile_vram_bank);
+            }
 
             x -= 8;
             let endx = if x + 8 >= consts::DISPLAY_WIDTH_PX as i16 {
@@ -288,17 +293,16 @@ impl Graphics {
                     if buffer_pos > self.screen_buffer.len() - 4 {
                         continue;
                     }
-                    //TODO: use tile_vram_bank
-                    let palette_h = memory.read_sprite_palette(palette_num * 8); //each palette uses 8 bytes.
-                    let palette_l = memory.read_sprite_palette((palette_num * 8) + 1);
+                    let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
+                    let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
 
                     let r = palette_l & 0b0001_1111;
                     let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                     let b = (palette_h >> 2) & 0b11111;
 
-                    self.screen_buffer[buffer_pos] = 255 * (r / 0x1F);
-                    self.screen_buffer[buffer_pos + 1] = 255 * (g / 0x1F);
-                    self.screen_buffer[buffer_pos + 2] = 255 * (b / 0x1F);
+                    self.screen_buffer[buffer_pos] = b * 8;
+                    self.screen_buffer[buffer_pos + 1] = g * 8;
+                    self.screen_buffer[buffer_pos + 2] = r * 8;
                     self.screen_buffer[buffer_pos + 3] = 255; //alpha
                 } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
                     buffer_pos *= 4;
@@ -325,6 +329,7 @@ impl Graphics {
                 }
             }
         }
+        memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, old_vbk);
     }
 
     pub fn toggle_bg(&mut self) {
