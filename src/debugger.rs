@@ -171,6 +171,7 @@ pub struct Debugger {
     steps_debug: u8, // same as run_debug
     num_steps: u32,
     display_header: bool,
+    pub exit: bool,
 }
 
 impl Default for Debugger {
@@ -182,6 +183,7 @@ impl Default for Debugger {
             steps_debug: 0b0,
             num_steps: 0,
             display_header: true,
+            exit: false,
         }
     }
 }
@@ -295,6 +297,10 @@ impl Debugger {
                 }
                 "info" => {
                     self.display_info(mem);
+                }
+                "exit" | "quit" | "e" | "q" => { 
+                    self.exit = true;
+                    self.should_run_cpu = true;
                 }
                 "" => {
                     // does nothing

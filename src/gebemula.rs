@@ -139,6 +139,9 @@ impl<'a> Gebemula<'a> {
             }
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem);
+                if self.debugger.exit {
+                    break;
+                }
             }
             cycles += instruction.cycles;
         }
@@ -276,6 +279,9 @@ impl<'a> Gebemula<'a> {
 
             self.adjust_joypad_keys(&event_pump);
             self.cycles_per_sec += self.step();
+            if self.debugger.exit {
+                break 'running
+            }
 
             /*
              * Yuri Kunde Schlesner:
