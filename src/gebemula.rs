@@ -28,7 +28,7 @@ pub enum GBMode {
 
 impl GBMode {
     pub fn get(memory: &Memory) -> Self {
-        match memory.read_byte(GB_MODE_ADDR) {
+        match memory.read_cartridge(GB_MODE_ADDR) {
             0x80 | 0xC0 => GBMode::Color,
             _ => GBMode::Mono,
         }

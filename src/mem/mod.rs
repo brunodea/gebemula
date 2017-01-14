@@ -4,7 +4,7 @@ pub mod cartridge;
 use mem::mapper::Mapper;
 
 pub struct Memory {
-    bootstrap_rom: [u8; 0x2000],
+    bootstrap_rom: [u8; 0x900],
     vram: [u8; 0x2000 * 2], // two vram banks.
     wram: [u8; 0x1000 + (0x1000 * 7)], //7 extra wram banks
     oam: [u8; 0xA0],
@@ -23,7 +23,7 @@ pub struct Memory {
 impl Default for Memory {
     fn default() -> Memory {
         Memory {
-            bootstrap_rom: [0; 0x2000],
+            bootstrap_rom: [0; 0x900],
             vram: [0; 0x2000 * 2],
             wram: [0; 0x1000 + (0x1000 * 7)],
             oam: [0; 0xA0],
@@ -109,8 +109,12 @@ impl Memory {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
+        let mode = self.cartridge.read_rom(0x143);
+        let is_color = mode == 0x80 || mode == 0xC0;
+
         match address {
-            0x0000...0x00FF if self.bootstrap_enabled => self.bootstrap_rom[address as usize],
+            0x0000...0x00FF if self.bootstrap_enabled && !is_color => self.bootstrap_rom[address as usize],
+            0x0000...0x0900 if self.bootstrap_enabled && is_color => self.bootstrap_rom[address as usize],
             0x0000...0x7FFF => self.cartridge.read_rom(address),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
@@ -219,6 +223,10 @@ impl Memory {
         for (i, byte) in rom.iter().enumerate() {
             self.bootstrap_rom[i] = *byte;
         }
+    }
+
+    pub fn read_cartridge(&self, addr: u16) -> u8 {
+        self.cartridge.read_rom(addr)
     }
 
     pub fn load_cartridge(&mut self, rom: &[u8], battery: &[u8]) {
