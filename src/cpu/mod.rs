@@ -8,6 +8,8 @@ use super::mem;
 use super::util;
 use super::debugger;
 
+use super::gebemula::GBMode;
+
 pub enum EventRequest {
     BootstrapDisable,
     DMATransfer(u8), //left nibble of address to be used.
@@ -356,6 +358,10 @@ impl Cpu {
     #[inline]
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value = match address {
+            consts::HDMA5_REGISTER_ADDR => {
+                println!("DMA/HDMA 3");
+                0
+            }
             consts::DIV_REGISTER_ADDR => {
                 //zero out the internal counter too
                 memory.write_byte(consts::TIMER_INTERNAL_COUNTER_ADDR, 0);
@@ -438,8 +444,18 @@ impl Cpu {
             0x0 => {
                 //NOP
                 instruction.cycles = 4;
-                if addr == 0x100 {
-                    event = Some(EventRequest::BootstrapDisable);
+                match GBMode::get(memory)
+                {
+                    GBMode::Mono => {
+                        if addr == 0x100 {
+                            event = Some(EventRequest::BootstrapDisable);
+                        }
+                    }
+                    GBMode::Color => {
+                        if addr == 0x900 {
+                            event = Some(EventRequest::BootstrapDisable);
+                        }
+                    }
                 }
             },
             0x10 => {
@@ -554,10 +570,14 @@ impl Cpu {
                 //LDH (n),A
                 let immediate = 0xFF00 + (self.mem_next8(memory) as u16);
                 event = match immediate {
+                    // TODO: distinguish between dma/hdma as cgb also supports dma.
                     consts::DMA_REGISTER_ADDR |
-                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
+                    consts::HDMA5_REGISTER_ADDR => {
+                        println!("DMA/HDMA 1");
+                        Some(EventRequest::DMATransfer(self.reg8(Reg::A)))
+                    }
                     consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
-                    _ => event,
+                    _ => None,
                 };
 
                 self.mem_write(immediate, self.reg8(Reg::A), memory);
@@ -575,11 +595,16 @@ impl Cpu {
             0xE2 => {
                 //LD (C),A
                 let addr = 0xFF00 + (self.reg8(Reg::C) as u16);
-                if addr == consts::DMA_REGISTER_ADDR {
-                    event = Some(EventRequest::DMATransfer(self.reg8(Reg::A)));
-                } else if addr == consts::JOYPAD_REGISTER_ADDR {
-                    event = Some(EventRequest::JoypadUpdate);
-                }
+                // TODO: distinguish between dma/hdma as cgb also supports dma.
+                event = match addr {
+                    consts::DMA_REGISTER_ADDR |
+                    consts::HDMA5_REGISTER_ADDR => {
+                        println!("DMA/HDMA 2");
+                        Some(EventRequest::DMATransfer(self.reg8(Reg::A)))
+                    }
+                    consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
+                    _ => None,
+                };
                 self.mem_write(addr, self.reg8(Reg::A), memory);
                 instruction.cycles = 8
             },
