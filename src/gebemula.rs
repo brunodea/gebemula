@@ -110,28 +110,26 @@ impl<'a> Gebemula<'a> {
             if let Some(e) = event_request {
                 match e {
                     EventRequest::BootstrapDisable => {
+                        println!("BootstrapDisable");
                         self.mem.disable_bootstrap();
                     },
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
-                        match GBMode::get(&self.mem) {
-                            GBMode::Mono => {
-                                ioregister::dma_transfer(l_nibble, &mut self.mem);
-                                extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
-                            }
-                            GBMode::Color => {
-                                let hdma5 = self.mem.read_byte(cpu::consts::HDMA5_REGISTER_ADDR);
-                                // if dma transfer mode is h-blank dma we have to use lcd.
-                                if hdma5 >> 1 == 0b1 {
-                                    self.lcd.request_cgb_dma_transfer();
-                                } else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
-                                    extra_cycles += c;
-                                }
-
-                            }
-                        }
+                        ioregister::dma_transfer(l_nibble, &mut self.mem);
+                        extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
                         self.mem.set_access_oam(false);
                     },
+                    EventRequest::HDMATransfer => {
+                    self.mem.set_access_oam(true);
+                        let hdma5 = self.mem.read_byte(cpu::consts::HDMA5_REGISTER_ADDR);
+                        if hdma5 >> 7 == 0b1 {
+                            // if dma transfer mode is h-blank dma we have to use lcd.
+                            self.lcd.request_cgb_dma_transfer();
+                        } else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
+                            extra_cycles += c;
+                        }
+                        self.mem.set_access_oam(false);
+                    }
                     EventRequest::JoypadUpdate => {
                         self.joypad.update_joypad_register(&mut self.mem);
                     },

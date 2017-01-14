@@ -13,6 +13,7 @@ use super::gebemula::GBMode;
 pub enum EventRequest {
     BootstrapDisable,
     DMATransfer(u8), //left nibble of address to be used.
+    HDMATransfer,
     JoypadUpdate,
 }
 
@@ -358,10 +359,6 @@ impl Cpu {
     #[inline]
     fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
         let value = match address {
-            consts::HDMA5_REGISTER_ADDR => {
-                println!("DMA/HDMA 3");
-                0
-            }
             consts::DIV_REGISTER_ADDR => {
                 //zero out the internal counter too
                 memory.write_byte(consts::TIMER_INTERNAL_COUNTER_ADDR, 0);
@@ -384,8 +381,7 @@ impl Cpu {
                 value
             }
             consts::OBPD_REGISTER_ADDR => {
-                // TODO: same as TODO above?
-                // TODO: cgb only (do nothing otherwise?)
+                // TODO: same as TODOs above?
                 let obpi = memory.read_byte(consts::OBPI_REGISTER_ADDR);
                 let palette_addr = obpi & 0b0011_1111;
                 let auto_incr_bit = obpi >> 7;
@@ -570,12 +566,8 @@ impl Cpu {
                 //LDH (n),A
                 let immediate = 0xFF00 + (self.mem_next8(memory) as u16);
                 event = match immediate {
-                    // TODO: distinguish between dma/hdma as cgb also supports dma.
-                    consts::DMA_REGISTER_ADDR |
-                    consts::HDMA5_REGISTER_ADDR => {
-                        println!("DMA/HDMA 1");
-                        Some(EventRequest::DMATransfer(self.reg8(Reg::A)))
-                    }
+                    consts::DMA_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
+                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::HDMATransfer),
                     consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
                     _ => None,
                 };
@@ -595,13 +587,9 @@ impl Cpu {
             0xE2 => {
                 //LD (C),A
                 let addr = 0xFF00 + (self.reg8(Reg::C) as u16);
-                // TODO: distinguish between dma/hdma as cgb also supports dma.
                 event = match addr {
-                    consts::DMA_REGISTER_ADDR |
-                    consts::HDMA5_REGISTER_ADDR => {
-                        println!("DMA/HDMA 2");
-                        Some(EventRequest::DMATransfer(self.reg8(Reg::A)))
-                    }
+                    consts::DMA_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
+                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::HDMATransfer),
                     consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
                     _ => None,
                 };
