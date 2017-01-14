@@ -110,7 +110,6 @@ impl<'a> Gebemula<'a> {
             if let Some(e) = event_request {
                 match e {
                     EventRequest::BootstrapDisable => {
-                        println!("BootstrapDisable");
                         self.mem.disable_bootstrap();
                     },
                     EventRequest::DMATransfer(l_nibble) => {

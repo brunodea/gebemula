@@ -440,18 +440,8 @@ impl Cpu {
             0x0 => {
                 //NOP
                 instruction.cycles = 4;
-                match GBMode::get(memory)
-                {
-                    GBMode::Mono => {
-                        if addr == 0x100 {
-                            event = Some(EventRequest::BootstrapDisable);
-                        }
-                    }
-                    GBMode::Color => {
-                        if addr == 0x900 {
-                            event = Some(EventRequest::BootstrapDisable);
-                        }
-                    }
+                if addr == 0x100 {
+                    event = Some(EventRequest::BootstrapDisable);
                 }
             },
             0x10 => {
