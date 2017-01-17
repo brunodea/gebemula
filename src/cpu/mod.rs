@@ -363,7 +363,14 @@ impl Cpu {
                 //zero out the internal counter too
                 memory.write_byte(consts::TIMER_INTERNAL_COUNTER_ADDR, 0);
                 0
-            },
+            }
+            consts::SVBK_REGISTER_ADDR => {
+                if value == 0 {
+                    1
+                } else {
+                    value
+                }
+            }
             consts::LY_REGISTER_ADDR => 0,
             consts::BGPD_REGISTER_ADDR => {
                 // TODO: cgb only (do nothing otherwise?)

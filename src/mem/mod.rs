@@ -85,13 +85,11 @@ impl Memory {
             0xA000...0xBFFF => self.cartridge.write_ram(address, value),
             0xC000...0xDFFF => {
                 let mut svbk = self.read_byte(0xFF70) & 0b111;
-                svbk = if svbk == 0 { 1 } else { svbk };
                 let addr = (address - 0xC000) as usize + (0x1000 * svbk as usize);
                 self.wram[addr] = value;
             }
             0xE000...0xFDFF => {
                 let mut svbk = self.read_byte(0xFF70) & 0b111;
-                svbk = if svbk == 0 { 1 } else { svbk };
                 let addr = (address - 0xE000) as usize + (0x1000 * svbk as usize);
                 self.wram[addr] = value;
             }
