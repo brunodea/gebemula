@@ -119,7 +119,7 @@ impl<'a> Gebemula<'a> {
                         self.mem.set_access_oam(false);
                     },
                     EventRequest::HDMATransfer => {
-                    self.mem.set_access_oam(true);
+                        self.mem.set_access_oam(true);
                         let hdma5 = self.mem.read_byte(cpu::consts::HDMA5_REGISTER_ADDR);
                         if hdma5 >> 7 == 0b1 {
                             // if dma transfer mode is h-blank dma we have to use lcd.
