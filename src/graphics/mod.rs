@@ -162,8 +162,8 @@ impl Graphics {
                 let vflip = (attr >> 6) & 0b1 == 0b1;
                 let priority = (attr >> 7) & 0b1; //0: OAM priority; 1: BG priority
 
-                let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
-                let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
+                let palette_h = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); //each palette uses 8 bytes.
+                let palette_l = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
 
                 let r = palette_l & 0b0001_1111;
                 let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
@@ -173,9 +173,13 @@ impl Graphics {
                 self.bg_wn_pixel_indexes[buffer_pos] = if !bg_on { 0 } else { priority };
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
-                self.screen_buffer[buffer_pos] = b * 8;
-                self.screen_buffer[buffer_pos + 1] = g * 8;
-                self.screen_buffer[buffer_pos + 2] = r * 8;
+                let r_off = if r == 0 { 0 } else { 255 % r };
+                let g_off = if g == 0 { 0 } else { 255 % g };
+                let b_off = if b == 0 { 0 } else { 255 % b };
+
+                self.screen_buffer[buffer_pos] = (r * 8) + b_off;
+                self.screen_buffer[buffer_pos + 1] = (g * 8) + g_off;
+                self.screen_buffer[buffer_pos + 2] = (b * 8) + r_off;
                 self.screen_buffer[buffer_pos + 3] = 255; //alpha
             } else {
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
@@ -268,7 +272,7 @@ impl Graphics {
                     continue;
                 }
 
-                let mut buffer_pos: usize;
+                let mut buffer_pos = 0usize;
 
                 if y_flip {
                     buffer_pos =
@@ -286,7 +290,7 @@ impl Graphics {
                     buffer_pos += (x.wrapping_add(tile_col as i16) as u16) as usize;
                 }
 
-                if buffer_pos < old_pos {
+                if buffer_pos < old_pos || buffer_pos > self.bg_wn_pixel_indexes.len() {
                     continue;
                 }
 
@@ -296,16 +300,20 @@ impl Graphics {
                         if buffer_pos > self.screen_buffer.len() - 4 {
                             continue;
                         }
-                        let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
-                        let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
+
+                        let palette_h = memory.read_sprite_palette((palette_num * 8) + 1 + (pixel_data * 2)); //each palette uses 8 bytes.
+                        let palette_l = memory.read_sprite_palette((palette_num * 8) + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
 
                         let r = palette_l & 0b0001_1111;
                         let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                         let b = (palette_h >> 2) & 0b11111;
 
-                        self.screen_buffer[buffer_pos] = b * 8;
-                        self.screen_buffer[buffer_pos + 1] = g * 8;
-                        self.screen_buffer[buffer_pos + 2] = r * 8;
+                        let r_off = if r == 0 { 0 } else { 255 % r };
+                        let g_off = if g == 0 { 0 } else { 255 % g };
+                        let b_off = if b == 0 { 0 } else { 255 % b };
+                        self.screen_buffer[buffer_pos] = (r * 8) + b_off;
+                        self.screen_buffer[buffer_pos + 1] = (g * 8) + g_off;
+                        self.screen_buffer[buffer_pos + 2] = (b * 8) + r_off;
                         self.screen_buffer[buffer_pos + 3] = 255; //alpha
                     }
                 } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {

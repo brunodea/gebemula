@@ -376,28 +376,34 @@ impl Cpu {
                 // TODO: cgb only (do nothing otherwise?)
                 // TODO: bg palette data can't be written/read when STAT register is in mode 3.
                 let bgpi = memory.read_byte(consts::BGPI_REGISTER_ADDR);
-                let palette_addr = bgpi & 0b0011_1111;
+                let p = (bgpi & 0b0011_1000) >> 3;
+                let pd = (bgpi & 0b0000_0110) >> 1;
+                let hl = bgpi & 0b0000_0001;
                 let auto_incr_bit = bgpi >> 7;
                 
+                let addr = (p*8)+(pd*2)+hl;
                 if auto_incr_bit == 0b1 {
                     // auto-increment index
-                    memory.write_byte(consts::BGPI_REGISTER_ADDR, 0b1000_0000 | (palette_addr + 1));
+                    memory.write_byte(consts::BGPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
                 }
-                memory.write_bg_palette(palette_addr, value);
+                memory.write_bg_palette(addr, value);
                 
                 value
             }
             consts::OBPD_REGISTER_ADDR => {
                 // TODO: same as TODOs above?
                 let obpi = memory.read_byte(consts::OBPI_REGISTER_ADDR);
-                let palette_addr = obpi & 0b0011_1111;
+                let p = (obpi & 0b0011_1000) >> 3;
+                let pd = (obpi & 0b0000_0110) >> 1;
+                let hl = obpi & 0b0000_0001;
                 let auto_incr_bit = obpi >> 7;
                 
+                let addr = (p*8)+(pd*2)+hl;
                 if auto_incr_bit == 0b1 {
                     // auto-increment index
-                    memory.write_byte(consts::OBPI_REGISTER_ADDR, 0b1000_0000 | (palette_addr + 1));
+                    memory.write_byte(consts::OBPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
                 }
-                memory.write_sprite_palette(palette_addr, value);
+                memory.write_sprite_palette(addr, value);
                 
                 value
             }

@@ -144,7 +144,38 @@ impl Memory {
                 }
             }
             0xFEA0...0xFEFF => 0x0,
-            0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize],
+            0xFF00...0xFF7F => {
+                match address {
+                    // TODO: remove hardcoded stuff?
+                    0xFF69 => {
+                        // BGPD ioregister
+                        if is_color {
+                            // read BGPI ioregister
+                            let bgpi = self.read_byte(0xFF68);
+                            let palette_addr = bgpi & 0b0011_1111;
+                            self.read_bg_palette(palette_addr)
+                        }
+                        else {
+                            self.io_registers[(address - 0xFF00) as usize]
+                        }
+                    }
+                    0xFF6B => {
+                        // OBPD ioregister
+                        if is_color {
+                            // read OBPI ioregister
+                            let obpi = self.read_byte(0xFF6A);
+                            let palette_addr = obpi & 0b0011_1111;
+                            self.read_sprite_palette(palette_addr)
+                        }
+                        else {
+                            self.io_registers[(address - 0xFF00) as usize]
+                        }
+                    }
+                    _ => {
+                        self.io_registers[(address - 0xFF00) as usize]
+                    }
+                }
+            }
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
             0xFFFF => self.interrupts_enable,
             _ => panic!("Out of bound! Tried to read from {:#x}.", address),
