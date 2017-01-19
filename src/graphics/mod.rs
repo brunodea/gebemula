@@ -6,9 +6,19 @@ use super::cpu::ioregister;
 use super::cpu;
 use super::gebemula::GBMode;
 
+// (pixel data, priority is BG)
+#[derive(Copy, Clone)]
+struct BgPixel(u8, bool);
+
+impl Default for BgPixel {
+    fn default() -> Self {
+        BgPixel(0, true)
+    }
+}
+
 pub struct Graphics {
     // FIXME: find the correct size to bg_wn_pixel_indexes
-    bg_wn_pixel_indexes: [u8; 160 * 144 * 4],
+    bg_wn_pixel_indexes: [BgPixel; 160 * 144 * 4],
     pub screen_buffer: [u8; 160 * 144 * 4],
     bg_on: bool,
     wn_on: bool,
@@ -19,7 +29,7 @@ impl Default for Graphics {
     fn default() -> Graphics {
         Graphics {
             screen_buffer: [255; 160 * 144 * 4],
-            bg_wn_pixel_indexes: [0; 160 * 144 * 4],
+            bg_wn_pixel_indexes: [BgPixel(0, true); 160 * 144 * 4],
             bg_on: true,
             wn_on: true,
             sprites_on: true,
@@ -30,7 +40,7 @@ impl Default for Graphics {
 impl Graphics {
     pub fn restart(&mut self) {
         self.screen_buffer = [255; 160 * 144 * 4];
-        self.bg_wn_pixel_indexes = [0; 160 * 144 * 4];
+        self.bg_wn_pixel_indexes = [BgPixel(0, true); 160 * 144 * 4];
         self.bg_on = true;
         self.wn_on = true;
         self.sprites_on = true;
@@ -104,7 +114,7 @@ impl Graphics {
                                     (i as usize);
 
             if !bg_on && !is_window {
-                self.bg_wn_pixel_indexes[buffer_pos] = 0;
+                self.bg_wn_pixel_indexes[buffer_pos] = BgPixel(0, false);
                 continue;
             }
 
@@ -170,7 +180,7 @@ impl Graphics {
                 let b = (palette_h >> 2) & 0b11111;
 
                 // bit 0 of LCDC (bg_on) takes priority over the tile's priority attribute.
-                self.bg_wn_pixel_indexes[buffer_pos] = if !bg_on { 0 } else { priority };
+                self.bg_wn_pixel_indexes[buffer_pos] = BgPixel(pixel_data, priority == 1);
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
                 self.screen_buffer[buffer_pos] = (r << 3) | (r >> 2);
@@ -182,7 +192,7 @@ impl Graphics {
                 let pixel_index = ioregister::bg_window_palette(pixel_data, memory);
                 // Apply palette
                 let (r, g, b) = consts::DMG_PALETTE[pixel_index as usize];
-                self.bg_wn_pixel_indexes[buffer_pos] = pixel_data;
+                self.bg_wn_pixel_indexes[buffer_pos] = BgPixel(pixel_data, false);
 
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
@@ -196,7 +206,7 @@ impl Graphics {
     }
 
     fn draw_sprites(&mut self, memory: &mut Memory) {
-        // TODO draw sprites based on X priority.
+        // TODO draw sprites based on X priority. (only for Non-CGB)
         if !ioregister::LCDCRegister::is_sprite_display_on(memory) || !self.sprites_on {
             return;
         }
@@ -291,7 +301,12 @@ impl Graphics {
                 }
 
                 if mode_color {
-                    if self.bg_wn_pixel_indexes[buffer_pos] == 0 && above_bg {
+                    let sprites_on_top = !ioregister::LCDCRegister::is_bg_window_display_on(memory);
+                    let bg_px = self.bg_wn_pixel_indexes[buffer_pos];
+
+                    let should_draw = sprites_on_top || (!bg_px.1 && (above_bg || bg_px.0 == 0));
+
+                    if should_draw {
                         buffer_pos *= 4;
                         if buffer_pos > self.screen_buffer.len() - 4 {
                             continue;
@@ -309,7 +324,7 @@ impl Graphics {
                         self.screen_buffer[buffer_pos + 2] = (b << 3) | (b >> 2);
                         self.screen_buffer[buffer_pos + 3] = 255; //alpha
                     }
-                } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
+                } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos].0 == 0 {
                     buffer_pos *= 4;
                     if buffer_pos > self.screen_buffer.len() - 4 {
                         continue;
