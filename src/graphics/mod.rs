@@ -44,11 +44,13 @@ impl Graphics {
     }
 
     fn update_line_buffer(&mut self, memory: &mut Memory) {
+        let mode_color = GBMode::get(memory) == GBMode::Color;
+
         let mut bg_on = ioregister::LCDCRegister::is_bg_window_display_on(memory);
         let mut wn_on = ioregister::LCDCRegister::is_window_display_on(memory);
 
-        bg_on = bg_on & self.bg_on;
-        wn_on = wn_on & self.wn_on;
+        bg_on = if mode_color { self.bg_on } else { bg_on && self.bg_on };
+        wn_on = wn_on && self.wn_on;
 
         if !bg_on && !wn_on {
             return;
@@ -81,7 +83,6 @@ impl Graphics {
                 (consts::TILE_DATA_TABLE_1_ADDR_START, false)
             };
 
-        let mode_color = GBMode::get(memory) == GBMode::Color;
 
         let mut tile_row = (ypos / 8) * 32;
         let mut tile_line = (ypos % 8) * 2;
@@ -159,7 +160,6 @@ impl Graphics {
                 //TODO: flip
                 let hflip = (attr >> 5) & 0b1 == 0b1;
                 let vflip = (attr >> 6) & 0b1 == 0b1;
-                //TODO: use priority.
                 let priority = (attr >> 7) & 0b1; //0: OAM priority; 1: BG priority
 
                 let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
@@ -169,6 +169,8 @@ impl Graphics {
                 let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                 let b = (palette_h >> 2) & 0b11111;
 
+                // bit 0 of LCDC (bg_on) takes priority over the tile's priority attribute.
+                self.bg_wn_pixel_indexes[buffer_pos] = if !bg_on { 0 } else { priority };
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
                 self.screen_buffer[buffer_pos] = b * 8;
@@ -289,21 +291,23 @@ impl Graphics {
                 }
 
                 if mode_color {
-                    buffer_pos *= 4;
-                    if buffer_pos > self.screen_buffer.len() - 4 {
-                        continue;
+                    if self.bg_wn_pixel_indexes[buffer_pos] == 0 && above_bg {
+                        buffer_pos *= 4;
+                        if buffer_pos > self.screen_buffer.len() - 4 {
+                            continue;
+                        }
+                        let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
+                        let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
+
+                        let r = palette_l & 0b0001_1111;
+                        let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
+                        let b = (palette_h >> 2) & 0b11111;
+
+                        self.screen_buffer[buffer_pos] = b * 8;
+                        self.screen_buffer[buffer_pos + 1] = g * 8;
+                        self.screen_buffer[buffer_pos + 2] = r * 8;
+                        self.screen_buffer[buffer_pos + 3] = 255; //alpha
                     }
-                    let palette_h = memory.read_bg_palette((palette_num * 8) + (pixel_data * 2)); //each palette uses 8 bytes.
-                    let palette_l = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); // pixel_data chooses the palette index. *2 because each color intensity uses two bytes.
-
-                    let r = palette_l & 0b0001_1111;
-                    let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
-                    let b = (palette_h >> 2) & 0b11111;
-
-                    self.screen_buffer[buffer_pos] = b * 8;
-                    self.screen_buffer[buffer_pos + 1] = g * 8;
-                    self.screen_buffer[buffer_pos + 2] = r * 8;
-                    self.screen_buffer[buffer_pos + 3] = 255; //alpha
                 } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
                     buffer_pos *= 4;
                     if buffer_pos > self.screen_buffer.len() - 4 {
