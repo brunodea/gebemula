@@ -173,9 +173,9 @@ impl Graphics {
                 self.bg_wn_pixel_indexes[buffer_pos] = if !bg_on { 0 } else { priority };
                 let buffer_pos = buffer_pos * 4; //*4 because of RGBA
 
-                self.screen_buffer[buffer_pos] = (r * 8);
-                self.screen_buffer[buffer_pos + 1] = (g * 8);
-                self.screen_buffer[buffer_pos + 2] = (b * 8);
+                self.screen_buffer[buffer_pos] = (r << 3) | (r >> 5);
+                self.screen_buffer[buffer_pos + 1] = (g << 3) | (g >> 5);
+                self.screen_buffer[buffer_pos + 2] = (b << 3) | (b >> 5);
                 self.screen_buffer[buffer_pos + 3] = 255; //alpha
             } else {
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
@@ -304,9 +304,9 @@ impl Graphics {
                         let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
                         let b = (palette_h >> 2) & 0b11111;
 
-                        self.screen_buffer[buffer_pos] = (r * 8);
-                        self.screen_buffer[buffer_pos + 1] = (g * 8);
-                        self.screen_buffer[buffer_pos + 2] = (b * 8);
+                        self.screen_buffer[buffer_pos] = (r << 3) | (r >> 5);
+                        self.screen_buffer[buffer_pos + 1] = (g << 3) | (g >> 5);
+                        self.screen_buffer[buffer_pos + 2] = (b << 3) | (b >> 5);
                         self.screen_buffer[buffer_pos + 3] = 255; //alpha
                     }
                 } else if above_bg || self.bg_wn_pixel_indexes[buffer_pos] == 0 {
