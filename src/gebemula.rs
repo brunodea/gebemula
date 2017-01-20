@@ -131,7 +131,7 @@ impl<'a> Gebemula<'a> {
                     }
                     EventRequest::JoypadUpdate => {
                         self.joypad.update_joypad_register(&mut self.mem);
-                    },
+                    }
                 }
             }
             if cfg!(debug_assertions) {

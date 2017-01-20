@@ -55,3 +55,4 @@ pub const HDMA5_REGISTER_ADDR: u16 = 0xFF55;
 
 pub const VBK_REGISTER_ADDR: u16 = 0xFF4F;
 pub const SVBK_REGISTER_ADDR: u16 = 0xFF70;
+pub const KEY1_REGISTER_ADDR: u16 = 0xFF4D;

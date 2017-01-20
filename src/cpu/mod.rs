@@ -459,9 +459,16 @@ impl Cpu {
             },
             0x10 => {
                 //STOP
-                self.halt_flag = true;
+                let key1 = memory.read_byte(consts::KEY1_REGISTER_ADDR);
+                if (key1 & 0b1) == 1 {
+                    // TODO prepare speed switch
+                    memory.write_byte(consts::KEY1_REGISTER_ADDR, key1 & 0b1000_0000);
+                }
+                else {
+                    ioregister::LCDCRegister::disable_lcd(memory);
+                    self.halt_flag = true;
+                }
                 instruction.cycles = 4;
-                ioregister::LCDCRegister::disable_lcd(memory);
             },
             0x76 => {
                 //HALT
