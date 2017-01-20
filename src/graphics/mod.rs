@@ -111,7 +111,8 @@ impl Graphics {
             };
 
             let buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
-                                    (i as usize);
+                    (i as usize);
+            let mut attr = None;
 
             if !bg_on && !is_window {
                 self.bg_wn_pixel_indexes[buffer_pos] = BgPixel(0, false);
@@ -132,6 +133,24 @@ impl Graphics {
 
             let tile_col_bg = xpos >> 3;
             let tile_addr = addr_start + tile_row + tile_col_bg;
+            let mut tile_col = xpos % 8;
+
+            if mode_color {
+                // tile attribute is on vram bank 1
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
+
+                attr = Some(memory.read_byte(tile_addr));
+
+                let hflip = (attr.unwrap() >> 5) & 0b1 == 0b1;
+                let vflip = (attr.unwrap() >> 6) & 0b1 == 0b1;
+
+                if hflip {
+                    tile_col = 7 - tile_col;
+                }
+                if vflip {
+                    tile_line = 15 - tile_line;
+                }
+            }
 
             // tile map is on vram bank 0
             memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
@@ -147,14 +166,8 @@ impl Graphics {
                 tile_table_addr_pattern_0 +
                 (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
             };
-            let tile_col = xpos % 8;
 
-            let mut attr = None;
             if mode_color {
-                // tile attribute is on vram bank 1
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
-
-                attr = Some(memory.read_byte(tile_addr));
                 // set vbk to use the correct bank for the tile data.
                 memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, (attr.unwrap() >> 3) & 0b1);
             }
@@ -167,9 +180,6 @@ impl Graphics {
 
             if let Some(attr) = attr {
                 let palette_num = attr & 0b111;
-                //TODO: flip
-                let hflip = (attr >> 5) & 0b1 == 0b1;
-                let vflip = (attr >> 6) & 0b1 == 0b1;
                 let priority = (attr >> 7) & 0b1; //0: OAM priority; 1: BG priority
 
                 let palette_h = memory.read_bg_palette((palette_num * 8) + 1 + (pixel_data * 2)); //each palette uses 8 bytes.
