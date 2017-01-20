@@ -276,8 +276,16 @@ impl Graphics {
             } else {
                 8
             };
-            let tile_line = (curr_line as i16 - y) as u8;
+            let mut tile_line = (curr_line as i16 - y) as u8;
             for tile_col in 0..endx {
+                let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + (x.wrapping_add(tile_col as i16) as u16) as usize;
+                let mut tile_col = tile_col;
+                if y_flip {
+                    tile_line = height - 1 - tile_line;
+                }
+                if x_flip {
+                    tile_col = 7 - tile_col;
+                }
                 // tile_line*2 because each tile uses 2 bytes per line.
                 let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >>
                               (7 - tile_col);
@@ -285,28 +293,6 @@ impl Graphics {
                               (7 - tile_col);
                 let pixel_data = ((rhs << 1) & 0b10) | (lhs & 0b01);
                 if pixel_data == 0 {
-                    continue;
-                }
-
-                let mut buffer_pos = 0usize;
-
-                if y_flip {
-                    buffer_pos =
-                        (y.wrapping_add(height as i16 - 1 - tile_line as i16) as u16) as usize *
-                        consts::DISPLAY_WIDTH_PX as usize;
-                } else {
-                    // y + tile_line = curr_line
-                    buffer_pos = curr_line as usize * consts::DISPLAY_WIDTH_PX as usize;
-                }
-
-                let old_pos = buffer_pos;
-                if x_flip {
-                    buffer_pos += (x.wrapping_add(7 - tile_col as i16) as u16) as usize;
-                } else {
-                    buffer_pos += (x.wrapping_add(tile_col as i16) as u16) as usize;
-                }
-
-                if buffer_pos < old_pos || buffer_pos > self.bg_wn_pixel_indexes.len() {
                     continue;
                 }
 
