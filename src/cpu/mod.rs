@@ -864,7 +864,7 @@ impl Cpu {
                 self.reg_set16(Reg::PC, addr);
                 instruction.cycles = 16;
             },
-            _ => panic!("Unknown instruction: {:#x}", byte),
+            _ => panic!("Unknown instruction: {:#x} at address {:#x}", byte, addr),
         }
 
         if instruction.prefix.is_none() {
