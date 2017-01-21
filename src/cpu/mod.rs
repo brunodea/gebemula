@@ -461,7 +461,6 @@ impl Cpu {
                 //STOP
                 let key1 = memory.read_byte(consts::KEY1_REGISTER_ADDR);
                 if (key1 & 0b1) == 1 {
-                    // TODO do the actual speed switch, not simply change the ioregister.
                     memory.write_byte(consts::KEY1_REGISTER_ADDR, (!key1) & 0b1000_0000);
                 }
                 else {

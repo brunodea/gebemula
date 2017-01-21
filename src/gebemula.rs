@@ -103,8 +103,10 @@ impl<'a> Gebemula<'a> {
             //    self.mem.set_access_oam(true);
             //}
 
-            let (instruction, event_request): (Instruction, Option<EventRequest>) =
-                                           self.cpu.run_instruction(&mut self.mem);
+            let (instruction, event_request) = self.cpu.run_instruction(&mut self.mem);
+            let key1 = self.mem.read_byte(cpu::consts::KEY1_REGISTER_ADDR);
+            let double_speed = key1 as u32 >> 7;
+            let instr_cycles = instruction.cycles + (instruction.cycles * double_speed);
             self.cpu.handle_interrupts(&mut self.mem);
             self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = event_request {
@@ -115,7 +117,13 @@ impl<'a> Gebemula<'a> {
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
                         ioregister::dma_transfer(l_nibble, &mut self.mem);
-                        extra_cycles += cpu::consts::DMA_DURATION_CYCLES;
+
+                        let dma_cycles = if double_speed == 0b0 {
+                            cpu::consts::DMA_DURATION_CYCLES
+                        } else {
+                            cpu::consts::DMA_DURATION_CYCLES / 2
+                        };
+                        extra_cycles += dma_cycles;
                         self.mem.set_access_oam(false);
                     },
                     EventRequest::HDMATransfer => {
@@ -140,7 +148,7 @@ impl<'a> Gebemula<'a> {
                     break;
                 }
             }
-            cycles += instruction.cycles;
+            cycles += instr_cycles;
         }
         cycles += self.lcd.stat_mode_change(&mut self.mem);
         cycles
