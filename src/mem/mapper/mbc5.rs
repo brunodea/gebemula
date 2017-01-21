@@ -72,7 +72,7 @@ impl Mapper for Mbc5Mapper {
                 self.rumble_on = data & 0x8 != 0; // Yes, this overlaps with the RAM selector
             },
             6 | 7 => { // unknown / unused
-                    println!("WARNING: write to unknown MBC5 address: {:#04X}", address);
+                println!("WARNING: write to unknown MBC5 address: {:#04X}", address);
             },
             _ => unreachable!(),
         }

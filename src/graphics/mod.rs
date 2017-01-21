@@ -201,21 +201,6 @@ impl Graphics {
             let tile_addr = addr_start + tile_row + tile_col_bg;
             let mut tile_col = xpos % 8;
 
-            let mut attr = None;
-            if mode_color {
-                // tile attribute is on vram bank 1
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
-
-                attr = Some(TileAttr(memory.read_byte(tile_addr)));
-
-                if attr.unwrap().h_flip() {
-                    tile_col = 7 - tile_col;
-                }
-                if attr.unwrap().v_flip() {
-                    tile_line = 15 - tile_line;
-                }
-            }
-
             // tile map is on vram bank 0
             memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 0);
             let tile_location = if is_tile_number_signed {
@@ -231,9 +216,21 @@ impl Graphics {
                 (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
             };
 
-            if let Some(attr) = attr {
+            let mut attr = None;
+            if mode_color {
+                // tile attribute is on vram bank 1
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, 1);
+
+                attr = Some(TileAttr(memory.read_byte(tile_addr)));
+
+                if attr.unwrap().h_flip() {
+                    tile_col = 7 - tile_col;
+                }
+                if attr.unwrap().v_flip() {
+                    tile_line = 15 - tile_line;
+                }
                 // set vbk to use the correct bank for the tile data.
-                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, attr.tile_vram_bank());
+                memory.write_byte(cpu::consts::VBK_REGISTER_ADDR, attr.unwrap().tile_vram_bank());
             }
 
             // two bytes representing 8 pixel indexes
