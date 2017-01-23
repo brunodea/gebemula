@@ -2,7 +2,7 @@ mod mapper;
 pub mod cartridge;
 
 use mem::mapper::Mapper;
-use super::cpu::ioregister::{VBK_REGISTER_ADDR, SVBK_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPI_REGISTER_ADDR};
+use super::cpu::ioregister::{VBK_REGISTER_ADDR, SVBK_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPI_REGISTER_ADDR, BGPD_REGISTER_ADDR, OBPD_REGISTER_ADDR};
 
 const VRAM_BANK_SIZE: usize = 0x2000;
 const VRAM_BANKS: usize = 2;
@@ -84,11 +84,15 @@ impl Memory {
         res
     }
 
-    fn vbk (&self) -> u8 {
+    fn vbk(&self) -> u8 {
         self.read_byte(VBK_REGISTER_ADDR) & 0b1
     }
-    fn svbk (&self) -> u8 {
+    fn svbk(&self) -> u8 {
         self.read_byte(SVBK_REGISTER_ADDR) & 0b111
+    }
+    fn is_color(&self) -> bool {
+        let tmp = self.cartridge.read_rom(0x143);
+        tmp == 0x80 || tmp == 0xC0
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
@@ -123,13 +127,9 @@ impl Memory {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        // TODO: replace hardcoded stuff
-        let mode = self.cartridge.read_rom(0x143);
-        let is_color = mode == 0x80 || mode == 0xC0;
-
         match address {
-            0x0000...0x00FF if self.bootstrap_enabled && !is_color => self.bootstrap_rom[address as usize],
-            0x0000...0x0900 if self.bootstrap_enabled && is_color => self.bootstrap_rom[address as usize],
+            0x0000...0x00FF if self.bootstrap_enabled && !self.is_color() => self.bootstrap_rom[address as usize],
+            0x0000...0x0900 if self.bootstrap_enabled && self.is_color() => self.bootstrap_rom[address as usize],
             0x0000...0x7FFF => self.cartridge.read_rom(address),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
@@ -158,10 +158,8 @@ impl Memory {
             0xFEA0...0xFEFF => 0x0,
             0xFF00...0xFF7F => {
                 match address {
-                    // TODO: remove hardcoded stuff?
-                    0xFF69 => {
-                        // BGPD ioregister
-                        if is_color {
+                    BGPD_REGISTER_ADDR => {
+                        if self.is_color() {
                             // read BGPI ioregister
                             let bgpi = self.read_byte(BGPI_REGISTER_ADDR);
                             let palette_addr = bgpi & 0b0011_1111;
@@ -171,9 +169,8 @@ impl Memory {
                             self.io_registers[(address - 0xFF00) as usize]
                         }
                     }
-                    0xFF6B => {
-                        // OBPD ioregister
-                        if is_color {
+                    OBPD_REGISTER_ADDR => {
+                        if self.is_color() {
                             // read OBPI ioregister
                             let obpi = self.read_byte(OBPI_REGISTER_ADDR);
                             let palette_addr = obpi & 0b0011_1111;
@@ -277,13 +274,8 @@ impl Memory {
     pub fn load_cartridge(&mut self, rom: &[u8], battery: &[u8]) {
         self.cartridge = cartridge::load_cartridge(rom, battery);
 
-        // TODO: replace hardcoded stuff
-        let mode = self.cartridge.read_rom(0x143);
-        let is_color = mode == 0x80 || mode == 0xC0;
-        if is_color {
-            for i in 0x100..0x200 {
-                self.bootstrap_rom[i] = self.cartridge.read_rom(i as u16);
-            }
+        for i in 0x100..0x200 {
+            self.bootstrap_rom[i] = self.cartridge.read_rom(i as u16);
         }
     }
 
