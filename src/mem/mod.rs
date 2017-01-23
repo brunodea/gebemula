@@ -105,11 +105,19 @@ impl Memory {
                 }
             }
             0xA000...0xBFFF => self.cartridge.write_ram(address, value),
-            0xC000...0xDFFF => {
+            0xC000...0xCFFF => {
+                // always wram bank 0.
+                self.wram[address as usize - 0xC000] = value;
+            }
+            0xD000...0xDFFF => {
                 let addr = (address - 0xC000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr] = value;
             }
-            0xE000...0xFDFF => {
+            0xE000...0xEFFF => {
+                // always wram bank 0.
+                self.wram[address as usize - 0xE000] = value;
+            }
+            0xF000...0xFDFF => {
                 let addr = (address - 0xE000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr] = value;
             }
@@ -140,11 +148,13 @@ impl Memory {
                 }
             }
             0xA000...0xBFFF => self.cartridge.read_ram(address),
-            0xC000...0xDFFF => {
+            0xC000...0xCFFF => self.wram[address as usize - 0xC000],
+            0xD000...0xDFFF => {
                 let addr = (address - 0xC000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr]
             }
-            0xE000...0xFDFF => {
+            0xE000...0xEFFF => self.wram[address as usize - 0xE000],
+            0xF000...0xFDFF => {
                 let addr = (address - 0xE000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr]
             }
