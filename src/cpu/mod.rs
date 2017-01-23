@@ -1,4 +1,3 @@
-pub mod consts;
 pub mod interrupt;
 pub mod timer;
 pub mod ioregister;
@@ -357,59 +356,56 @@ impl Cpu {
 
     // function for having control of memory writes
     #[inline]
-    fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) {
-        let value = match address {
-            consts::DIV_REGISTER_ADDR => {
+    fn mem_write(&self, address: u16, value: u8, memory: &mut mem::Memory) -> Option<EventRequest> {
+        let (value, event) = match address {
+            ioregister::DIV_REGISTER_ADDR => {
                 //zero out the internal counter too
-                memory.write_byte(consts::TIMER_INTERNAL_COUNTER_ADDR, 0);
-                0
+                memory.write_byte(ioregister::TIMER_INTERNAL_COUNTER_ADDR, 0);
+                (0, None)
             }
-            consts::SVBK_REGISTER_ADDR => {
+            ioregister::SVBK_REGISTER_ADDR => {
                 if value == 0 {
-                    1
+                    (1, None)
                 } else {
-                    value
+                    (value, None)
                 }
             }
-            consts::LY_REGISTER_ADDR => 0,
-            consts::BGPD_REGISTER_ADDR => {
+            ioregister::LY_REGISTER_ADDR => (0, None),
+            ioregister::BGPD_REGISTER_ADDR => {
                 // TODO: cgb only (do nothing otherwise?)
                 // TODO: bg palette data can't be written/read when STAT register is in mode 3.
-                let bgpi = memory.read_byte(consts::BGPI_REGISTER_ADDR);
-                let p = (bgpi & 0b0011_1000) >> 3;
-                let pd = (bgpi & 0b0000_0110) >> 1;
-                let hl = bgpi & 0b0000_0001;
-                let auto_incr_bit = bgpi >> 7;
+                let bgpi = memory.read_byte(ioregister::BGPI_REGISTER_ADDR);
+                let addr = bgpi & 0b0011_1111;
                 
-                let addr = (p*8)+(pd*2)+hl;
-                if auto_incr_bit == 0b1 {
+                if bgpi >> 7 == 0b1 {
                     // auto-increment index
-                    memory.write_byte(consts::BGPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
+                    memory.write_byte(ioregister::BGPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
                 }
                 memory.write_bg_palette(addr, value);
                 
-                value
+                (value, None)
             }
-            consts::OBPD_REGISTER_ADDR => {
+            ioregister::OBPD_REGISTER_ADDR => {
                 // TODO: same as TODOs above?
-                let obpi = memory.read_byte(consts::OBPI_REGISTER_ADDR);
-                let p = (obpi & 0b0011_1000) >> 3;
-                let pd = (obpi & 0b0000_0110) >> 1;
-                let hl = obpi & 0b0000_0001;
-                let auto_incr_bit = obpi >> 7;
+                let obpi = memory.read_byte(ioregister::OBPI_REGISTER_ADDR);
+                let addr = obpi & 0b0011_1111;
                 
-                let addr = (p*8)+(pd*2)+hl;
-                if auto_incr_bit == 0b1 {
+                if obpi >> 7 == 0b1 {
                     // auto-increment index
-                    memory.write_byte(consts::OBPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
+                    memory.write_byte(ioregister::OBPI_REGISTER_ADDR, 0b1000_0000 | (addr + 1));
                 }
                 memory.write_sprite_palette(addr, value);
                 
-                value
+                (value, None)
             }
-            _ => value,
+            ioregister::DMA_REGISTER_ADDR => (value, Some(EventRequest::DMATransfer(self.reg8(Reg::A)))),
+            ioregister::HDMA5_REGISTER_ADDR => (value, Some(EventRequest::HDMATransfer)),
+            ioregister::JOYPAD_REGISTER_ADDR => (value, Some(EventRequest::JoypadUpdate)),
+            _ => (value, None)
         };
         memory.write_byte(address, value);
+
+        event
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
@@ -459,9 +455,9 @@ impl Cpu {
             },
             0x10 => {
                 //STOP
-                let key1 = memory.read_byte(consts::KEY1_REGISTER_ADDR);
+                let key1 = memory.read_byte(ioregister::KEY1_REGISTER_ADDR);
                 if (key1 & 0b1) == 1 {
-                    memory.write_byte(consts::KEY1_REGISTER_ADDR, (!key1) & 0b1000_0000);
+                    memory.write_byte(ioregister::KEY1_REGISTER_ADDR, (!key1) & 0b1000_0000);
                 }
                 else {
                     ioregister::LCDCRegister::disable_lcd(memory);
@@ -485,7 +481,9 @@ impl Cpu {
             },
             0xCB => {
                 //CB-prefixed
-                instruction = self.exec_cb_prefixed(memory);
+                let (i, e) = self.exec_cb_prefixed(memory);
+                instruction = i;
+                event = e;
             },
             /**************************************/
             /*      8 bit rotations/shifts        */
@@ -499,16 +497,22 @@ impl Cpu {
             /**************************************/
             0x02 | 0x12 => {
                 //LD (rr),A;
-                instruction = self.exec_ld_rr_a(byte, memory);
+                let (i, e) = self.exec_ld_rr_a(byte, memory);
+                instruction = i;
+                event = e;
             },
             0x22 => {
                 //LD (HL+),A
-                instruction = self.exec_ld_rr_a(byte, memory);
+                let (i, e) = self.exec_ld_rr_a(byte, memory);
+                instruction = i;
+                event = e;
                 self.increment_reg(Reg::HL);
             },
             0x32 => {
                 //LD (HL-),A
-                instruction = self.exec_ld_rr_a(byte, memory);
+                let (i, e) = self.exec_ld_rr_a(byte, memory);
+                instruction = i;
+                event = e;
                 self.decrement_reg(Reg::HL);
             },
             0x0A | 0x1A => {
@@ -536,7 +540,7 @@ impl Cpu {
                 if reg == Reg::HL {
                     // LD (HL),n
                     let addr = self.reg16(Reg::HL);
-                    self.mem_write(addr, immediate, memory);
+                    event = self.mem_write(addr, immediate, memory);
                     cycles = 12;
                 } else {
                     // LD r,n
@@ -561,7 +565,7 @@ impl Cpu {
                 } else if reg_lhs == Reg::HL {
                     let addr = self.reg16(Reg::HL);
                     let rhs_val = self.reg8(reg_rhs);
-                    self.mem_write(addr, rhs_val, memory);
+                    event = self.mem_write(addr, rhs_val, memory);
                     cycles = 8;
                 } else {
                     let rhs_val = self.reg8(reg_rhs);
@@ -574,14 +578,7 @@ impl Cpu {
             0xE0 => {
                 //LDH (n),A
                 let immediate = 0xFF00 + (self.mem_next8(memory) as u16);
-                event = match immediate {
-                    consts::DMA_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
-                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::HDMATransfer),
-                    consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
-                    _ => None,
-                };
-
-                self.mem_write(immediate, self.reg8(Reg::A), memory);
+                event = self.mem_write(immediate, self.reg8(Reg::A), memory);
                 instruction.cycles = 12;
                 instruction.imm8 = Some(immediate as u8);
             },
@@ -596,13 +593,7 @@ impl Cpu {
             0xE2 => {
                 //LD (C),A
                 let addr = 0xFF00 + (self.reg8(Reg::C) as u16);
-                event = match addr {
-                    consts::DMA_REGISTER_ADDR => Some(EventRequest::DMATransfer(self.reg8(Reg::A))),
-                    consts::HDMA5_REGISTER_ADDR => Some(EventRequest::HDMATransfer),
-                    consts::JOYPAD_REGISTER_ADDR => Some(EventRequest::JoypadUpdate),
-                    _ => None,
-                };
-                self.mem_write(addr, self.reg8(Reg::A), memory);
+                event = self.mem_write(addr, self.reg8(Reg::A), memory);
                 instruction.cycles = 8
             },
             0xF2 => {
@@ -614,7 +605,7 @@ impl Cpu {
             0xEA => {
                 //LD (nn),A
                 let val = self.mem_next16(memory);
-                self.mem_write(val, self.reg8(Reg::A), memory);
+                event = self.mem_write(val, self.reg8(Reg::A), memory);
                 instruction.cycles = 16;
                 instruction.imm16 = Some(val);
             },
@@ -641,8 +632,8 @@ impl Cpu {
                 //LD (nn), SP
                 let addr = self.mem_next16(memory);
                 let val = self.reg16(Reg::SP);
-                self.mem_write(addr, val as u8, memory);
-                self.mem_write(addr+1, (val >> 8) as u8, memory);
+                event = self.mem_write(addr, val as u8, memory);
+                event = self.mem_write(addr+1, (val >> 8) as u8, memory);
                 instruction.cycles = 20;
                 instruction.imm16 = Some(addr);
             },
@@ -718,7 +709,9 @@ impl Cpu {
             0x0D | 0x1D | 0x2D | 0x3D => {
                 //INC r; INC (HL)
                 //DEC r; DEC (HL)
-                instruction = self.exec_inc_dec(byte, memory);
+                let (i, e) = self.exec_inc_dec(byte, memory);
+                instruction = i;
+                event = e;
             },
             0x27 => {
                 //DAA
@@ -1012,7 +1005,7 @@ impl Cpu {
         instr
     }
 
-    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> Instruction {
+    fn exec_cb_prefixed(&mut self, memory: &mut mem::Memory) -> (Instruction, Option<EventRequest>) {
         let opcode = self.mem_next8(memory);
         let reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -1111,9 +1104,10 @@ impl Cpu {
             _ => unreachable!(),
         }
 
+        let mut event = None;
         if !is_bit_op {
             if reg == Reg::HL {
-                self.mem_write(self.reg16(Reg::HL), value, memory)
+                event = self.mem_write(self.reg16(Reg::HL), value, memory)
             } else {
                 self.reg_set8(reg, value);
             }
@@ -1130,7 +1124,7 @@ impl Cpu {
         instr.opcode = opcode;
         instr.cycles = cycles;
 
-        instr
+        (instr, event)
     }
 
     fn exec_jp(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
@@ -1242,7 +1236,7 @@ impl Cpu {
         instr
     }
 
-    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_inc_dec(&mut self, opcode: u8, memory: &mut mem::Memory) -> (Instruction, Option<EventRequest>) {
         let reg = Reg::pair_from_ddd(opcode >> 3);
         let result: u8;
         let cycles: u32;
@@ -1285,8 +1279,9 @@ impl Cpu {
         }
         self.flag_set(result == 0, Flag::Z);
 
+        let mut event = None;
         if reg == Reg::HL {
-            self.mem_write(self.reg16(Reg::HL), result, memory);
+            event = self.mem_write(self.reg16(Reg::HL), result, memory);
         } else {
             self.reg_set8(reg, result);
         }
@@ -1294,7 +1289,7 @@ impl Cpu {
         let mut instr = Instruction::default();
         instr.cycles = cycles;
 
-        instr
+        (instr, event)
     }
 
     fn exec_bit_alu8(&mut self, opcode: u8, memory: &mem::Memory) -> Instruction {
@@ -1415,18 +1410,18 @@ impl Cpu {
         instr
     }
 
-    fn exec_ld_rr_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> Instruction {
+    fn exec_ld_rr_a(&mut self, opcode: u8, memory: &mut mem::Memory) -> (Instruction, Option<EventRequest>) {
         let mut reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;
         }
         let addr = self.reg16(reg);
         let val = self.reg8(Reg::A);
-        self.mem_write(addr, val, memory);
+        let event = self.mem_write(addr, val, memory);
 
         let mut instr = Instruction::default();
         instr.cycles = 8;
 
-        instr
+        (instr, event)
     }
 }

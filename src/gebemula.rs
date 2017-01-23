@@ -1,9 +1,7 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
 
-use cpu;
-use cpu::ioregister;
-use cpu::{Cpu, Instruction, EventRequest};
+use cpu::{self, ioregister, Cpu, Instruction, EventRequest};
 use cpu::timer::Timer;
 
 use graphics;
@@ -104,7 +102,7 @@ impl<'a> Gebemula<'a> {
             //}
 
             let (instruction, event_request) = self.cpu.run_instruction(&mut self.mem);
-            let key1 = self.mem.read_byte(cpu::consts::KEY1_REGISTER_ADDR);
+            let key1 = self.mem.read_byte(ioregister::KEY1_REGISTER_ADDR);
             let double_speed = key1 as u32 >> 7;
             let instr_cycles = instruction.cycles + (instruction.cycles * double_speed);
             self.cpu.handle_interrupts(&mut self.mem);
@@ -116,23 +114,26 @@ impl<'a> Gebemula<'a> {
                     },
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
-                        ioregister::dma_transfer(l_nibble, &mut self.mem);
+                        let mut dma_cycles = ioregister::dma_transfer(l_nibble, &mut self.mem);
 
-                        let dma_cycles = if double_speed == 0b0 {
-                            cpu::consts::DMA_DURATION_CYCLES
+                        dma_cycles = if double_speed == 0b0 {
+                            dma_cycles
                         } else {
-                            cpu::consts::DMA_DURATION_CYCLES / 2
+                            dma_cycles / 2
                         };
                         extra_cycles += dma_cycles;
                         self.mem.set_access_oam(false);
                     },
                     EventRequest::HDMATransfer => {
+                        println!("HDMATransfer!");
                         self.mem.set_access_oam(true);
-                        let hdma5 = self.mem.read_byte(cpu::consts::HDMA5_REGISTER_ADDR);
+                        let hdma5 = self.mem.read_byte(ioregister::HDMA5_REGISTER_ADDR);
                         if hdma5 >> 7 == 0b1 {
+                            println!("h-blank dma");
                             // if dma transfer mode is h-blank dma we have to use lcd.
                             self.lcd.request_cgb_dma_transfer();
                         } else if let Some(c) = ioregister::cgb_dma_transfer(&mut self.mem) {
+                            println!("not h-blank dma");
                             extra_cycles += c;
                         }
                         self.mem.set_access_oam(false);

@@ -1,7 +1,5 @@
-use cpu;
-use cpu::{Cpu, Reg, Instruction};
-use mem;
-use mem::Memory;
+use cpu::{self, ioregister, Cpu, Reg, Instruction};
+use mem::{self, Memory};
 use std::io::{self, Write};
 use gebemula::GBMode;
 
@@ -81,18 +79,18 @@ impl BreakCommand {
         } else {
             should_run_cpu = true;
             let ioregister = match params[0] {
-                "LCDC" => Some(cpu::consts::LCDC_REGISTER_ADDR),
-                "LYC" => Some(cpu::consts::LYC_REGISTER_ADDR),
-                "LY" => Some(cpu::consts::LY_REGISTER_ADDR),
-                "SCX" => Some(cpu::consts::SCX_REGISTER_ADDR),
-                "SCY" => Some(cpu::consts::SCY_REGISTER_ADDR),
-                "WY" => Some(cpu::consts::WY_REGISTER_ADDR),
-                "WX" => Some(cpu::consts::WX_REGISTER_ADDR),
-                "IF" => Some(cpu::consts::IF_REGISTER_ADDR),
-                "IE" => Some(cpu::consts::IE_REGISTER_ADDR),
-                "STAT" => Some(cpu::consts::STAT_REGISTER_ADDR),
-                "DIV" => Some(cpu::consts::DIV_REGISTER_ADDR),
-                "TIMA" => Some(cpu::consts::TIMA_REGISTER_ADDR),
+                "LCDC" => Some(ioregister::LCDC_REGISTER_ADDR),
+                "LYC" => Some(ioregister::LYC_REGISTER_ADDR),
+                "LY" => Some(ioregister::LY_REGISTER_ADDR),
+                "SCX" => Some(ioregister::SCX_REGISTER_ADDR),
+                "SCY" => Some(ioregister::SCY_REGISTER_ADDR),
+                "WY" => Some(ioregister::WY_REGISTER_ADDR),
+                "WX" => Some(ioregister::WX_REGISTER_ADDR),
+                "IF" => Some(ioregister::IF_REGISTER_ADDR),
+                "IE" => Some(ioregister::IE_REGISTER_ADDR),
+                "STAT" => Some(ioregister::STAT_REGISTER_ADDR),
+                "DIV" => Some(ioregister::DIV_REGISTER_ADDR),
+                "TIMA" => Some(ioregister::TIMA_REGISTER_ADDR),
                 _ => None,
             };
             let reg = match params[0] {
@@ -421,21 +419,21 @@ impl Debugger {
                 println!("{}", cpu);
             }
             "ioregs" => {
-                let tima = mem.read_byte(cpu::consts::TIMA_REGISTER_ADDR);
-                let tma = mem.read_byte(cpu::consts::TMA_REGISTER_ADDR);
-                let tac = mem.read_byte(cpu::consts::TAC_REGISTER_ADDR);
-                let div = mem.read_byte(cpu::consts::DIV_REGISTER_ADDR);
-                let if_ = mem.read_byte(cpu::consts::IF_REGISTER_ADDR);
-                let ie = mem.read_byte(cpu::consts::IE_REGISTER_ADDR);
-                let ly = mem.read_byte(cpu::consts::LY_REGISTER_ADDR);
-                let lcdc = mem.read_byte(cpu::consts::LCDC_REGISTER_ADDR);
-                let scx = mem.read_byte(cpu::consts::SCX_REGISTER_ADDR);
-                let scy = mem.read_byte(cpu::consts::SCY_REGISTER_ADDR);
-                let stat = mem.read_byte(cpu::consts::STAT_REGISTER_ADDR);
-                let lyc = mem.read_byte(cpu::consts::LYC_REGISTER_ADDR);
-                let wx = mem.read_byte(cpu::consts::WX_REGISTER_ADDR);
-                let wy = mem.read_byte(cpu::consts::WY_REGISTER_ADDR);
-                let p1 = mem.read_byte(cpu::consts::JOYPAD_REGISTER_ADDR);
+                let tima = mem.read_byte(ioregister::TIMA_REGISTER_ADDR);
+                let tma = mem.read_byte(ioregister::TMA_REGISTER_ADDR);
+                let tac = mem.read_byte(ioregister::TAC_REGISTER_ADDR);
+                let div = mem.read_byte(ioregister::DIV_REGISTER_ADDR);
+                let if_ = mem.read_byte(ioregister::IF_REGISTER_ADDR);
+                let ie = mem.read_byte(ioregister::IE_REGISTER_ADDR);
+                let ly = mem.read_byte(ioregister::LY_REGISTER_ADDR);
+                let lcdc = mem.read_byte(ioregister::LCDC_REGISTER_ADDR);
+                let scx = mem.read_byte(ioregister::SCX_REGISTER_ADDR);
+                let scy = mem.read_byte(ioregister::SCY_REGISTER_ADDR);
+                let stat = mem.read_byte(ioregister::STAT_REGISTER_ADDR);
+                let lyc = mem.read_byte(ioregister::LYC_REGISTER_ADDR);
+                let wx = mem.read_byte(ioregister::WX_REGISTER_ADDR);
+                let wy = mem.read_byte(ioregister::WY_REGISTER_ADDR);
+                let p1 = mem.read_byte(ioregister::JOYPAD_REGISTER_ADDR);
 
                 println!("IF: {:#b}", if_);
                 println!("IE: {:#b}", ie);

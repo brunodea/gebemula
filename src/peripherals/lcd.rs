@@ -1,7 +1,11 @@
 use super::super::mem::Memory;
 use super::super::cpu::{self, ioregister, interrupt};
-
 use super::super::graphics::{self, Graphics};
+
+const STAT_MODE_0_DURATION_CYCLES: u32 = 201;
+const STAT_MODE_1_DURATION_CYCLES: u32 = 456;
+const STAT_MODE_2_DURATION_CYCLES: u32 = 77;
+const STAT_MODE_3_DURATION_CYCLES: u32 = 169;
 
 #[derive(Copy, Clone, PartialEq)]
 enum StatMode {
@@ -23,10 +27,10 @@ impl StatMode {
 
     fn duration(&self) -> u32 {
         match *self {
-            StatMode::HBlank => cpu::consts::STAT_MODE_0_DURATION_CYCLES,
-            StatMode::VBlank => cpu::consts::STAT_MODE_1_DURATION_CYCLES,
-            StatMode::OAM    => cpu::consts::STAT_MODE_2_DURATION_CYCLES,
-            StatMode::VRam   => cpu::consts::STAT_MODE_3_DURATION_CYCLES,
+            StatMode::HBlank => STAT_MODE_0_DURATION_CYCLES,
+            StatMode::VBlank => STAT_MODE_1_DURATION_CYCLES,
+            StatMode::OAM    => STAT_MODE_2_DURATION_CYCLES,
+            StatMode::VRam   => STAT_MODE_3_DURATION_CYCLES,
         }
     }
 }
@@ -50,7 +54,7 @@ impl Default for LCD {
 impl LCD {
     pub fn has_entered_vblank(&self, memory: &Memory) -> bool {
         self.curr_stat_mode == StatMode::VBlank &&
-            memory.read_byte(cpu::consts::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
+            memory.read_byte(ioregister::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
     }
     pub fn request_cgb_dma_transfer(&mut self) {
         self.cgb_dma_requested = true;
@@ -72,7 +76,7 @@ impl LCD {
         let mut cycles = 0;
         match self.curr_stat_mode {
             StatMode::HBlank => {
-                let mut ly = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let mut ly = memory.read_byte(ioregister::LY_REGISTER_ADDR);
                 ly += 1;
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX {
                     self.curr_stat_mode = StatMode::VBlank;
@@ -82,17 +86,17 @@ impl LCD {
                 } else {
                     self.curr_stat_mode = StatMode::OAM;
                 }
-                memory.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
+                memory.write_byte(ioregister::LY_REGISTER_ADDR, ly);
             },
             StatMode::VBlank => {
-                let mut ly = memory.read_byte(cpu::consts::LY_REGISTER_ADDR);
+                let mut ly = memory.read_byte(ioregister::LY_REGISTER_ADDR);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
                     self.curr_stat_mode = StatMode::OAM;
                     ly = 0;
                 } else {
                     ly += 1;
                 }
-                memory.write_byte(cpu::consts::LY_REGISTER_ADDR, ly);
+                memory.write_byte(ioregister::LY_REGISTER_ADDR, ly);
             },
             StatMode::OAM => {
                 self.curr_stat_mode = StatMode::VRam;
@@ -114,8 +118,9 @@ impl LCD {
         memory.set_access_vram(true);
         memory.set_access_oam(true);
         //FIXME: actually use can_access_vram/oram instead of always setting to true.
-        // self.mem.set_access_vram(gpu_mode <= 2);
-        // self.mem.set_access_oam(gpu_mode <= 1);
+        //memory.set_access_vram(self.curr_stat_mode != StatMode::VRam);
+        //memory.set_access_oam(self.curr_stat_mode == StatMode::VBlank || self.curr_stat_mode == StatMode::HBlank);
+
 
         ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
         ioregister::update_stat_reg_coincidence_flag(memory);
