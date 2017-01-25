@@ -70,6 +70,9 @@ impl LCD {
         memory.set_access_vram(true);
         memory.set_access_oam(false);
     }
+    pub fn set_color(&mut self) {
+        self.graphics.set_color();
+    }
 
     // return cycles (because of cgb dma transfer). TODO: find a better way.
     pub fn stat_mode_change(&mut self, memory: &mut Memory) -> u32 {

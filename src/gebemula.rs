@@ -77,6 +77,9 @@ impl<'a> Gebemula<'a> {
 
     pub fn load_cartridge(&mut self, game_rom: &[u8], battery: &[u8]) {
         self.mem.load_cartridge(game_rom, battery);
+        if GBMode::get(&self.mem) == GBMode::Color {
+            self.lcd.set_color();
+        }
     }
 
     pub fn set_save_battery_callback(&mut self, callback: &'a Fn(&[u8])) {
