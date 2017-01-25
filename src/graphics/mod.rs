@@ -8,7 +8,8 @@ use super::gebemula::GBMode;
 #[derive(Copy, Clone, PartialEq)]
 enum TileType {
     Sprite,
-    Background
+    Background,
+    Window
 }
 // Tile attributes
 #[derive(Copy, Clone)]
@@ -74,7 +75,7 @@ impl RGB for MonoRGB {
         //TODO make sure this write isn't necessary.
         //memory.write_byte(ioregister::VBK_REGISTER_ADDR, 0);
         let pixel_index = match pixel.tile_type {
-            TileType::Background => {
+            TileType::Background | TileType::Window => {
                 ioregister::bg_window_palette(pixel.color_number, memory)
             }
             TileType::Sprite => {
@@ -104,7 +105,7 @@ impl RGB for ColorRGB {
         let h_addr = (pixel.tile_attr.cgb_palette_number() * 8) + 1 + (pixel.color_number * 2); // each palette uses 8 bytes.
         let l_addr = (pixel.tile_attr.cgb_palette_number() * 8) + (pixel.color_number * 2);     // color_number chooses the palette index. *2 because each color intensity uses two bytes.
         let (palette_h, palette_l) = match pixel.tile_type {
-            TileType::Background => {
+            TileType::Background | TileType::Window => {
                     (memory.read_bg_palette(h_addr), memory.read_bg_palette(l_addr))
             }
             TileType::Sprite => {
@@ -277,7 +278,8 @@ impl Graphics {
 
             let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
 
-            self.bg_wn_pixel_indexes[buffer_pos] = TilePixel::new(color_number, attr.unwrap_or(TileAttr(0)), TileType::Background);
+            let tile_type = if is_window { TileType::Window } else { TileType::Background };
+            self.bg_wn_pixel_indexes[buffer_pos] = TilePixel::new(color_number, attr.unwrap_or(TileAttr(0)), tile_type);
 
             let (r, g, b) = self.rgb.rgb(&self.bg_wn_pixel_indexes[buffer_pos], memory);
 
@@ -348,7 +350,12 @@ impl Graphics {
             let mut tile_line = (curr_line as i16 - y) as u8;
             for tile_col in 0..endx {
                 let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + (x.wrapping_add(tile_col as i16) as u16) as usize;
+
                 if buffer_pos * 4 > self.screen_buffer.len() - 4 {
+                    continue;
+                }
+                let bg_px = self.bg_wn_pixel_indexes[buffer_pos];
+                if bg_px.tile_type == TileType::Window {
                     continue;
                 }
 
@@ -370,14 +377,13 @@ impl Graphics {
                 }
 
                 let sprites_on_top = !ioregister::LCDCRegister::is_bg_window_display_on(memory);
-                let bg_px = self.bg_wn_pixel_indexes[buffer_pos];
                 let oam_priority = bg_px.tile_attr.priority() == TileType::Sprite;
                 let sprite_priority = sprite_attr.priority() == TileType::Sprite;
 
                 let should_draw = if mode_color {
                     sprites_on_top || (oam_priority && (sprite_priority || bg_px.color_number == 0))
                 } else {
-                    sprite_priority || self.bg_wn_pixel_indexes[buffer_pos].color_number == 0 
+                    sprite_priority || bg_px.color_number == 0 
                 };
 
                 if should_draw {
