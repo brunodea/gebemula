@@ -15,7 +15,7 @@ impl RomMapper {
     pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_battery: bool) -> RomMapper {
         assert!(rom.len() <= 32 << 10);
         assert!(rom.len().is_power_of_two());
-        assert!(ram.len() <=  8 << 10);
+        assert!(ram.len() <= 8 << 10);
         assert!(ram.len() == 0 || ram.len().is_power_of_two());
 
         RomMapper {

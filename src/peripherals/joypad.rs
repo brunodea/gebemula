@@ -23,9 +23,7 @@ pub struct Joypad {
 
 impl Default for Joypad {
     fn default() -> Self {
-        Joypad {
-            keys: NONE,
-        }
+        Joypad { keys: NONE }
     }
 }
 
@@ -55,4 +53,3 @@ impl Joypad {
         ioregister::joypad_set_buttons(buttons, memory);
     }
 }
-

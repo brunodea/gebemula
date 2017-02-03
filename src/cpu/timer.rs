@@ -8,9 +8,7 @@ pub struct Timer {
 
 impl Default for Timer {
     fn default() -> Timer {
-        Timer {
-            timer_overflow: false,
-        }
+        Timer { timer_overflow: false }
     }
 }
 
@@ -22,7 +20,8 @@ impl Timer {
         let old_internal_timer = ((div as u16) << 8) | internal_counter as u16;
         let internal_timer = old_internal_timer.wrapping_add(cycles as u16);
 
-        memory.write_byte(ioregister::TIMER_INTERNAL_COUNTER_ADDR, internal_timer as u8);
+        memory.write_byte(ioregister::TIMER_INTERNAL_COUNTER_ADDR,
+                          internal_timer as u8);
         memory.write_byte(ioregister::DIV_REGISTER_ADDR, (internal_timer >> 8) as u8);
 
         if self.timer_overflow {

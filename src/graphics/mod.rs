@@ -9,7 +9,7 @@ use super::gebemula::GBMode;
 enum TileType {
     Sprite,
     Background,
-    Window
+    Window,
 }
 // Tile attributes
 #[derive(Copy, Clone)]
@@ -79,7 +79,9 @@ impl RGB for MonoRGB {
                 ioregister::bg_window_palette(pixel.color_number, memory)
             }
             TileType::Sprite => {
-                ioregister::sprite_palette(pixel.tile_attr.dmg_palette_number() == 0, pixel.color_number, memory)
+                ioregister::sprite_palette(pixel.tile_attr.dmg_palette_number() == 0,
+                                           pixel.color_number,
+                                           memory)
             }
         };
         consts::DMG_PALETTE[pixel_index as usize]
@@ -93,9 +95,7 @@ impl ColorRGB {
         let g = ((palette_h & 0b11) << 3) | (palette_l >> 5);
         let b = (palette_h >> 2) & 0b11111;
 
-        let to255 = |x| {
-            (x << 3) | (x >> 2)
-        };
+        let to255 = |x| (x << 3) | (x >> 2);
 
         (to255(r), to255(g), to255(b))
     }
@@ -103,13 +103,13 @@ impl ColorRGB {
 impl RGB for ColorRGB {
     fn rgb(&self, pixel: &TilePixel, memory: &Memory) -> (u8, u8, u8) {
         let h_addr = (pixel.tile_attr.cgb_palette_number() * 8) + 1 + (pixel.color_number * 2); // each palette uses 8 bytes.
-        let l_addr = (pixel.tile_attr.cgb_palette_number() * 8) + (pixel.color_number * 2);     // color_number chooses the palette index. *2 because each color intensity uses two bytes.
+        let l_addr = (pixel.tile_attr.cgb_palette_number() * 8) + (pixel.color_number * 2); // color_number chooses the palette index. *2 because each color intensity uses two bytes.
         let (palette_h, palette_l) = match pixel.tile_type {
             TileType::Background | TileType::Window => {
-                    (memory.read_bg_palette(h_addr), memory.read_bg_palette(l_addr))
+                (memory.read_bg_palette(h_addr), memory.read_bg_palette(l_addr))
             }
             TileType::Sprite => {
-                    (memory.read_sprite_palette(h_addr), memory.read_sprite_palette(l_addr))
+                (memory.read_sprite_palette(h_addr), memory.read_sprite_palette(l_addr))
             }
         };
         Self::palette_to_rgb(palette_h, palette_l)
@@ -165,7 +165,11 @@ impl Graphics {
         let mut bg_on = ioregister::LCDCRegister::is_bg_window_display_on(memory);
         let mut wn_on = ioregister::LCDCRegister::is_window_display_on(memory);
 
-        bg_on = if mode_color { self.bg_on } else { bg_on && self.bg_on };
+        bg_on = if mode_color {
+            self.bg_on
+        } else {
+            bg_on && self.bg_on
+        };
         wn_on = wn_on && self.wn_on;
 
         if !bg_on && !wn_on {
@@ -184,20 +188,16 @@ impl Graphics {
 
         let mut is_window = false;
 
-        let startx = if bg_on {
-            0
-        } else {
-            wx
-        };
+        let startx = if bg_on { 0 } else { wx };
 
         let old_vbk = memory.read_byte(ioregister::VBK_REGISTER_ADDR);
 
-        let (tile_table_addr_pattern_0, is_tile_number_signed) =
-            if ioregister::LCDCRegister::is_tile_data_0(&memory) {
-                (consts::TILE_DATA_TABLE_0_ADDR_START, true)
-            } else {
-                (consts::TILE_DATA_TABLE_1_ADDR_START, false)
-            };
+        let (tile_table_addr_pattern_0, is_tile_number_signed) = if 
+            ioregister::LCDCRegister::is_tile_data_0(&memory) {
+            (consts::TILE_DATA_TABLE_0_ADDR_START, true)
+        } else {
+            (consts::TILE_DATA_TABLE_1_ADDR_START, false)
+        };
 
 
         let mut tile_row = (ypos / 8) * 32;
@@ -217,7 +217,7 @@ impl Graphics {
             };
 
             let buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
-                (i as usize);
+                             (i as usize);
 
             if !bg_on && !is_window {
                 self.bg_wn_pixel_indexes[buffer_pos] = TilePixel::default();
@@ -230,7 +230,8 @@ impl Graphics {
                 } else {
                     consts::BG_WINDOW_ADDR_START
                 }
-            } else if ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
+            } else if 
+                ioregister::LCDCRegister::is_bg_tile_map_display_normal(&memory) {
                 consts::BG_NORMAL_ADDR_START
             } else {
                 consts::BG_WINDOW_ADDR_START
@@ -252,7 +253,7 @@ impl Graphics {
                 tile_table_addr_pattern_0 + (tile_number * consts::TILE_SIZE_BYTES as u16)
             } else {
                 tile_table_addr_pattern_0 +
-                    (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
+                (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
             };
 
             let mut attr = None;
@@ -269,7 +270,8 @@ impl Graphics {
                     tile_line = 15 - tile_line;
                 }
                 // set vbk to use the correct bank for the tile data.
-                memory.write_byte(ioregister::VBK_REGISTER_ADDR, attr.unwrap().tile_vram_bank());
+                memory.write_byte(ioregister::VBK_REGISTER_ADDR,
+                                  attr.unwrap().tile_vram_bank());
             }
 
             // two bytes representing 8 pixel indexes
@@ -278,8 +280,13 @@ impl Graphics {
 
             let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
 
-            let tile_type = if is_window { TileType::Window } else { TileType::Background };
-            self.bg_wn_pixel_indexes[buffer_pos] = TilePixel::new(color_number, attr.unwrap_or(TileAttr(0)), tile_type);
+            let tile_type = if is_window {
+                TileType::Window
+            } else {
+                TileType::Background
+            };
+            self.bg_wn_pixel_indexes[buffer_pos] =
+                TilePixel::new(color_number, attr.unwrap_or(TileAttr(0)), tile_type);
 
             let (r, g, b) = self.rgb.rgb(&self.bg_wn_pixel_indexes[buffer_pos], memory);
 
@@ -310,11 +317,7 @@ impl Graphics {
         while index != 0 {
             index -= 4;
             let sprite_8_16 = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
-            let height = if sprite_8_16 {
-                16
-            } else {
-                8
-            };
+            let height = if sprite_8_16 { 16 } else { 8 };
             let mut y = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) as i16;
             if y == 0 || y >= 160 {
                 continue;
@@ -333,9 +336,10 @@ impl Graphics {
             let tile_number = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
 
             let tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                                     (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
+                                (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
 
-            let sprite_attr = TileAttr(memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3));
+            let sprite_attr =
+                TileAttr(memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3));
             if mode_color {
                 // tile attribute is on vram bank 1
                 memory.write_byte(ioregister::VBK_REGISTER_ADDR, sprite_attr.tile_vram_bank());
@@ -349,15 +353,13 @@ impl Graphics {
             };
             let mut tile_line = (curr_line as i16 - y) as u8;
             for tile_col in 0..endx {
-                let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) + (x.wrapping_add(tile_col as i16) as u16) as usize;
+                let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
+                                     (x.wrapping_add(tile_col as i16) as u16) as usize;
 
                 if buffer_pos * 4 > self.screen_buffer.len() - 4 {
                     continue;
                 }
                 let bg_px = self.bg_wn_pixel_indexes[buffer_pos];
-                if bg_px.tile_type == TileType::Window {
-                    continue;
-                }
 
                 let mut tile_col = tile_col;
                 if sprite_attr.h_flip() {
@@ -368,9 +370,9 @@ impl Graphics {
                 }
                 // tile_line*2 because each tile uses 2 bytes per line.
                 let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >>
-                    (7 - tile_col);
+                          (7 - tile_col);
                 let rhs = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >>
-                    (7 - tile_col);
+                          (7 - tile_col);
                 let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
                 if color_number == 0 {
                     continue;
@@ -383,11 +385,13 @@ impl Graphics {
                 let should_draw = if mode_color {
                     sprites_on_top || (oam_priority && (sprite_priority || bg_px.color_number == 0))
                 } else {
-                    sprite_priority || bg_px.color_number == 0 
+                    sprite_priority || bg_px.color_number == 0
                 };
 
                 if should_draw {
-                    let (r, g, b) = self.rgb.rgb(&TilePixel::new(color_number, sprite_attr, TileType::Sprite), memory);
+                    let (r, g, b) = self.rgb
+                        .rgb(&TilePixel::new(color_number, sprite_attr, TileType::Sprite),
+                             memory);
 
                     buffer_pos *= 4; // because of RGBA
                     self.screen_buffer[buffer_pos] = r;

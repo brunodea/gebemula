@@ -42,7 +42,11 @@ impl Mbc2Mapper {
 
 impl Mapper for Mbc2Mapper {
     fn read_rom(&self, address: u16) -> u8 {
-        let bank = if address & 0x4000 == 0 { 0 } else { self.current_rom_bank };
+        let bank = if address & 0x4000 == 0 {
+            0
+        } else {
+            self.current_rom_bank
+        };
         let offset = bank as usize * ROM_BANK_SIZE + (address & 0x3FFF) as usize;
 
         self.rom[offset & self.rom_mask()]
@@ -50,12 +54,14 @@ impl Mapper for Mbc2Mapper {
 
     fn write_rom(&mut self, address: u16, data: u8) {
         match address >> 13 & 0b11 {
-            0 => { // RAM enable
+            0 => {
+                // RAM enable
                 if address & 0x0100 == 0 {
                     self.ram_enabled = data & 0xF == 0xA;
                 }
-            },
-            1 => { // ROM bank
+            }
+            1 => {
+                // ROM bank
                 if address & 0x0100 != 0 {
                     let mut new_bank = data & 0xF;
                     if new_bank == 0 {
@@ -64,10 +70,10 @@ impl Mapper for Mbc2Mapper {
 
                     self.current_rom_bank = new_bank;
                 }
-            },
+            }
             2 | 3 => {
                 println!("WARNING: write to unknown MBC2 address: {:#04X}", address);
-            },
+            }
             _ => unreachable!(),
         }
     }

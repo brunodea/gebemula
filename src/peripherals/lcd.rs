@@ -20,8 +20,8 @@ impl StatMode {
         match *self {
             StatMode::HBlank => 0b00,
             StatMode::VBlank => 0b01,
-            StatMode::OAM    => 0b10,
-            StatMode::VRam   => 0b11,
+            StatMode::OAM => 0b10,
+            StatMode::VRam => 0b11,
         }
     }
 
@@ -29,8 +29,8 @@ impl StatMode {
         match *self {
             StatMode::HBlank => STAT_MODE_0_DURATION_CYCLES,
             StatMode::VBlank => STAT_MODE_1_DURATION_CYCLES,
-            StatMode::OAM    => STAT_MODE_2_DURATION_CYCLES,
-            StatMode::VRam   => STAT_MODE_3_DURATION_CYCLES,
+            StatMode::OAM => STAT_MODE_2_DURATION_CYCLES,
+            StatMode::VRam => STAT_MODE_3_DURATION_CYCLES,
         }
     }
 }
@@ -54,7 +54,7 @@ impl Default for LCD {
 impl LCD {
     pub fn has_entered_vblank(&self, memory: &Memory) -> bool {
         self.curr_stat_mode == StatMode::VBlank &&
-            memory.read_byte(ioregister::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
+        memory.read_byte(ioregister::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
     }
     pub fn request_cgb_dma_transfer(&mut self) {
         self.cgb_dma_requested = true;
@@ -90,7 +90,7 @@ impl LCD {
                     self.curr_stat_mode = StatMode::OAM;
                 }
                 memory.write_byte(ioregister::LY_REGISTER_ADDR, ly);
-            },
+            }
             StatMode::VBlank => {
                 let mut ly = memory.read_byte(ioregister::LY_REGISTER_ADDR);
                 if ly == graphics::consts::DISPLAY_HEIGHT_PX + 10 {
@@ -100,13 +100,13 @@ impl LCD {
                     ly += 1;
                 }
                 memory.write_byte(ioregister::LY_REGISTER_ADDR, ly);
-            },
+            }
             StatMode::OAM => {
                 self.curr_stat_mode = StatMode::VRam;
                 memory.set_access_vram(true);
                 memory.set_access_oam(true);
                 self.graphics.update(memory);
-            },
+            }
             StatMode::VRam => {
                 self.curr_stat_mode = StatMode::HBlank;
                 if self.cgb_dma_requested {
@@ -116,7 +116,7 @@ impl LCD {
                         self.cgb_dma_requested = false;
                     }
                 }
-            },
+            }
         }
         memory.set_access_vram(true);
         memory.set_access_oam(true);

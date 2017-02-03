@@ -18,7 +18,7 @@ pub struct Mbc1Mapper {
 
 impl Mbc1Mapper {
     pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_battery: bool) -> Mbc1Mapper {
-        assert!(rom.len() <=  2 << 20);
+        assert!(rom.len() <= 2 << 20);
         assert!(rom.len().is_power_of_two());
         assert!(ram.len() <= 32 << 10);
         assert!(ram.is_empty() || ram.len().is_power_of_two());
@@ -46,7 +46,11 @@ impl Mbc1Mapper {
 
 impl Mapper for Mbc1Mapper {
     fn read_rom(&self, address: u16) -> u8 {
-        let bank = if address & 0x4000 == 0 { 0 } else { self.current_rom_bank };
+        let bank = if address & 0x4000 == 0 {
+            0
+        } else {
+            self.current_rom_bank
+        };
         let offset = bank as usize * ROM_BANK_SIZE + (address & 0x3FFF) as usize;
 
         self.rom[offset & self.rom_mask()]
@@ -54,33 +58,37 @@ impl Mapper for Mbc1Mapper {
 
     fn write_rom(&mut self, address: u16, data: u8) {
         match address >> 13 & 0b11 {
-            0 => { // RAM enable
+            0 => {
+                // RAM enable
                 self.ram_enabled = data & 0xF == 0xA;
-            },
-            1 => { // ROM bank
+            }
+            1 => {
+                // ROM bank
                 let mut new_bank = data & 0x1F;
                 if new_bank == 0 {
                     new_bank = 1;
                 }
 
                 self.current_rom_bank = (self.current_rom_bank & !0x1F) | new_bank;
-            },
-            2 => { // RAM bank / upper ROM bank
+            }
+            2 => {
+                // RAM bank / upper ROM bank
                 let new_bank = data & 0x3;
                 if self.ram_banking_enabled {
                     self.current_ram_bank = new_bank;
                 } else {
                     self.current_rom_bank = (self.current_rom_bank & !0x60) | (new_bank << 5);
                 }
-            },
-            3 => { // ROM/RAM mode
+            }
+            3 => {
+                // ROM/RAM mode
                 self.ram_banking_enabled = data & 0x1 == 0x1;
                 if self.ram_banking_enabled {
                     self.current_rom_bank &= 0x1F;
                 } else {
                     self.current_ram_bank = 0;
                 }
-            },
+            }
             _ => unreachable!(),
         }
     }

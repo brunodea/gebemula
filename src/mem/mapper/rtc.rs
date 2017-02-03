@@ -14,7 +14,7 @@ pub struct Rtc {
 
 impl Rtc {
     pub fn new() -> Rtc {
-        let mut rtc : Rtc = Default::default();
+        let mut rtc: Rtc = Default::default();
         rtc.latch();
         rtc
     }
@@ -26,7 +26,7 @@ impl Rtc {
             0xA => self.hours,
             0xB => self.day_counter_lsb,
             0xC => self.misc_bits,
-            _   => 0xFF,
+            _ => 0xFF,
         }
     }
 
@@ -37,7 +37,7 @@ impl Rtc {
             0xA => self.hours = data,
             0xB => self.day_counter_lsb = data,
             0xC => self.misc_bits = data,
-            _   => (),
+            _ => (),
         }
     }
 
@@ -59,4 +59,3 @@ impl Rtc {
         self.misc_bits = (now.tm_yday & 0x100 >> 8) as u8;
     }
 }
-

@@ -33,14 +33,16 @@ fn main() {
                     Yuri Kunde Schlesner <yuriks@yuriks.net>")
         .about("Emulator for GameBoy written in Rust.")
         .arg(Arg::with_name("INPUT_ROM")
-             .index(1).required(true)
-             .help("Path to the game ROM."))
+            .index(1)
+            .required(true)
+            .help("Path to the game ROM."))
         .arg(Arg::with_name("bootstrap_rom")
-             .short("b").long("bootstrap")
-             .help("Sets the path to the Gameboy bootstrap ROM.")
-             .value_name("DMG_ROM.bin")
-             .takes_value(true)
-             .default_value("DMG_ROM.bin"))
+            .short("b")
+            .long("bootstrap")
+            .help("Sets the path to the Gameboy bootstrap ROM.")
+            .value_name("DMG_ROM.bin")
+            .takes_value(true)
+            .default_value("DMG_ROM.bin"))
         .get_matches();
 
     let bootstrap_path = Path::new(args.value_of("bootstrap_rom").unwrap());
@@ -48,18 +50,24 @@ fn main() {
     let battery_path = rom_path.with_extension("sav");
 
     let mut bootstrap_data = Vec::new();
-    File::open(bootstrap_path).expect("Unable to open Bootstrap Rom")
-        .read_to_end(&mut bootstrap_data).unwrap();
+    File::open(bootstrap_path)
+        .expect("Unable to open Bootstrap Rom")
+        .read_to_end(&mut bootstrap_data)
+        .unwrap();
 
     let mut game_data = Vec::new();
-    File::open(rom_path).expect("Unable to open Game Rom")
-        .read_to_end(&mut game_data).unwrap();
+    File::open(rom_path)
+        .expect("Unable to open Game Rom")
+        .read_to_end(&mut game_data)
+        .unwrap();
 
     let mut battery_data = Vec::new();
     if battery_path.exists() {
         println!("Loaded battery: {}", battery_path.display());
-        File::open(&battery_path).expect("Unable to open Save file")
-            .read_to_end(&mut battery_data).unwrap();
+        File::open(&battery_path)
+            .expect("Unable to open Save file")
+            .read_to_end(&mut battery_data)
+            .unwrap();
     }
 
     let save_battery_callback = |data: &[u8]| {

@@ -2,7 +2,8 @@ mod mapper;
 pub mod cartridge;
 
 use mem::mapper::Mapper;
-use super::cpu::ioregister::{VBK_REGISTER_ADDR, SVBK_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPI_REGISTER_ADDR, BGPD_REGISTER_ADDR, OBPD_REGISTER_ADDR};
+use super::cpu::ioregister::{VBK_REGISTER_ADDR, SVBK_REGISTER_ADDR, BGPI_REGISTER_ADDR,
+                             OBPI_REGISTER_ADDR, BGPD_REGISTER_ADDR, OBPD_REGISTER_ADDR};
 
 const VRAM_BANK_SIZE: usize = 0x2000;
 const VRAM_BANKS: usize = 2;
@@ -136,8 +137,12 @@ impl Memory {
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            0x0000...0x00FF if self.bootstrap_enabled && !self.is_color() => self.bootstrap_rom[address as usize],
-            0x0000...0x0900 if self.bootstrap_enabled && self.is_color() => self.bootstrap_rom[address as usize],
+            0x0000...0x00FF if self.bootstrap_enabled && !self.is_color() => {
+                self.bootstrap_rom[address as usize]
+            }
+            0x0000...0x0900 if self.bootstrap_enabled && self.is_color() => {
+                self.bootstrap_rom[address as usize]
+            }
             0x0000...0x7FFF => self.cartridge.read_rom(address),
             0x8000...0x9FFF => {
                 if self.can_access_vram {
@@ -174,8 +179,7 @@ impl Memory {
                             let bgpi = self.read_byte(BGPI_REGISTER_ADDR);
                             let palette_addr = bgpi & 0b0011_1111;
                             self.read_bg_palette(palette_addr)
-                        }
-                        else {
+                        } else {
                             self.io_registers[(address - 0xFF00) as usize]
                         }
                     }
@@ -185,14 +189,11 @@ impl Memory {
                             let obpi = self.read_byte(OBPI_REGISTER_ADDR);
                             let palette_addr = obpi & 0b0011_1111;
                             self.read_sprite_palette(palette_addr)
-                        }
-                        else {
+                        } else {
                             self.io_registers[(address - 0xFF00) as usize]
                         }
                     }
-                    _ => {
-                        self.io_registers[(address - 0xFF00) as usize]
-                    }
+                    _ => self.io_registers[(address - 0xFF00) as usize],
                 }
             }
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
@@ -236,7 +237,7 @@ impl Memory {
 
     pub fn disable_bootstrap(&mut self) {
         self.bootstrap_enabled = false;
-        /*self.write_byte(0xFF05, 0x00);
+        self.write_byte(0xFF05, 0x00);
         self.write_byte(0xFF06, 0x00);
         self.write_byte(0xFF07, 0x00);
         self.write_byte(0xFF10, 0x80);
@@ -268,7 +269,6 @@ impl Memory {
         self.write_byte(0xFF4B, 0x00);
         self.write_byte(0xFF4F, 0x00);
         self.write_byte(0xFFFF, 0x00);
-        */
     }
 
     pub fn load_bootstrap_rom(&mut self, rom: &[u8]) {

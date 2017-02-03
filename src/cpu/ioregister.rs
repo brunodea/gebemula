@@ -54,19 +54,18 @@ pub const SVBK_REGISTER_ADDR: u16 = 0xFF70;
 pub const KEY1_REGISTER_ADDR: u16 = 0xFF4D;
 
 pub fn update_stat_reg_coincidence_flag(memory: &mut mem::Memory) {
-    let coincidence_flag = if memory.read_byte(LY_REGISTER_ADDR) == memory.read_byte(LYC_REGISTER_ADDR) {
+    let coincidence_flag = if memory.read_byte(LY_REGISTER_ADDR) ==
+                              memory.read_byte(LYC_REGISTER_ADDR) {
         0b100
     } else {
         0b000
     };
-    let new_stat = (memory.read_byte(STAT_REGISTER_ADDR) & 0b1111_1011) |
-                       coincidence_flag;
+    let new_stat = (memory.read_byte(STAT_REGISTER_ADDR) & 0b1111_1011) | coincidence_flag;
     memory.write_byte(STAT_REGISTER_ADDR, new_stat);
 }
 
 pub fn update_stat_reg_mode_flag(mode_flag: u8, memory: &mut mem::Memory) {
-    let new_stat = (memory.read_byte(STAT_REGISTER_ADDR) & 0b1111_1100) |
-                       (mode_flag & 0b11);
+    let new_stat = (memory.read_byte(STAT_REGISTER_ADDR) & 0b1111_1100) | (mode_flag & 0b11);
     memory.write_byte(STAT_REGISTER_ADDR, new_stat);
 }
 
@@ -105,10 +104,10 @@ pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> Option<u32> {
     let src_start = (hdma1 << 8) | hdma2;
     let dst_start = (hdma3 << 8) | hdma4;
     //let mut len = ((hdma5 & 0b0111_1111) / 0x10).wrapping_sub(1);
-    let mut len = ((hdma5 & 0b0111_1111) << 4) + 0x10;
+    let mut len = ((hdma5 as usize & 0b0111_1111) << 4) + 0x10;
     // TODO: make sure it is len that has to be 0xFF and not the 7 bits of hdma5.
     if len == 0xFF {
-        memory.write_byte(HDMA5_REGISTER_ADDR, len);
+        memory.write_byte(HDMA5_REGISTER_ADDR, len as u8);
         None
     } else {
         let mut mode = hdma5 >> 7;
@@ -118,14 +117,14 @@ pub fn cgb_dma_transfer(memory: &mut mem::Memory) -> Option<u32> {
             len = len.wrapping_sub(0x10);
             mode = if len == 0 { 0 } else { 1 };
             //TODO: make sure it is okay to change the length from here.
-            memory.write_byte(HDMA5_REGISTER_ADDR, (mode << 7) | len);
+            memory.write_byte(HDMA5_REGISTER_ADDR, (mode << 7) | len as u8);
             len = 0x10;
         }
 
         let mut cycles = 0;
-        for i in 0x0..(len as u16) {
-            let byte = memory.read_byte(src_start + i);
-            memory.write_byte(dst_start + i, byte);
+        for i in 0x0..len {
+            let byte = memory.read_byte(src_start + i as u16);
+            memory.write_byte(dst_start + i as u16, byte);
             // add 8 cycles every 0x10 addresses.
             if (i + 1) % 0x10 == 0 {
                 cycles += CGB_DMA_DURATION_CYCLES;

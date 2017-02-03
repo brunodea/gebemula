@@ -51,23 +51,24 @@ bitflags! {
 
 pub fn cartridge_type_string(mapper: MapperType, extra_hw: CartExtraHardware) -> String {
     let mut s = match mapper {
-        MapperType::Rom  => "ROM",
+            MapperType::Rom => "ROM",
 
-        MapperType::Mbc1 => "MBC1",
-        MapperType::Mbc2 => "MBC2",
-        MapperType::Mbc3 => "MBC3",
-        MapperType::Mbc5 => "MBC5",
-        MapperType::Mbc6 => "MBC6",
-        MapperType::Mbc7 => "MBC7",
-        MapperType::Mmm01 => "MMM01",
+            MapperType::Mbc1 => "MBC1",
+            MapperType::Mbc2 => "MBC2",
+            MapperType::Mbc3 => "MBC3",
+            MapperType::Mbc5 => "MBC5",
+            MapperType::Mbc6 => "MBC6",
+            MapperType::Mbc7 => "MBC7",
+            MapperType::Mmm01 => "MMM01",
 
-        MapperType::Huc1 => "HuC1",
-        MapperType::Huc3 => "HuC3",
-        MapperType::Tama5 => "TAMA5",
-        MapperType::PocketCamera => "Pocket Camera",
+            MapperType::Huc1 => "HuC1",
+            MapperType::Huc3 => "HuC3",
+            MapperType::Tama5 => "TAMA5",
+            MapperType::PocketCamera => "Pocket Camera",
 
-        MapperType::Unknown => "???",
-    }.to_owned();
+            MapperType::Unknown => "???",
+        }
+        .to_owned();
 
     if extra_hw.contains(RAM) {
         s.push_str("+RAM");
@@ -124,7 +125,7 @@ pub fn cart_type_from_id(id: u8) -> (MapperType, CartExtraHardware) {
         0xFE => (MapperType::Huc3, NONE_HW),
         0xFF => (MapperType::Huc1, RAM | BATTERY),
 
-        _    => (MapperType::Unknown, NONE_HW)
+        _ => (MapperType::Unknown, NONE_HW),
     }
 }
 
@@ -153,12 +154,12 @@ pub fn parse_rom_size(id: u8) -> usize {
 
 pub fn parse_ram_size(id: u8) -> usize {
     match id {
-        0x00 =>   0,
-        0x01 =>   2 * 1024,
-        0x02 =>   8 * 1024,
-        0x03 =>  32 * 1024,
+        0x00 => 0,
+        0x01 => 2 * 1024,
+        0x02 => 8 * 1024,
+        0x03 => 32 * 1024,
         0x04 => 128 * 1024,
-        0x05 =>  64 * 1024,
+        0x05 => 64 * 1024,
         _ => panic!("Unknown cartridge RAM size: {:#02X}", id),
     }
 }
@@ -191,7 +192,8 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     let expected_battery_size = ram_size + if extra_hw.contains(BATTERY) { 48 } else { 0 };
     if !battery.is_empty() && battery.len() != expected_battery_size {
         println!("WARNING: Battery file has unexpected size: {:#X}, expected {:#X}",
-                 battery.len(), expected_battery_size);
+                 battery.len(),
+                 expected_battery_size);
     }
 
     let mut ram_data = vec![0xFF; ram_size].into_boxed_slice();
@@ -199,24 +201,25 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     &ram_data[..copy_len].copy_from_slice(&battery[..copy_len]);
 
     match mapper_type {
-        MapperType::Rom => {
-            Box::new(RomMapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        },
+        MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data, extra_hw.contains(BATTERY))),
         MapperType::Mbc1 => {
             Box::new(Mbc1Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        },
+        }
         MapperType::Mbc2 => {
             Box::new(Mbc2Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        },
+        }
         MapperType::Mbc3 => {
-            Box::new(Mbc3Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY),
+            Box::new(Mbc3Mapper::new(rom_data,
+                                     ram_data,
+                                     extra_hw.contains(BATTERY),
                                      extra_hw.contains(RTC)))
-        },
+        }
         MapperType::Mbc5 => {
             Box::new(Mbc5Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        },
+        }
         _ => {
-            panic!("Cartridges of type {:#X} are not yet supported.", cart_type_id)
-        },
+            panic!("Cartridges of type {:#X} are not yet supported.",
+                   cart_type_id)
+        }
     }
 }

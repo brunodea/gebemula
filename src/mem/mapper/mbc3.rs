@@ -20,7 +20,7 @@ pub struct Mbc3Mapper {
 
 impl Mbc3Mapper {
     pub fn new(rom: Box<[u8]>, ram: Box<[u8]>, has_battery: bool, has_rtc: bool) -> Mbc3Mapper {
-        assert!(rom.len() <=  2 << 20);
+        assert!(rom.len() <= 2 << 20);
         assert!(rom.len().is_power_of_two());
         assert!(ram.len() <= 64 << 10);
         assert!(ram.is_empty() || ram.len().is_power_of_two());
@@ -48,7 +48,11 @@ impl Mbc3Mapper {
 
 impl Mapper for Mbc3Mapper {
     fn read_rom(&self, address: u16) -> u8 {
-        let bank = if address & 0x4000 == 0 { 0 } else { self.current_rom_bank };
+        let bank = if address & 0x4000 == 0 {
+            0
+        } else {
+            self.current_rom_bank
+        };
         let offset = bank as usize * ROM_BANK_SIZE + (address & 0x3FFF) as usize;
 
         self.rom[offset & self.rom_mask()]
@@ -56,27 +60,31 @@ impl Mapper for Mbc3Mapper {
 
     fn write_rom(&mut self, address: u16, data: u8) {
         match (address >> 13) & 0b11 {
-            0 => { // RAM enable
+            0 => {
+                // RAM enable
                 self.ram_enabled = data & 0xF == 0xA;
-            },
-            1 => { // ROM bank
+            }
+            1 => {
+                // ROM bank
                 let mut new_bank = data & 0x7F;
                 if new_bank == 0 {
                     new_bank = 1;
                 }
 
                 self.current_rom_bank = new_bank;
-            },
-            2 => { // RAM bank / RTC register
+            }
+            2 => {
+                // RAM bank / RTC register
                 self.current_ram_bank = data & 0xF;
-            },
-            3 => { // latch RTC
+            }
+            3 => {
+                // latch RTC
                 if let Some(ref mut rtc) = self.rtc {
                     if data & 1 == 1 {
                         rtc.latch();
                     }
                 }
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -91,10 +99,10 @@ impl Mapper for Mbc3Mapper {
                 let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
                              (address & 0x1FFF) as usize;
                 self.ram[offset & self.ram_mask()]
-            },
+            }
             0x8...0xF if self.rtc.is_some() => {
                 self.rtc.as_ref().unwrap().read(self.current_ram_bank)
-            },
+            }
             _ => 0xFF,
         }
     }
@@ -111,10 +119,10 @@ impl Mapper for Mbc3Mapper {
                 let ram_mask = self.ram_mask();
                 self.ram[offset & ram_mask] = data;
                 self.ram_modified = true;
-            },
+            }
             0x8...0xF if self.rtc.is_some() => {
                 self.rtc.as_mut().unwrap().write(self.current_ram_bank, data);
-            },
+            }
             _ => (),
         }
     }

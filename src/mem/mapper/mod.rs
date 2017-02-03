@@ -27,11 +27,17 @@ pub trait Mapper {
 pub struct NullMapper;
 
 impl Mapper for NullMapper {
-    fn read_rom(&self, _address: u16) -> u8 { 0xFF }
+    fn read_rom(&self, _address: u16) -> u8 {
+        0xFF
+    }
     fn write_rom(&mut self, _address: u16, _data: u8) {}
 
-    fn read_ram(&self, _address: u16) -> u8 { 0xFF }
+    fn read_ram(&self, _address: u16) -> u8 {
+        0xFF
+    }
     fn write_ram(&mut self, _address: u16, _data: u8) {}
 
-    fn save_battery(&mut self) -> Vec<u8> { Vec::new() }
+    fn save_battery(&mut self) -> Vec<u8> {
+        Vec::new()
+    }
 }

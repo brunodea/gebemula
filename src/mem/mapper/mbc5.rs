@@ -48,7 +48,11 @@ impl Mbc5Mapper {
 
 impl Mapper for Mbc5Mapper {
     fn read_rom(&self, address: u16) -> u8 {
-        let bank = if address & 0x4000 == 0 { 0 } else { self.current_rom_bank };
+        let bank = if address & 0x4000 == 0 {
+            0
+        } else {
+            self.current_rom_bank
+        };
         let offset = bank as usize * ROM_BANK_SIZE + (address & 0x3FFF) as usize;
 
         self.rom[offset & self.rom_mask()]
@@ -56,24 +60,29 @@ impl Mapper for Mbc5Mapper {
 
     fn write_rom(&mut self, address: u16, data: u8) {
         match (address >> 12) & 0b111 {
-            0 | 1 => { // RAM enable
+            0 | 1 => {
+                // RAM enable
                 self.ram_enabled = data & 0xF == 0xA;
-            },
-            2 => { // ROM bank low bits
+            }
+            2 => {
+                // ROM bank low bits
                 self.current_rom_bank &= 0xFF00;
                 self.current_rom_bank |= data as u16;
-            },
-            3 => { // ROM bank high bits
+            }
+            3 => {
+                // ROM bank high bits
                 self.current_rom_bank &= 0x00FF;
                 self.current_rom_bank |= ((data & 0x01) as u16) << 8;
-            },
-            4 | 5 => { // RAM bank
+            }
+            4 | 5 => {
+                // RAM bank
                 self.current_ram_bank = data & 0xF;
                 self.rumble_on = data & 0x8 != 0; // Yes, this overlaps with the RAM selector
-            },
-            6 | 7 => { // unknown / unused
-                println!("WARNING: write to unknown MBC5 address: {:#04X}", address);
-            },
+            }
+            6 | 7 => {
+                // unknown / unused
+                //println!("WARNING: write to unknown MBC5 address: {:#04X}, value {:#04X}", address, data);
+            }
             _ => unreachable!(),
         }
     }

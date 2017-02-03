@@ -114,7 +114,7 @@ impl<'a> Gebemula<'a> {
                 match e {
                     EventRequest::BootstrapDisable => {
                         self.mem.disable_bootstrap();
-                    },
+                    }
                     EventRequest::DMATransfer(l_nibble) => {
                         self.mem.set_access_oam(true);
                         let mut dma_cycles = ioregister::dma_transfer(l_nibble, &mut self.mem);
@@ -126,7 +126,7 @@ impl<'a> Gebemula<'a> {
                         };
                         extra_cycles += dma_cycles;
                         self.mem.set_access_oam(false);
-                    },
+                    }
                     EventRequest::HDMATransfer => {
                         self.mem.set_access_oam(true);
                         let hdma5 = self.mem.read_byte(ioregister::HDMA5_REGISTER_ADDR);
@@ -202,8 +202,8 @@ impl<'a> Gebemula<'a> {
         let vide_subsystem = sdl_context.video().unwrap();
 
         let window = vide_subsystem.window("Gebemula Emulator",
-                                           graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
-                                           graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
+                    graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
+                    graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
             .opengl()
             .build()
             .unwrap();
@@ -211,10 +211,9 @@ impl<'a> Gebemula<'a> {
         let mut renderer = window.renderer().build().unwrap();
         renderer.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
-        let mut texture =
-            renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
-                                              graphics::consts::DISPLAY_WIDTH_PX as u32,
-                                              graphics::consts::DISPLAY_HEIGHT_PX as u32)
+        let mut texture = renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
+                                      graphics::consts::DISPLAY_WIDTH_PX as u32,
+                                      graphics::consts::DISPLAY_HEIGHT_PX as u32)
             .unwrap();
 
         renderer.clear();
@@ -249,15 +248,19 @@ impl<'a> Gebemula<'a> {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                         self.restart();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Tab), repeat: false, .. } => {
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Tab),
+                                                  repeat: false,
+                                                  .. } => {
                         speed_mul += 1;
                         println!("speed x{}", speed_mul);
-                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Tab), repeat: false, .. } => {
+                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Tab),
+                                                repeat: false,
+                                                .. } => {
                         speed_mul -= 1;
                         println!("speed x{}", speed_mul);
-                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
                         speed_mul += 1;
@@ -265,7 +268,7 @@ impl<'a> Gebemula<'a> {
                             speed_mul = 15;
                         }
                         println!("speed x{}", speed_mul);
-                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
                         speed_mul -= 1;
@@ -273,12 +276,12 @@ impl<'a> Gebemula<'a> {
                             speed_mul = 1;
                         }
                         println!("speed x{}", speed_mul);
-                        desired_frametime_ns = 1_000_000_000 / (target_fps*speed_mul);
+                        desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::Quit {..} |
-                        sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                            break 'running
-                        }
+                    sdl2::event::Event::Quit { .. } |
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                        break 'running
+                    }
                     _ => {}
                 }
             }
@@ -286,7 +289,7 @@ impl<'a> Gebemula<'a> {
             self.adjust_joypad_keys(&event_pump);
             self.cycles_per_sec += self.step();
             if self.debugger.exit {
-                break 'running
+                break 'running;
             }
 
             /*
@@ -305,8 +308,10 @@ impl<'a> Gebemula<'a> {
              */
             if self.lcd.has_entered_vblank(&self.mem) {
                 renderer.clear();
-                texture.update(None, &self.lcd.graphics.screen_buffer,
-                               graphics::consts::DISPLAY_WIDTH_PX as usize * 4).unwrap();
+                texture.update(None,
+                            &self.lcd.graphics.screen_buffer,
+                            graphics::consts::DISPLAY_WIDTH_PX as usize * 4)
+                    .unwrap();
                 renderer.copy(&texture, None, None);
                 renderer.present();
 
