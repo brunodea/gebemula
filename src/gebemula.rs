@@ -1,7 +1,7 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
 
-use cpu::{self, ioregister, Cpu, Instruction, EventRequest};
+use cpu::{ioregister, Cpu, EventRequest};
 use cpu::timer::Timer;
 
 use graphics;

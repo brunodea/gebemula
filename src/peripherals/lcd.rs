@@ -1,5 +1,5 @@
 use super::super::mem::Memory;
-use super::super::cpu::{self, ioregister, interrupt};
+use super::super::cpu::{ioregister, interrupt};
 use super::super::graphics::{self, Graphics};
 
 const STAT_MODE_0_DURATION_CYCLES: u32 = 201;

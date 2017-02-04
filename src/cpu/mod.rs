@@ -7,8 +7,6 @@ use super::mem;
 use super::util;
 use super::debugger;
 
-use super::gebemula::GBMode;
-
 pub enum EventRequest {
     BootstrapDisable,
     DMATransfer(u8), //left nibble of address to be used.
@@ -620,7 +618,7 @@ impl Cpu {
                 let addr = self.mem_next16(memory);
                 let val = self.reg16(Reg::SP);
                 event = self.mem_write(addr, val as u8, memory);
-                event = self.mem_write(addr + 1, (val >> 8) as u8, memory);
+                self.mem_write(addr + 1, (val >> 8) as u8, memory);
                 instruction.cycles = 20;
                 instruction.imm16 = Some(addr);
             }

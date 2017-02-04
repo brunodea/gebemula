@@ -1,4 +1,4 @@
-use cpu::{self, ioregister, Cpu, Reg, Instruction};
+use cpu::{ioregister, Cpu, Reg, Instruction};
 use mem::{self, Memory};
 use std::io::{self, Write};
 use gebemula::GBMode;

@@ -1,8 +1,3 @@
-#![feature(box_syntax)]
-// This is soon going to be stabilized in 1.9.0
-#![feature(plugin)]
-
-
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
@@ -24,7 +19,6 @@ use std::path::Path;
 
 use gebemula::Gebemula;
 
-#[allow(boxed_local)]
 fn main() {
     let args = App::new("Gebemula")
         .author("Bruno Romero de Azevedo <brunordea@gmail.com\n\
@@ -77,7 +71,7 @@ fn main() {
     };
 
     // This variable needs to be boxed since it's large and causes a stack overflow in Windows
-    let mut gebemula = box Gebemula::default();
+    let mut gebemula = Box::new(Gebemula::default());
     gebemula.set_save_battery_callback(&save_battery_callback);
     gebemula.load_bootstrap_rom(&bootstrap_data);
     gebemula.load_cartridge(&game_data, &battery_data);
