@@ -99,10 +99,10 @@ impl<'a> Gebemula<'a> {
         let mut extra_cycles = 0;
         let mut cycles = 0;
         while cycles < self.lcd.stat_mode_duration() + extra_cycles {
-            //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
-            //    self.mem.set_access_vram(true);
-            //    self.mem.set_access_oam(true);
-            //}
+            if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+                self.mem.set_access_vram(true);
+                self.mem.set_access_oam(true);
+            }
 
             let (instruction, event_request) = self.cpu.run_instruction(&mut self.mem);
             let key1 = self.mem.read_byte(ioregister::KEY1_REGISTER_ADDR);

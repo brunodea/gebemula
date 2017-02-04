@@ -118,12 +118,10 @@ impl LCD {
                 }
             }
         }
-        memory.set_access_vram(true);
-        memory.set_access_oam(true);
-        //FIXME: actually use can_access_vram/oram instead of always setting to true.
-        //memory.set_access_vram(self.curr_stat_mode != StatMode::VRam);
-        //memory.set_access_oam(self.curr_stat_mode == StatMode::VBlank || self.curr_stat_mode == StatMode::HBlank);
 
+        memory.set_access_vram(self.curr_stat_mode != StatMode::VRam);
+        memory.set_access_oam(self.curr_stat_mode == StatMode::VBlank ||
+                              self.curr_stat_mode == StatMode::HBlank);
 
         ioregister::update_stat_reg_mode_flag(self.curr_stat_mode.mode_number(), memory);
         ioregister::update_stat_reg_coincidence_flag(memory);
