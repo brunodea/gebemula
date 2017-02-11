@@ -12,6 +12,7 @@ pub enum EventRequest {
     DMATransfer(u8), //left nibble of address to be used.
     HDMATransfer,
     JoypadUpdate,
+    SpeedModeSwitch,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -447,6 +448,7 @@ impl Cpu {
                 let key1 = memory.read_byte(ioregister::KEY1_REGISTER_ADDR);
                 if (key1 & 0b1) == 1 {
                     memory.write_byte(ioregister::KEY1_REGISTER_ADDR, (!key1) & 0b1000_0000);
+                    event = Some(EventRequest::SpeedModeSwitch);
                 } else {
                     ioregister::LCDCRegister::disable_lcd(memory);
                     self.halt_flag = true;

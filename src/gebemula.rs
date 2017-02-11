@@ -33,6 +33,11 @@ impl GBMode {
     }
 }
 
+enum SpeedMode {
+    Normal,
+    Double
+}
+
 pub struct Gebemula<'a> {
     cpu: Cpu,
     mem: Memory,
@@ -44,6 +49,7 @@ pub struct Gebemula<'a> {
 
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
+    speed_mode: SpeedMode,
 }
 
 impl<'a> Default for Gebemula<'a> {
@@ -57,6 +63,7 @@ impl<'a> Default for Gebemula<'a> {
             lcd: LCD::default(),
             joypad: Joypad::default(),
             battery_save_callback: None,
+            speed_mode: SpeedMode::Normal,
         }
     }
 }
@@ -99,17 +106,12 @@ impl<'a> Gebemula<'a> {
         let mut extra_cycles = 0;
         let mut cycles = 0;
         while cycles < self.lcd.stat_mode_duration() + extra_cycles {
-            if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
-                self.mem.set_access_vram(true);
-                self.mem.set_access_oam(true);
-            }
+            //if !ioregister::LCDCRegister::is_lcd_display_enable(&self.mem) {
+            //    self.mem.set_access_vram(true);
+            //    self.mem.set_access_oam(true);
+            //}
 
             let (instruction, event_request) = self.cpu.run_instruction(&mut self.mem);
-            let key1 = self.mem.read_byte(ioregister::KEY1_REGISTER_ADDR);
-            let double_speed = key1 as u32 >> 7;
-            let instr_cycles = instruction.cycles + (instruction.cycles * double_speed);
-            self.cpu.handle_interrupts(&mut self.mem);
-            self.timer.update(instruction.cycles, &mut self.mem);
             if let Some(e) = event_request {
                 match e {
                     EventRequest::BootstrapDisable => {
@@ -119,10 +121,9 @@ impl<'a> Gebemula<'a> {
                         self.mem.set_access_oam(true);
                         let mut dma_cycles = ioregister::dma_transfer(l_nibble, &mut self.mem);
 
-                        dma_cycles = if double_speed == 0b0 {
-                            dma_cycles
-                        } else {
-                            dma_cycles / 2
+                        dma_cycles = match self.speed_mode {
+                            SpeedMode::Normal => dma_cycles,
+                            SpeedMode::Double => dma_cycles * 2
                         };
                         extra_cycles += dma_cycles;
                         self.mem.set_access_oam(false);
@@ -141,8 +142,23 @@ impl<'a> Gebemula<'a> {
                     EventRequest::JoypadUpdate => {
                         self.joypad.update_joypad_register(&mut self.mem);
                     }
+                    EventRequest::SpeedModeSwitch => {
+                        let key1 = self.mem.read_byte(ioregister::KEY1_REGISTER_ADDR);
+                        let double_speed = key1 >> 7;
+                        self.speed_mode = if double_speed == 0b1 {
+                            SpeedMode::Double
+                        } else {
+                            SpeedMode::Normal
+                        };
+                    }
                 }
             }
+            let instr_cycles = match self.speed_mode {
+                SpeedMode::Normal => instruction.cycles,
+                SpeedMode::Double => instruction.cycles / 2,
+            };
+            self.cpu.handle_interrupts(&mut self.mem);
+            self.timer.update(instr_cycles, &mut self.mem);
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem);
                 if self.debugger.exit {
