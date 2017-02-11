@@ -202,7 +202,7 @@ impl Graphics {
 
         let old_vbk = memory.read_byte(ioregister::VBK_REGISTER_ADDR);
 
-        let (tile_table_addr_pattern_0, is_tile_number_signed) = if 
+        let (tile_map_addr, is_tile_number_signed) = if 
             ioregister::LCDCRegister::is_tile_data_0(&memory) {
             (consts::TILE_DATA_TABLE_0_ADDR_START, true)
         } else {
@@ -213,7 +213,7 @@ impl Graphics {
 
         let mut ypos = curr_line.wrapping_add(scy);
         let mut tile_y = ypos >> 3;
-        let mut tile_line = ypos - ((ypos >> 3) << 3);
+        let mut tile_line = ypos & 0b111;
 
         let startx = if bg_on { 0 } else { wx };
         for i in startx..consts::DISPLAY_WIDTH_PX {
@@ -222,13 +222,14 @@ impl Graphics {
                 ypos = curr_line - wy;
 
                 tile_y = ypos >> 3;
-                tile_line = ypos - ((ypos >> 3) << 3);
+                tile_line = ypos & 0b111;
+                //tile_line = ypos - ((ypos >> 3) << 3);
             }
 
             let xpos = if is_window {
-                i.wrapping_sub(wx) as u16
+                i.wrapping_sub(wx)
             } else {
-                scx.wrapping_add(i) as u16
+                scx.wrapping_add(i)
             };
 
             let buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
@@ -253,23 +254,17 @@ impl Graphics {
             };
 
             let tile_addr = addr_start + (tile_y as u16 * 32) + (xpos as u16 >> 3);
-            let mut tile_col = xpos - ((xpos >> 3) << 3);
-
             // tile map is on vram bank 0
             memory.write_byte(ioregister::VBK_REGISTER_ADDR, 0);
+            let tile_number = memory.read_byte(tile_addr);
             let tile_location = if is_tile_number_signed {
-                let mut tile_number = util::sign_extend(memory.read_byte(tile_addr));
-                if util::is_neg16(tile_number) {
-                    tile_number = 128 - util::twos_complement(tile_number);
-                } else {
-                    tile_number += 128;
-                }
-                tile_table_addr_pattern_0 + (tile_number * consts::TILE_SIZE_BYTES as u16)
+                (tile_map_addr as i32 +
+                 ((tile_number as i8 as i32 + 128) * consts::TILE_SIZE_BYTES as i32)) as u16
             } else {
-                tile_table_addr_pattern_0 +
-                (memory.read_byte(tile_addr) as u16 * consts::TILE_SIZE_BYTES as u16)
+                tile_map_addr + (tile_number as u16 * consts::TILE_SIZE_BYTES as u16)
             };
 
+            let mut tile_col = xpos - ((xpos >> 3) << 3);
             let mut attr = None;
             if self.rgb.is_color() {
                 // tile attribute is on vram bank 1
@@ -290,7 +285,8 @@ impl Graphics {
 
             // two bytes representing 8 pixel indexes
             let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col);
-            let rhs = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >> (7 - tile_col);
+            let rhs = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >>
+                      (7 - tile_col);
 
             let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
 
