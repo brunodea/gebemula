@@ -4,11 +4,15 @@ use cpu::{interrupt, ioregister};
 pub struct Timer {
     /// The timer overflow behavior is delayed.
     timer_overflow: bool,
+    tima_cycles_counter: u32,
 }
 
 impl Default for Timer {
     fn default() -> Timer {
-        Timer { timer_overflow: false }
+        Timer {
+            timer_overflow: false,
+            tima_cycles_counter: 0,
+        }
     }
 }
 
@@ -31,25 +35,31 @@ impl Timer {
             interrupt::request(interrupt::Interrupt::TimerOverflow, memory);
         } else {
             let tac = memory.read_byte(ioregister::TAC_REGISTER_ADDR);
-            let timer_bit = match tac & 0b11 {
-                0 => 9,
-                1 => 3,
-                2 => 5,
-                3 => 7,
-                _ => unreachable!(),
-            };
+            // timer start bit is on
+            if (tac >> 2) & 0b1 == 0b1 {
+                // TODO: these numbers never change, move them out to some static const.
+                let fc = |hz| -> u32 {
+                    ioregister::CPU_FREQUENCY_HZ / (1_000_000 / hz)
+                };
+                let freq_cycles = match tac & 0b11 {
+                    0 => fc(4096u32),
+                    1 => fc(262144u32),
+                    2 => fc(65536u32),
+                    3 => fc(16384u32),
+                    _ => unreachable!(),
+                };
 
-            //TODO implement glitch?
-            let old_bit = ((old_internal_timer >> timer_bit) & 0b1) as u8;
-            let new_bit = ((internal_timer >> timer_bit) & 0b1) as u8;
-            // timer start bit & timer bit from 1 to 0.
-            if ((tac >> 2) & 0b1) & (old_bit & !new_bit) == 0b1 {
-                let tima = memory.read_byte(ioregister::TIMA_REGISTER_ADDR).wrapping_add(1);
-                if tima == 0 {
-                    // overflows
-                    self.timer_overflow = true;
+                //TODO implement glitch?
+                self.tima_cycles_counter = self.tima_cycles_counter.wrapping_add(cycles);
+                if self.tima_cycles_counter > freq_cycles {
+                    let tima = memory.read_byte(ioregister::TIMA_REGISTER_ADDR).wrapping_add(1);
+                    if tima == 0 {
+                        // overflows
+                        self.timer_overflow = true;
+                    }
+                    memory.write_byte(ioregister::TIMA_REGISTER_ADDR, tima);
+                    self.tima_cycles_counter = 0;
                 }
-                memory.write_byte(ioregister::TIMA_REGISTER_ADDR, tima);
             }
 
         }
