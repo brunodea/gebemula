@@ -65,6 +65,38 @@ impl Default for TilePixel {
     }
 }
 
+struct Sprite(u16);
+
+impl Sprite {
+    fn y(&self, mem: &Memory) -> u8 {
+        mem.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + self.0)
+    }
+    fn x(&self, mem: &Memory) -> u8 {
+        mem.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + self.0 + 1)
+    }
+    fn height(mem: &Memory) -> u8 {
+        let sprite_8_16 = ioregister::LCDCRegister::is_sprite_8_16_on(mem);
+        if sprite_8_16 { 16 } else { 8 }
+    }
+
+    fn is_not_visible(&self, current_line: i16, mem: &Memory) -> bool {
+        let y = self.y(mem);
+        let x = self.x(mem);
+        let h = Self::height(mem) as i16;
+        // outside screen?
+        y == 0 || y >= 160 || x == 0 || x >= 168 ||
+        // current line outside sprite?
+        current_line < (y as i16 - 16) || current_line >= (y as i16 - 16) + h
+    }
+
+    fn tile_number(&self, mem: &Memory) -> u8 {
+        mem.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + self.0 + 2)
+    }
+    fn attr(&self, mem: &Memory) -> TileAttr {
+        TileAttr(mem.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + self.0 + 3))
+    }
+}
+
 trait RGB {
     fn rgb(&self, pixel: &TilePixel, memory: &Memory) -> (u8, u8, u8);
     fn mode(&self) -> GBMode;
@@ -325,45 +357,30 @@ impl Graphics {
         let mut index = 160; //40*4: 40 sprites that use 4 bytes
         while index != 0 {
             index -= 4;
-            let sprite_8_16 = ioregister::LCDCRegister::is_sprite_8_16_on(memory);
-            let height = if sprite_8_16 { 16 } else { 8 };
-            let mut y = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index) as i16;
-            if y == 0 || y >= 160 {
+            let sprite = Sprite(index as u16);
+            if sprite.is_not_visible(curr_line as i16, memory) {
                 continue;
             }
-            y -= 16;
-            if ((curr_line as i16) < y) || (curr_line as i16 >= y + height as i16) {
-                // outside sprite
-                continue;
-            }
-
-            let mut x = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 1) as i16;
-            if x == 0 || x >= 168 {
-                continue;
-            }
-
-            let tile_number = memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 2);
-
             let tile_location = consts::SPRITE_PATTERN_TABLE_ADDR_START +
-                                (tile_number as u16 * consts::TILE_SIZE_BYTES as u16);
+                                (sprite.tile_number(memory) as u16 * consts::TILE_SIZE_BYTES as u16);
 
-            let sprite_attr =
-                TileAttr(memory.read_byte(consts::SPRITE_ATTRIBUTE_TABLE + index + 3));
+            let attr = sprite.attr(memory);
             if self.rgb.is_color() {
-                // tile attribute is on vram bank 1
-                memory.write_byte(ioregister::VBK_REGISTER_ADDR, sprite_attr.tile_vram_bank());
+                memory.write_byte(ioregister::VBK_REGISTER_ADDR, attr.tile_vram_bank());
             }
 
-            x -= 8;
-            let endx = if x + 8 >= consts::DISPLAY_WIDTH_PX as i16 {
-                consts::DISPLAY_WIDTH_PX.wrapping_sub(x as u8)
+            let x = sprite.x(memory);
+            let endx = if x >= consts::DISPLAY_WIDTH_PX as u8 {
+                consts::DISPLAY_WIDTH_PX.wrapping_sub(x - 8)
             } else {
                 8
             };
-            let mut tile_line = (curr_line as i16 - y) as u8;
+
+            let y = sprite.y(memory);
+            let mut tile_line = (curr_line as i16 - (y as i16 - 16)) as u8;
             for tile_col in 0..endx {
                 let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
-                                     (x.wrapping_add(tile_col as i16) as u16) as usize;
+                                     (x.wrapping_add(tile_col) as u16 - 8) as usize;
 
                 if buffer_pos * 4 > self.screen_buffer.len() - 4 {
                     continue;
@@ -371,11 +388,11 @@ impl Graphics {
                 let bg_px = self.bg_wn_pixel_indexes[buffer_pos];
 
                 let mut tile_col = tile_col;
-                if sprite_attr.h_flip() {
+                if attr.h_flip() {
                     tile_col = 7 - tile_col;
                 }
-                if sprite_attr.v_flip() {
-                    tile_line = height - 1 - tile_line;
+                if attr.v_flip() {
+                    tile_line = Sprite::height(memory) - 1 - tile_line;
                 }
                 // tile_line*2 because each tile uses 2 bytes per line.
                 let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >>
@@ -389,7 +406,7 @@ impl Graphics {
 
                 let sprites_on_top = !ioregister::LCDCRegister::is_bg_window_display_on(memory);
                 let oam_priority = bg_px.tile_attr.priority() == TileType::Sprite;
-                let sprite_priority = sprite_attr.priority() == TileType::Sprite;
+                let sprite_priority = attr.priority() == TileType::Sprite;
 
                 let should_draw = if self.rgb.is_color() {
                     sprites_on_top || (oam_priority && (sprite_priority || bg_px.color_number == 0))
@@ -399,7 +416,7 @@ impl Graphics {
 
                 if should_draw {
                     let (r, g, b) = self.rgb
-                        .rgb(&TilePixel::new(color_number, sprite_attr, TileType::Sprite),
+                        .rgb(&TilePixel::new(color_number, attr, TileType::Sprite),
                              memory);
 
                     buffer_pos *= 4; // because of RGBA
