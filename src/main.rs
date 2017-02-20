@@ -35,12 +35,20 @@ fn main() {
             .long("bootstrap")
             .help("Sets the path to the Gameboy bootstrap ROM.")
             .value_name("DMG_ROM.bin")
-            .takes_value(true)
-            .default_value("DMG_ROM.bin"))
+            .takes_value(true))
         .get_matches();
 
-    let bootstrap_path = Path::new(args.value_of("bootstrap_rom").unwrap());
     let rom_path = Path::new(args.value_of("INPUT_ROM").unwrap());
+    let bootstrap_path = match args.value_of("bootstrap_rom") {
+        Some(boot_rom) => Path::new(boot_rom),
+        None => {
+            if rom_path.extension().unwrap() == "gb" {
+                Path::new("DMG_ROM.bin")
+            } else {
+                Path::new("CGB_ROM.bin")
+            }
+        }
+    };
     let battery_path = rom_path.with_extension("sav");
 
     let mut bootstrap_data = Vec::new();
