@@ -328,7 +328,10 @@ impl<'a> Gebemula<'a> {
                             &self.lcd.graphics.screen_buffer,
                             graphics::consts::DISPLAY_WIDTH_PX as usize * 4)
                     .unwrap();
-                renderer.copy(&texture, None, None);
+                match renderer.copy(&texture, None, None) {
+                    Ok(_) => (),
+                    Err(_) => return
+                };
                 renderer.present();
 
                 //clear buffer
