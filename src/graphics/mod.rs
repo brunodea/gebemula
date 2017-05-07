@@ -255,7 +255,6 @@ impl Graphics {
 
                 tile_y = ypos >> 3;
                 tile_line = ypos & 0b111;
-                //tile_line = ypos - ((ypos >> 3) << 3);
             }
 
             let xpos = if is_window {
@@ -289,39 +288,54 @@ impl Graphics {
             // tile map is on vram bank 0
             memory.write_byte(ioregister::VBK_REGISTER_ADDR, 0);
             let tile_number = memory.read_byte(tile_addr);
-            let tile_location = if is_tile_number_signed {
+            let mut tile_location = if is_tile_number_signed {
                 (tile_map_addr as i32 +
                  ((tile_number as i8 as i32 + 128) * consts::TILE_SIZE_BYTES as i32)) as u16
             } else {
                 tile_map_addr + (tile_number as u16 * consts::TILE_SIZE_BYTES as u16)
             };
 
-            let mut tile_col = xpos - ((xpos >> 3) << 3);
+            let mut tile_col = xpos & 0b111;
             let mut attr = None;
             if self.rgb.is_color() {
                 // tile attribute is on vram bank 1
                 memory.write_byte(ioregister::VBK_REGISTER_ADDR, 1);
-
                 attr = Some(TileAttr(memory.read_byte(tile_addr)));
 
                 if attr.unwrap().h_flip() {
                     tile_col = 7 - tile_col;
-                }
-                if attr.unwrap().v_flip() {
-                    tile_line = 7 - tile_line;
                 }
                 // set vbk to use the correct bank for the tile data.
                 memory.write_byte(ioregister::VBK_REGISTER_ADDR,
                                   attr.unwrap().tile_vram_bank());
             }
 
+            let normal = || { 
+                    (
+                        memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col),
+                        memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >> (7 - tile_col)
+                    )
+            };
+            let vflip = || {
+                (
+                    memory.read_byte((tile_location+15) - (tile_line as u16 * 2) - 1) >> (7 - tile_col),
+                    memory.read_byte((tile_location+15) - (tile_line as u16 * 2)) >> (7 - tile_col)
+                )
+            };
             // two bytes representing 8 pixel indexes
-            let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col);
-            let rhs = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >>
-                      (7 - tile_col);
-
-            let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
-
+            let (rhs, lhs) = match attr {
+                Some(a) => {
+                    if a.v_flip() {
+                        vflip()
+                    } else {
+                        normal()
+                    }
+                }
+                None => {
+                    normal()
+                }
+            };
+            let color_number = ((lhs << 1) & 0b10) | (rhs & 0b01);
             let tile_type = if is_window {
                 TileType::Window
             } else {
@@ -380,7 +394,7 @@ impl Graphics {
             let mut tile_line = (curr_line as i16 - (y as i16 - 16)) as u8;
             for tile_col in 0..endx {
                 let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
-                                     (x.wrapping_add(tile_col) as u16 - 8) as usize;
+                    (x.wrapping_add(tile_col) as u16 - 8) as usize;
 
                 if buffer_pos * 4 > self.screen_buffer.len() - 4 {
                     continue;
@@ -391,14 +405,24 @@ impl Graphics {
                 if attr.h_flip() {
                     tile_col = 7 - tile_col;
                 }
-                if attr.v_flip() {
-                    tile_line = Sprite::height(memory) - 1 - tile_line;
-                }
                 // tile_line*2 because each tile uses 2 bytes per line.
-                let lhs = memory.read_byte(tile_location + (tile_line as u16 * 2)) >>
-                          (7 - tile_col);
-                let rhs = memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >>
-                          (7 - tile_col);
+                let normal = || { 
+                    (
+                        memory.read_byte(tile_location + (tile_line as u16 * 2)) >> (7 - tile_col),
+                        memory.read_byte(tile_location + (tile_line as u16 * 2) + 1) >> (7 - tile_col)
+                    )
+                };
+                let vflip = || {
+                    (
+                        memory.read_byte((tile_location+((Sprite::height(memory) as u16 * 2) - 1)) - (tile_line as u16 * 2) - 1) >> (7 - tile_col),
+                        memory.read_byte((tile_location+((Sprite::height(memory) as u16 * 2) - 1)) - (tile_line as u16 * 2)) >> (7 - tile_col)
+                    )
+                };
+                let (lhs, rhs) = if attr.v_flip() {
+                    vflip()
+                } else {
+                    normal()
+                };
                 let color_number = ((rhs << 1) & 0b10) | (lhs & 0b01);
                 if color_number == 0 {
                     continue;
@@ -417,7 +441,7 @@ impl Graphics {
                 if should_draw {
                     let (r, g, b) = self.rgb
                         .rgb(&TilePixel::new(color_number, attr, TileType::Sprite),
-                             memory);
+                        memory);
 
                     buffer_pos *= 4; // because of RGBA
                     self.screen_buffer[buffer_pos] = r;
