@@ -206,6 +206,16 @@ impl Voice {
             },
         }
     }
+
+    pub fn reset(&mut self, memory: &mut Memory) {
+        // reset sound trigger.
+        let control = self.reg.read_control(memory);
+        memory.write_byte(self.reg.control(), control & 0b0111_1111);
+        // reset ON flag.
+        let sound_onoff = memory.read_byte(NR52_REGISTER_ADDR);
+        memory.write_byte(NR52_REGISTER_ADDR, sound_onoff & !(1 << self.reg.sound_num()) );
+        self.cycles = 0;
+    }
 }
 
 pub struct SoundController {
@@ -241,11 +251,12 @@ impl SoundController {
     }
 
     fn reset_pulse_a(&mut self, memory: &mut Memory) {
-        self.pulse_a_device = None;
-        self.pulse_a.cycles = 0;
-        let sound_onoff = memory.read_byte(NR52_REGISTER_ADDR);
-        // reset PulseA (Sound1) ON flag.
-        memory.write_byte(NR52_REGISTER_ADDR, sound_onoff & 0b1111_1110);
+        if let Some(ref device) = self.pulse_a_device {
+            if device.status() == AudioStatus::Playing {
+                device.pause();
+                self.pulse_a.reset(memory);
+            }
+        }
     }
 
     pub fn run(&mut self, cycles: u32, audio_subsystem: &AudioSubsystem, memory: &mut Memory) {
@@ -279,7 +290,6 @@ impl SoundController {
                             }
                         })
                         .ok();
-                    //println!("SOUND!");
                     // play the sound
                     self.pulse_a_device.as_ref().unwrap().resume();
                 }
