@@ -11,6 +11,11 @@ const NR12_REGISTER_ADDR: u16 = 0xFF12;
 const NR13_REGISTER_ADDR: u16 = 0xFF13;
 const NR14_REGISTER_ADDR: u16 = 0xFF14;
 
+const NR21_REGISTER_ADDR: u16 = 0xFF16;
+const NR22_REGISTER_ADDR: u16 = 0xFF17;
+const NR23_REGISTER_ADDR: u16 = 0xFF18;
+const NR24_REGISTER_ADDR: u16 = 0xFF19;
+
 // Global sound registers
 const NR50_REGISTER_ADDR: u16 = 0xFF24;
 const NR51_REGISTER_ADDR: u16 = 0xFF25;
@@ -66,6 +71,27 @@ impl VoiceReg for PulseAReg {
     }
     fn sound_num(&self) -> u8 {
         0
+    }
+}
+struct PulseBReg;
+impl VoiceReg for PulseBReg {
+    fn control(&self) -> u16 {
+        NR21_REGISTER_ADDR
+    }
+    fn frequency(&self) -> u16 {
+        NR22_REGISTER_ADDR
+    }
+    fn volume(&self) -> u16 {
+        NR23_REGISTER_ADDR
+    }
+    fn length(&self) -> u16 {
+        NR24_REGISTER_ADDR
+    }
+    fn sweep(&self) -> Option<u16> {
+        None
+    }
+    fn sound_num(&self) -> u8 {
+        1
     }
 }
 
@@ -135,7 +161,10 @@ impl Voice {
         if self.should_play(memory) {
             let sound_onoff = memory.read_byte(NR52_REGISTER_ADDR);
             // update flag of sound ON in io register.
-            memory.write_byte(NR52_REGISTER_ADDR, sound_onoff | (1u8 << self.reg.sound_num()));
+            memory.write_byte(
+                NR52_REGISTER_ADDR,
+                sound_onoff | (1u8 << self.reg.sound_num()),
+            );
         }
     }
 
@@ -213,8 +242,124 @@ impl Voice {
         memory.write_byte(self.reg.control(), control & 0b0111_1111);
         // reset ON flag.
         let sound_onoff = memory.read_byte(NR52_REGISTER_ADDR);
-        memory.write_byte(NR52_REGISTER_ADDR, sound_onoff & !(1 << self.reg.sound_num()) );
+        memory.write_byte(
+            NR52_REGISTER_ADDR,
+            sound_onoff & !(1 << self.reg.sound_num()),
+        );
         self.cycles = 0;
+    }
+}
+
+// works as a PulseController for now
+struct VoiceController {
+    voice: Voice,
+    device: AudioDevice<SquareWave>,
+}
+
+impl VoiceController {
+    pub fn new(voice_reg: Box<VoiceReg>, device: AudioDevice<SquareWave>) -> Self {
+        VoiceController {
+            voice: Voice::new(voice_reg),
+            device: device,
+        }
+    }
+
+    fn adjust_device(&mut self, memory: &mut Memory) {
+        let len = self.voice.length(memory);
+        let ctrl = self.voice.control(memory);
+        let vol = self.voice.volume(memory);
+        let mut lock = self.device.lock();
+        (*lock).volume = vol.initial_volume as f32;
+        (*lock).phase_inc = ctrl.frequency_hz / FREQ as f32;
+        (*lock).duty = len.duty_cycles;
+    }
+
+    fn reset(&mut self, memory: &mut Memory) {
+        if self.device.status() == AudioStatus::Playing {
+            self.device.pause();
+            self.voice.reset(memory);
+            let mut lock = self.device.lock();
+            (*lock).phase = 0.0;
+        }
+    }
+    pub fn run(&mut self, cycles: u32, memory: &mut Memory) {
+        self.voice.update(memory);
+        if self.voice.should_play(memory) {
+            self.adjust_device(memory);
+
+            let vol = self.voice.volume(memory);
+            let ctrl = self.voice.control(memory);
+            let len = self.voice.length(memory);
+            // handle envelope
+            if vol.step_len > 0f32 {
+                let step_duration_cycles = (CPU_FREQUENCY_HZ as f32 * vol.step_len) as u32;
+                let last_step = self.voice.cycles / step_duration_cycles;
+                let curr_step = (self.voice.cycles + cycles) / step_duration_cycles;
+                if curr_step > last_step {
+                    let mult = match vol.env_dir {
+                        EnvelopeDirection::Amplify => 1f32,
+                        EnvelopeDirection::Attenuate => -1f32,
+                    };
+                    // TODO: make sure the logic below is correct
+                    // my assumption that this addition will go up from 1 to 1 may be wrong!
+                    let new_volume = vol.initial_volume as f32 + (mult * curr_step as f32) as f32;
+                    if new_volume >= 0f32 && new_volume <= 15f32 {
+                        let mut lock = self.device.lock();
+                        (*lock).volume = new_volume;
+                    }
+                }
+            }
+
+            let mut play_sound = true;
+            // handle sweep
+            if let Some(sweep) = self.voice.sweep(memory) {
+                // only apply sweep if the sweep duration is > 0 and the shift number ain't
+                // zero.
+                if sweep.time > 0f32 && sweep.shift > 0 {
+                    let sweep_duration_cycles = (CPU_FREQUENCY_HZ as f32 * sweep.time) as u32;
+                    let last_sweep = self.voice.cycles / sweep_duration_cycles;
+                    let curr_sweep = (self.voice.cycles + cycles) / sweep_duration_cycles;
+                    if curr_sweep > last_sweep {
+                        let mult = if sweep.increase { 1f32 } else { -1f32 };
+                        let new_freq = ctrl.frequency as u32 +
+                            ((mult * ctrl.frequency as f32) / 2f32.powf(sweep.shift as f32)) as u32;
+                        // if new frequency has more than 11bits, the sound should be stopped.
+                        if new_freq > 0b0111_1111_1111 {
+                            play_sound = false;
+                        } else {
+                            // adjust frequency
+                            memory.write_byte(NR13_REGISTER_ADDR, new_freq as u8);
+                            let nr14 = memory.read_byte(NR14_REGISTER_ADDR) & 0b1111_1000;
+                            memory.write_byte(NR14_REGISTER_ADDR, nr14 | (new_freq >> 8) as u8);
+
+                            let mut lock = self.device.lock();
+                            (*lock).phase_inc = self.voice.control(memory).frequency_hz /
+                                FREQ as f32;
+                        }
+                    }
+                }
+            }
+
+            // TODO: maybe this can overflow, should wrap add or do something else?
+            self.voice.cycles += cycles;
+            // if the sound shouldn't loop, we have to count the elapsed time in order to stop
+            // it after its total length.
+            if ctrl.selection == VoiceSelection::NoLoop {
+                let duration_cycles = (CPU_FREQUENCY_HZ as f32 * len.sound_length) as u32;
+                if self.voice.cycles >= duration_cycles {
+                    play_sound = false;
+                }
+            }
+
+            if play_sound {// && self.device.status() != AudioStatus::Playing {
+                // play the sound
+                self.device.resume();
+            } else {
+                self.reset(memory);
+            }
+        } else {
+            self.reset(memory);
+        }
     }
 }
 
@@ -222,143 +367,63 @@ pub struct SoundController {
     sound_is_on: bool,
     channel_1_volume: u8,
     channel_2_volume: u8,
-    pulse_a: Voice,
-    pulse_a_device: Option<AudioDevice<SquareWave>>,
+    pulse_a: VoiceController,
+    pulse_b: VoiceController,
 }
 
-impl Default for SoundController {
-    fn default() -> Self {
+impl SoundController {
+    pub fn new(audio_subsystem: &AudioSubsystem) -> Self {
+        let desired_spec = AudioSpecDesired {
+            freq: Some(FREQ),
+            channels: Some(2), // mono
+            samples: None, // default sample size
+        };
         SoundController {
             sound_is_on: false,
             channel_1_volume: 0,
             channel_2_volume: 0,
-            pulse_a: Voice::new(Box::new(PulseAReg)),
-            pulse_a_device: None,
+            pulse_a: VoiceController::new(
+                Box::new(PulseAReg),
+                audio_subsystem.open_playback(None, &desired_spec, |_| {
+                    SquareWave {
+                        phase_inc: 0f32,
+                        phase: 0f32,
+                        volume: 0f32,
+                        duty: 0f32,
+                    }
+                }).unwrap(),
+            ),
+            pulse_b: VoiceController::new(
+                Box::new(PulseBReg),
+                audio_subsystem.open_playback(None, &desired_spec, |_| {
+                    SquareWave {
+                        phase_inc: 0f32,
+                        phase: 0f32,
+                        volume: 0f32,
+                        duty: 0f32,
+                    }
+                }).unwrap(),
+            ),
         }
     }
-}
+    pub fn reset(&mut self, memory: &mut Memory) {
+        self.pulse_a.reset(memory);
+        self.pulse_b.reset(memory);
+    }
 
-impl SoundController {
-    fn update(&mut self, memory: &mut Memory) {
+    pub fn run(&mut self, cycles: u32, memory: &mut Memory) {
         let sound_onoff = memory.read_byte(NR52_REGISTER_ADDR);
-        let channel_ctrl = memory.read_byte(NR50_REGISTER_ADDR);
 
         self.sound_is_on = (sound_onoff >> 7) == 0b1;
-        self.pulse_a.update(memory);
-
-        self.channel_1_volume = channel_ctrl & 0b111;
-        self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
-    }
-
-    fn reset_pulse_a(&mut self, memory: &mut Memory) {
-        if let Some(ref device) = self.pulse_a_device {
-            if device.status() == AudioStatus::Playing {
-                device.pause();
-                self.pulse_a.reset(memory);
-            }
-        }
-    }
-
-    pub fn run(&mut self, cycles: u32, audio_subsystem: &AudioSubsystem, memory: &mut Memory) {
-        self.update(memory);
-
         if self.sound_is_on {
-            if self.pulse_a.should_play(memory) {
-                let len = self.pulse_a.length(memory);
-                let ctrl = self.pulse_a.control(memory);
-                let vol = self.pulse_a.volume(memory);
+            let channel_ctrl = memory.read_byte(NR50_REGISTER_ADDR);
+            self.channel_1_volume = channel_ctrl & 0b111;
+            self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-                let mut restart_sound = self.pulse_a_device.is_none();
-                if !restart_sound {
-                    if let Some(ref device) = self.pulse_a_device {
-                        restart_sound = device.status() != AudioStatus::Playing;
-                    }
-                }
-                if restart_sound {
-                    let desired_spec = AudioSpecDesired {
-                        freq: Some(FREQ),
-                        channels: Some(1), // mono
-                        samples: None, // default sample size
-                    };
-                    self.pulse_a_device = audio_subsystem
-                        .open_playback(None, &desired_spec, |spec| {
-                            SquareWave {
-                                phase_inc: ctrl.frequency_hz / spec.freq as f32,
-                                phase: 0.0,
-                                volume: vol.initial_volume as f32,
-                                duty: len.duty_cycles,
-                            }
-                        })
-                        .ok();
-                    // play the sound
-                    self.pulse_a_device.as_ref().unwrap().resume();
-                }
-
-                // handle envelope
-                if vol.step_len > 0f32 {
-                    let step_duration_cycles = (CPU_FREQUENCY_HZ as f32 * vol.step_len) as u32;
-                    let last_step = self.pulse_a.cycles / step_duration_cycles;
-                    let curr_step = (self.pulse_a.cycles + cycles) / step_duration_cycles;
-                    if curr_step > last_step {
-                        let mult = match vol.env_dir {
-                            EnvelopeDirection::Amplify => 1f32,
-                            EnvelopeDirection::Attenuate => -1f32,
-                        };
-                        // TODO: make sure the logic below is correct
-                        // my assumption that this addition will go up from 1 to 1 may be wrong!
-                        let new_volume = vol.initial_volume as f32 + (mult * curr_step as f32) as f32;
-                        if new_volume >= 0f32 && new_volume <= 15f32 {
-                            let device = self.pulse_a_device.as_mut().unwrap();
-                            let mut lock = device.lock();
-                            (*lock).volume = new_volume;
-                        }
-                    }
-                }
-                // handle sweep
-                if let Some(sweep) = self.pulse_a.sweep(memory) {
-                    // only apply sweep if the sweep duration is > 0 and the shift number ain't
-                    // zero.
-                    if sweep.time > 0f32 && sweep.shift > 0 {
-                        let sweep_duration_cycles = (CPU_FREQUENCY_HZ as f32 * sweep.time) as u32;
-                        let last_sweep = self.pulse_a.cycles / sweep_duration_cycles;
-                        let curr_sweep = (self.pulse_a.cycles + cycles) / sweep_duration_cycles;
-                        if curr_sweep > last_sweep {
-                            let mult = if sweep.increase { 1f32 } else { -1f32 };
-                            let new_freq = ctrl.frequency as u32 +
-                                ((mult * ctrl.frequency as f32) / 2f32.powf(sweep.shift as f32)) as u32;
-                            // if new frequency has more than 11bits, the sound should be stopped.
-                            if new_freq > 0b0111_1111_1111 {
-                                self.reset_pulse_a(memory);
-                                return;
-                            }
-
-                            // adjust frequency
-                            memory.write_byte(NR13_REGISTER_ADDR, new_freq as u8);
-                            let nr14 = memory.read_byte(NR14_REGISTER_ADDR) & 0b1111_1000;
-                            memory.write_byte(NR14_REGISTER_ADDR, nr14 | (new_freq >> 8) as u8);
-
-                            let device = self.pulse_a_device.as_mut().unwrap();
-                            let mut lock = device.lock();
-                            (*lock).phase_inc = self.pulse_a.control(memory).frequency_hz / FREQ as f32;
-                        }
-                    }
-                }
-
-                // TODO: this can overflow, should wrap add or do something else?
-                self.pulse_a.cycles += cycles;
-                // if the sound shouldn't loop, we have to count the elapsed time in order to stop
-                // it after its total length.
-                if ctrl.selection == VoiceSelection::NoLoop {
-                    let duration_cycles = (CPU_FREQUENCY_HZ as f32 * len.sound_length) as u32;
-                    if self.pulse_a.cycles >= duration_cycles {
-                        self.reset_pulse_a(memory);
-                    }
-                }
-            } else {
-                self.reset_pulse_a(memory);
-            }
+            self.pulse_a.run(cycles, memory);
+            self.pulse_b.run(cycles, memory);
         } else {
-            self.reset_pulse_a(memory);
+            self.reset(memory);
         }
     }
 }

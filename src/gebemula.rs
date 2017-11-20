@@ -11,7 +11,6 @@ use mem::Memory;
 use debugger::Debugger;
 
 use sdl2;
-use sdl2::AudioSubsystem;
 use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::keyboard::{Scancode, Keycode};
 
@@ -48,8 +47,7 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
-    sound: SoundController,
-    audio: Option<AudioSubsystem>,
+    sound: Option<SoundController>,
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
     speed_mode: SpeedMode,
@@ -64,8 +62,7 @@ impl<'a> Default for Gebemula<'a> {
             debugger: Debugger::default(),
             cycles_per_sec: 0,
             lcd: LCD::default(),
-            sound: SoundController::default(),
-            audio: None,
+            sound: None,
             joypad: Joypad::default(),
             battery_save_callback: None,
             speed_mode: SpeedMode::Normal,
@@ -81,6 +78,9 @@ impl<'a> Gebemula<'a> {
         self.timer = Timer::default();
         self.cycles_per_sec = 0;
         self.joypad = Joypad::default();
+        if let Some(ref mut sound) = self.sound {
+            sound.reset(&mut self.mem);
+        }
     }
 
     pub fn load_bootstrap_rom(&mut self, bootstrap_rom: &[u8]) {
@@ -170,7 +170,9 @@ impl<'a> Gebemula<'a> {
                     break;
                 }
             }
-            self.sound.run(instr_cycles, self.audio.as_ref().unwrap(), &mut self.mem);
+            if let Some(ref mut sound) = self.sound {
+                sound.run(instr_cycles, &mut self.mem);
+            }
             cycles += instr_cycles;
         }
         cycles += self.lcd.stat_mode_change(&mut self.mem);
@@ -222,7 +224,9 @@ impl<'a> Gebemula<'a> {
 
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
-        self.audio = Some(sdl_context.audio().unwrap());
+        let audio_subsystem = sdl_context.audio().unwrap();
+
+        self.sound = Some(SoundController::new(&audio_subsystem));
 
         let window = video_subsystem.window("Gebemula Emulator",
                     graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
