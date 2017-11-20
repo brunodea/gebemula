@@ -1,6 +1,5 @@
 pub mod consts;
 
-use super::util;
 use super::mem::Memory;
 use super::cpu::ioregister;
 use super::gebemula::GBMode;
@@ -391,7 +390,7 @@ impl Graphics {
             };
 
             let y = sprite.y(memory);
-            let mut tile_line = (curr_line as i16 - (y as i16 - 16)) as u8;
+            let tile_line = (curr_line as i16 - (y as i16 - 16)) as u8;
             for tile_col in 0..endx {
                 let mut buffer_pos = (curr_line as usize * consts::DISPLAY_WIDTH_PX as usize) +
                     (x.wrapping_add(tile_col) as u16 - 8) as usize;

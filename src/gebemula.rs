@@ -1,5 +1,6 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
+use peripherals::sound::SoundController;
 
 use cpu::{ioregister, Cpu, EventRequest};
 use cpu::timer::Timer;
@@ -10,6 +11,7 @@ use mem::Memory;
 use debugger::Debugger;
 
 use sdl2;
+use sdl2::AudioSubsystem;
 use sdl2::pixels::{PixelFormatEnum, Color};
 use sdl2::keyboard::{Scancode, Keycode};
 
@@ -46,7 +48,8 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
-
+    sound: SoundController,
+    audio: Option<AudioSubsystem>,
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
     speed_mode: SpeedMode,
@@ -61,6 +64,8 @@ impl<'a> Default for Gebemula<'a> {
             debugger: Debugger::default(),
             cycles_per_sec: 0,
             lcd: LCD::default(),
+            sound: SoundController::default(),
+            audio: None,
             joypad: Joypad::default(),
             battery_save_callback: None,
             speed_mode: SpeedMode::Normal,
@@ -165,6 +170,7 @@ impl<'a> Gebemula<'a> {
                     break;
                 }
             }
+            self.sound.run(instr_cycles, self.audio.as_ref().unwrap(), &mut self.mem);
             cycles += instr_cycles;
         }
         cycles += self.lcd.stat_mode_change(&mut self.mem);
@@ -215,9 +221,10 @@ impl<'a> Gebemula<'a> {
         Gebemula::print_buttons();
 
         let sdl_context = sdl2::init().unwrap();
-        let vide_subsystem = sdl_context.video().unwrap();
+        let video_subsystem = sdl_context.video().unwrap();
+        self.audio = Some(sdl_context.audio().unwrap());
 
-        let window = vide_subsystem.window("Gebemula Emulator",
+        let window = video_subsystem.window("Gebemula Emulator",
                     graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
                     graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
             .opengl()
@@ -304,8 +311,11 @@ impl<'a> Gebemula<'a> {
 
             self.adjust_joypad_keys(&event_pump);
             self.cycles_per_sec += self.step();
-            if self.debugger.exit {
-                break 'running;
+
+            if !cfg!(debug_assertions) {
+                if self.debugger.exit {
+                    break 'running;
+                }
             }
 
             /*
