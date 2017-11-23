@@ -171,7 +171,7 @@ impl<'a> Gebemula<'a> {
                 }
             }
             if let Some(ref mut sound) = self.sound {
-                sound.run(instr_cycles, &mut self.mem);
+                sound.run(&mut self.mem);
             }
             cycles += instr_cycles;
         }
@@ -226,7 +226,7 @@ impl<'a> Gebemula<'a> {
         let video_subsystem = sdl_context.video().unwrap();
         let audio_subsystem = sdl_context.audio().unwrap();
 
-        self.sound = Some(SoundController::new(&audio_subsystem));
+        self.sound = Some(SoundController::new(&audio_subsystem, &mut self.mem));
 
         let window = video_subsystem.window("Gebemula Emulator",
                     graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
