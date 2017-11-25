@@ -1,6 +1,6 @@
 use super::super::mem::Memory;
 use sdl2::AudioSubsystem;
-use sdl2::audio::{AudioStatus, AudioDevice, AudioCallback, AudioSpecDesired};
+use sdl2::audio::{AudioStatus, AudioDevice, AudioQueue, AudioCallback, AudioSpecDesired};
 
 use time;
 
@@ -149,6 +149,7 @@ struct PulseVoice {
     sound_trigger: SoundTrigger,
     start_time: Option<time::Tm>,
     device: AudioDevice<SquareWave>,
+    voice_type: VoiceType,
     nr1_reg: u16,
     nr3_reg: u16,
     nr4_reg: u16,
@@ -221,6 +222,7 @@ impl PulseVoice {
                     }
                 })
                 .unwrap(),
+            voice_type: voice_type,
             nr1_reg: nr1_reg,
             nr3_reg: nr3_reg,
             nr4_reg: nr4_reg,
@@ -261,10 +263,11 @@ impl PulseVoice {
 
     fn update_device(&mut self, memory: &Memory) {
         let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
-        let volume = GlobalReg::output_level(ChannelNum::ChannelA, memory) * self.envelope.default_value;
+        let volume = GlobalReg::output_level(ChannelNum::ChannelA, memory) *
+            self.envelope.default_value;
         let mut lock = self.device.lock();
         (*lock).phase_inc = frequency_hz / FREQ as f32;
-        (*lock).volume = volume as f32;//self.envelope.default_value as f32;
+        (*lock).volume = volume as f32; //self.envelope.default_value as f32;
         (*lock).duty = self.waveform_duty_cycles;
     }
 
@@ -282,7 +285,7 @@ impl PulseVoice {
         //(GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelA) ||
         // GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB))
         if self.sound_trigger == SoundTrigger::On {
-            GlobalReg::set_voice_flag(VoiceType::PulseA, memory);
+            GlobalReg::set_voice_flag(self.voice_type, memory);
             if self.sound_loop == SoundLoop::NoLoop {
                 // sound length has elapsed?
                 // TODO: instead of millis, use nanos?
@@ -374,12 +377,209 @@ impl PulseVoice {
 
             let mut lock = self.device.lock();
             (*lock).phase = 0.0;
+            (*lock).volume = 0.0;
 
             self.start_time = None;
-            GlobalReg::reset_voice_flag(VoiceType::PulseA, memory);
+            GlobalReg::reset_voice_flag(self.voice_type, memory);
             // reset initialize (trigger) flag
-            let nr14 = memory.read_byte(NR14_REGISTER_ADDR);
-            memory.write_byte(NR14_REGISTER_ADDR, nr14 & 0b0111_1111);
+            let nr4 = memory.read_byte(self.nr4_reg);
+            memory.write_byte(self.nr4_reg, nr4 & 0b0111_1111);
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum SoundEnable {
+    Enabled,
+    Disabled,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum OutputLevelSelection {
+    Mute,
+    Unmodified,
+    Shifted1, // waveform shifted 1bit to the right
+    Shifted2, // waveform shifted 2bits to the right
+}
+
+struct WaveVoice {
+    sound_enable: SoundEnable,
+    sound_length: u8,
+    frequency: u16, // 11bits
+    output_level: OutputLevelSelection,
+    sound_loop: SoundLoop,
+    sound_trigger: SoundTrigger,
+    device: AudioQueue<u8>,
+    start_time: Option<time::Tm>,
+}
+
+impl WaveVoice {
+    fn new(audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
+        let nr30 = memory.read_byte(NR30_REGISTER_ADDR);
+        let nr32 = memory.read_byte(NR32_REGISTER_ADDR);
+        let nr33 = memory.read_byte(NR33_REGISTER_ADDR);
+        let nr34 = memory.read_byte(NR34_REGISTER_ADDR);
+        let sound_enable = match nr30 >> 7 {
+            0b0 => SoundEnable::Disabled,
+            0b1 => SoundEnable::Enabled,
+            _ => unreachable!(),
+        };
+        let sound_length = memory.read_byte(NR31_REGISTER_ADDR);
+        let output_level = match (nr32 >> 5) & 0b11 {
+            0b00 => OutputLevelSelection::Mute,
+            0b01 => OutputLevelSelection::Unmodified,
+            0b10 => OutputLevelSelection::Shifted1,
+            0b11 => OutputLevelSelection::Shifted2,
+            _ => unreachable!(),
+        };
+        let frequency = ((nr34 as u16 & 0b111) << 8) | nr33 as u16;
+        let sound_loop = if ((nr34 >> 6) & 0b1) == 0b0 {
+            SoundLoop::Loop
+        } else {
+            SoundLoop::NoLoop
+        };
+        let sound_trigger = if ((nr34 >> 7) & 0b1) == 0b0 {
+            SoundTrigger::Off
+        } else {
+            SoundTrigger::On
+        };
+
+        WaveVoice {
+            sound_enable: sound_enable,
+            sound_length: sound_length,
+            frequency: frequency,
+            output_level: output_level,
+            sound_loop: sound_loop,
+            sound_trigger: sound_trigger,
+            device: audio_subsystem
+                .open_queue(None, &SQUARE_DESIRED_SPEC)
+                .unwrap(),
+            start_time: None,
+        }
+    }
+    fn elapsed_time(&self) -> time::Duration {
+        if self.start_time.is_none() {
+            time::Duration::milliseconds(0)
+        } else {
+            time::now() - self.start_time.unwrap()
+        }
+    }
+    fn update(&mut self, memory: &mut Memory) {
+        let nr30 = memory.read_byte(NR30_REGISTER_ADDR);
+        let nr32 = memory.read_byte(NR32_REGISTER_ADDR);
+        let nr33 = memory.read_byte(NR33_REGISTER_ADDR);
+        let nr34 = memory.read_byte(NR34_REGISTER_ADDR);
+        self.sound_enable = match nr30 >> 7 {
+            0b0 => SoundEnable::Disabled,
+            0b1 => SoundEnable::Enabled,
+            _ => unreachable!(),
+        };
+        self.sound_length = memory.read_byte(NR31_REGISTER_ADDR);
+        self.output_level = match (nr32 >> 5) & 0b11 {
+            0b00 => OutputLevelSelection::Mute,
+            0b01 => OutputLevelSelection::Unmodified,
+            0b10 => OutputLevelSelection::Shifted1,
+            0b11 => OutputLevelSelection::Shifted2,
+            _ => unreachable!(),
+        };
+        self.frequency = ((nr34 as u16 & 0b111) << 8) | nr33 as u16;
+        self.sound_loop = if ((nr34 >> 6) & 0b1) == 0b0 {
+            SoundLoop::Loop
+        } else {
+            SoundLoop::NoLoop
+        };
+        self.sound_trigger = if ((nr34 >> 7) & 0b1) == 0b0 {
+            SoundTrigger::Off
+        } else {
+            SoundTrigger::On
+        };
+    }
+
+    fn gen_wave(&mut self, memory: &Memory) -> Vec<u8> {
+        let frequency_hz = 65536f32 / (2048f32 - self.frequency as f32);
+        let volume = GlobalReg::output_level(ChannelNum::ChannelA, memory);
+        let period = FREQ as f32 / frequency_hz;
+        let wave_slots = 32usize; // 16 bytes for the custom wave in memory (32 slots).
+
+        let slot_value = |slot| -> u8 {
+            match self.output_level {
+                OutputLevelSelection::Unmodified => slot * volume, // 100%
+                OutputLevelSelection::Shifted2 => (slot >> 2) * volume, // 50%
+                OutputLevelSelection::Shifted1 => (slot >> 1) * volume, // 25%
+                OutputLevelSelection::Mute => 0, // 0%
+            }
+        };
+
+        let size = FREQ as usize; // frequency * channels
+        let mut result = Vec::with_capacity(size);
+        let mut curr_addr = CUSTOM_WAVE_START_ADDR;
+        let mut counter = 0;
+        let mut dur = period as u32 / wave_slots as u32;
+        let mut curr_slot = 0;
+        for i in 0..size {
+            if counter > dur {
+                counter = 0;
+                curr_slot += 1;
+                if curr_slot == wave_slots {
+                    curr_slot = 0;
+                }
+            }
+            counter += 1;
+            let addr = CUSTOM_WAVE_START_ADDR + (curr_slot as u16 / 2u16);
+
+            let entry = memory.read_byte(addr);
+            let s = if curr_slot % 2 == 0 {
+                entry & 0b1111
+            } else {
+                entry >> 4
+            };
+
+            result.push(slot_value(s));
+        }
+
+        result
+    }
+
+    fn run(&mut self, memory: &mut Memory) {
+        self.update(memory);
+        // TODO: should we also check if at least one output channel is on?
+        //(GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelA) ||
+        // GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB))
+        if self.sound_trigger == SoundTrigger::On && self.sound_enable == SoundEnable::Enabled {
+            GlobalReg::set_voice_flag(VoiceType::Wave, memory);
+            if self.sound_loop == SoundLoop::NoLoop {
+                // sound length has elapsed?
+                // TODO: instead of millis, use nanos?
+                let sound_length = ((256f32 - self.sound_length as f32) * (1f32 / 2f32) *
+                                        1000f32) as i64; // millis
+                if self.elapsed_time() >= time::Duration::milliseconds(sound_length) {
+                    self.stop(memory);
+                    return;
+                }
+            }
+
+            if self.start_time.is_none() {
+                // first loop with sound on.
+                // things here should be run only once when the sound is on.
+                let wave = self.gen_wave(memory);
+                self.device.queue(&wave);
+                self.device.resume();
+                self.start_time = Some(time::now());
+            }
+        } else {
+            self.stop(memory);
+        }
+    }
+    fn stop(&mut self, memory: &mut Memory) {
+        // this if is for extra safety
+        if self.device.status() == AudioStatus::Playing {
+            self.device.pause();
+
+            self.start_time = None;
+            GlobalReg::reset_voice_flag(VoiceType::Wave, memory);
+            // reset initialize (trigger) flag
+            let nr34 = memory.read_byte(NR34_REGISTER_ADDR);
+            memory.write_byte(NR34_REGISTER_ADDR, nr34 & 0b0111_1111);
         }
     }
 }
@@ -444,6 +644,7 @@ pub struct SoundController {
     channel_2_volume: u8,
     pulse_a: PulseVoice,
     pulse_b: PulseVoice,
+    wave: WaveVoice,
 }
 
 impl SoundController {
@@ -454,11 +655,13 @@ impl SoundController {
             channel_2_volume: 0,
             pulse_a: PulseVoice::new(VoiceType::PulseA, audio_subsystem, memory),
             pulse_b: PulseVoice::new(VoiceType::PulseB, audio_subsystem, memory),
+            wave: WaveVoice::new(audio_subsystem, memory),
         }
     }
     pub fn reset(&mut self, memory: &mut Memory) {
         if self.pulse_a.sound_trigger == SoundTrigger::On {
             self.pulse_a.stop(memory);
+            self.pulse_b.stop(memory);
         }
     }
 
@@ -471,8 +674,9 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-            self.pulse_a.run(memory);
-            self.pulse_b.run(memory);
+            //self.pulse_a.run(memory);
+            //self.pulse_b.run(memory);
+            self.wave.run(memory);
         } else {
             self.reset(memory);
         }
