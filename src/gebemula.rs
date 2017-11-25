@@ -170,9 +170,6 @@ impl<'a> Gebemula<'a> {
                     break;
                 }
             }
-            if let Some(ref mut sound) = self.sound {
-                sound.run(&mut self.mem);
-            }
             cycles += instr_cycles;
         }
         cycles += self.lcd.stat_mode_change(&mut self.mem);
@@ -373,6 +370,10 @@ impl<'a> Gebemula<'a> {
                 }
                 last_time = time::now();
                 fps += 1;
+            }
+
+            if let Some(ref mut sound) = self.sound {
+                sound.run(&mut self.mem);
             }
 
             let now = time::now();
