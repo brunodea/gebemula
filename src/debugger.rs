@@ -1,5 +1,6 @@
 use cpu::{ioregister, Cpu, Reg, Instruction};
 use mem::{self, Memory};
+use peripherals::sound;
 use std::io::{self, Write};
 use gebemula::GBMode;
 
@@ -419,6 +420,21 @@ impl Debugger {
                 let wy = mem.read_byte(ioregister::WY_REGISTER_ADDR);
                 let p1 = mem.read_byte(ioregister::JOYPAD_REGISTER_ADDR);
 
+                let nr10 = mem.read_byte(sound::NR10_REGISTER_ADDR);
+                let nr11 = mem.read_byte(sound::NR11_REGISTER_ADDR);
+                let nr12 = mem.read_byte(sound::NR12_REGISTER_ADDR);
+                let nr13 = mem.read_byte(sound::NR13_REGISTER_ADDR);
+                let nr14 = mem.read_byte(sound::NR14_REGISTER_ADDR);
+
+                let nr21 = mem.read_byte(sound::NR21_REGISTER_ADDR);
+                let nr22 = mem.read_byte(sound::NR22_REGISTER_ADDR);
+                let nr23 = mem.read_byte(sound::NR23_REGISTER_ADDR);
+                let nr24 = mem.read_byte(sound::NR24_REGISTER_ADDR);
+
+                let nr50 = mem.read_byte(sound::NR50_REGISTER_ADDR);
+                let nr51 = mem.read_byte(sound::NR51_REGISTER_ADDR);
+                let nr52 = mem.read_byte(sound::NR52_REGISTER_ADDR);
+
                 println!("IF: {:#b}", if_);
                 println!("IE: {:#b}", ie);
                 println!("DIV: {:#x}", div);
@@ -434,6 +450,24 @@ impl Debugger {
                 println!("WX: {}", wx);
                 println!("WY: {}", wy);
                 println!("Joypad: {:#b}", p1);
+
+                println!("###############");
+                println!("Sound Registers");
+                println!("###############");
+                println!("NR10: {:#b}", nr10);
+                println!("NR11: {:#b}", nr11);
+                println!("NR12: {:#b}", nr12);
+                println!("NR13: {:#b}", nr13);
+                println!("NR14: {:#b}", nr14);
+                println!("###############");
+                println!("NR21: {:#b}", nr21);
+                println!("NR22: {:#b}", nr22);
+                println!("NR23: {:#b}", nr23);
+                println!("NR24: {:#b}", nr24);
+                println!("###############");
+                println!("NR50: {:#b}", nr50);
+                println!("NR51: {:#b}", nr51);
+                println!("NR52: {:#b}", nr52);
             }
             "memory" => {
                 Debugger::parse_show_memory(&parameters[1..], mem);

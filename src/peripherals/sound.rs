@@ -5,29 +5,29 @@ use sdl2::audio::{AudioStatus, AudioDevice, AudioQueue, AudioCallback, AudioSpec
 use time;
 
 // PulseAVoice registers
-const NR10_REGISTER_ADDR: u16 = 0xFF10;
-const NR11_REGISTER_ADDR: u16 = 0xFF11;
-const NR12_REGISTER_ADDR: u16 = 0xFF12;
-const NR13_REGISTER_ADDR: u16 = 0xFF13;
-const NR14_REGISTER_ADDR: u16 = 0xFF14;
+pub const NR10_REGISTER_ADDR: u16 = 0xFF10;
+pub const NR11_REGISTER_ADDR: u16 = 0xFF11;
+pub const NR12_REGISTER_ADDR: u16 = 0xFF12;
+pub const NR13_REGISTER_ADDR: u16 = 0xFF13;
+pub const NR14_REGISTER_ADDR: u16 = 0xFF14;
 
 // PulseBReg registers
-const NR21_REGISTER_ADDR: u16 = 0xFF16;
-const NR22_REGISTER_ADDR: u16 = 0xFF17;
-const NR23_REGISTER_ADDR: u16 = 0xFF18;
-const NR24_REGISTER_ADDR: u16 = 0xFF19;
+pub const NR21_REGISTER_ADDR: u16 = 0xFF16;
+pub const NR22_REGISTER_ADDR: u16 = 0xFF17;
+pub const NR23_REGISTER_ADDR: u16 = 0xFF18;
+pub const NR24_REGISTER_ADDR: u16 = 0xFF19;
 
 // Wave registers
-const NR30_REGISTER_ADDR: u16 = 0xFF1A;
-const NR31_REGISTER_ADDR: u16 = 0xFF1B;
-const NR32_REGISTER_ADDR: u16 = 0xFF1C;
-const NR33_REGISTER_ADDR: u16 = 0xFF1D;
-const NR34_REGISTER_ADDR: u16 = 0xFF1E;
+pub const NR30_REGISTER_ADDR: u16 = 0xFF1A;
+pub const NR31_REGISTER_ADDR: u16 = 0xFF1B;
+pub const NR32_REGISTER_ADDR: u16 = 0xFF1C;
+pub const NR33_REGISTER_ADDR: u16 = 0xFF1D;
+pub const NR34_REGISTER_ADDR: u16 = 0xFF1E;
 
 // Global sound registers
-const NR50_REGISTER_ADDR: u16 = 0xFF24;
-const NR51_REGISTER_ADDR: u16 = 0xFF25;
-const NR52_REGISTER_ADDR: u16 = 0xFF26;
+pub const NR50_REGISTER_ADDR: u16 = 0xFF24;
+pub const NR51_REGISTER_ADDR: u16 = 0xFF25;
+pub const NR52_REGISTER_ADDR: u16 = 0xFF26;
 
 const CUSTOM_WAVE_START_ADDR: u16 = 0xFF30;
 const CUSTOM_WAVE_END_ADDR: u16 = 0xFF3F;
@@ -36,7 +36,7 @@ const CUSTOM_WAVE_END_ADDR: u16 = 0xFF3F;
 const FREQ: i32 = 44100i32;
 const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
-    channels: Some(2), // mono
+    channels: Some(1), // mono
     samples: None, // default sample size
 };
 
@@ -51,6 +51,7 @@ struct Sweep {
     func: SweepFunc,
     sweep_time: u8,
     addr: u16,
+    start_time: Option<time::Tm>,
 }
 
 impl Sweep {
@@ -68,8 +69,8 @@ impl Sweep {
             shift_number: shift_number,
             func: func,
             sweep_time: sweep_time,
-
             addr: addr,
+            start_time: None,
         }
     }
     fn update(&mut self, memory: &Memory) {
@@ -81,6 +82,28 @@ impl Sweep {
             SweepFunc::Subtraction
         };
         self.sweep_time = (sweep_raw >> 4) & 0b111;
+        self.start_time = if self.sweep_time > 0 {
+            if self.start_time.is_none() {
+                Some(time::now())
+            } else {
+                self.start_time
+            }
+        } else {
+            None
+        };
+    }
+    fn sweep_time_ms(&self) -> f32 {
+        match self.sweep_time {
+            0b000 => 0.0,
+            0b001 => 7.8,
+            0b010 => 15.6,
+            0b011 => 23.4,
+            0b100 => 31.3,
+            0b101 => 39.1,
+            0b110 => 46.9,
+            0b111 => 54.7,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -95,6 +118,7 @@ struct Envelope {
     func: EnvelopeFunc,
     default_value: u8, // 0x0-0xF
     addr: u16,
+    start_time: Option<time::Tm>,
 }
 
 impl Envelope {
@@ -113,9 +137,10 @@ impl Envelope {
             func: func,
             default_value: default_value,
             addr: addr,
+            start_time: None,
         }
     }
-    fn update(&mut self, memory: &Memory) {
+    fn update(&mut self, memory: &mut Memory) -> bool {
         let envelope_raw = memory.read_byte(self.addr);
         self.step_length = envelope_raw & 0b111;
         self.func = if ((envelope_raw >> 3) & 0b1) == 0b0 {
@@ -124,6 +149,45 @@ impl Envelope {
             EnvelopeFunc::Amplify
         };
         self.default_value = envelope_raw >> 4;
+        self.start_time = if self.step_length > 0 {
+            if self.start_time.is_none() {
+                Some(time::now())
+            } else {
+                self.start_time
+            }
+        } else {
+            None
+        };
+        let mut env_changed = false;
+        if let Some(start_time) = self.start_time {
+            // TODO: use nanos instead?
+            let len_millis = (self.step_length as f32 * (1000f32 / 64f32)) as i64;
+            let now = time::now();
+            if now - start_time >= time::Duration::milliseconds(len_millis) {
+                self.start_time = Some(now);
+                let new_value = match self.func {
+                    EnvelopeFunc::Amplify => {
+                        if self.default_value == 0xF {
+                            0xF
+                        } else {
+                            self.default_value + 1
+                        }
+                    }, //self.default_value.wrapping_add(1),
+                    EnvelopeFunc::Attenuate => {
+                        if self.default_value == 0 {
+                            0
+                        } else {
+                            self.default_value - 1
+                        }
+                    },//self.default_value.wrapping_sub(1),
+                };
+
+                let nr2 = memory.read_byte(self.addr);
+                memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (new_value << 4));
+                env_changed = true;
+            }
+        }
+        env_changed
     }
 }
 
@@ -254,105 +318,32 @@ impl PulseVoice {
         } else {
             SoundTrigger::Off
         };
-
-        if let Some(ref mut sweep) = self.sweep {
-            sweep.update(memory);
-        }
-        self.envelope.update(memory);
     }
 
     fn update_device(&mut self, memory: &Memory) {
-        let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
-        let volume = GlobalReg::output_level(ChannelNum::ChannelA, memory) *
-            self.envelope.default_value;
+        let frequency_hz = 4194304f32 / (32f32 * (2048f32 - self.frequency as f32));
+        let mut volume =
+            if GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
+            } else if GlobalReg::should_output(VoiceType::PulseB, ChannelNum::ChannelB, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
+            } else {
+                0f32
+            };
+        if self.envelope.step_length > 0 {
+            volume *= self.envelope.default_value as f32 / 0xF as f32;
+        }
         let mut lock = self.device.lock();
         (*lock).phase_inc = frequency_hz / FREQ as f32;
-        (*lock).volume = volume as f32; //self.envelope.default_value as f32;
+        (*lock).volume = volume;
         (*lock).duty = self.waveform_duty_cycles;
-    }
-
-    fn elapsed_time(&self) -> time::Duration {
-        if self.start_time.is_none() {
-            time::Duration::milliseconds(0)
-        } else {
-            time::now() - self.start_time.unwrap()
-        }
     }
 
     fn run(&mut self, memory: &mut Memory) {
         self.update(memory);
-        // TODO: should we also check if at least one output channel is on?
-        //(GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelA) ||
-        // GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB))
         if self.sound_trigger == SoundTrigger::On {
+            // update ON flag all the time.
             GlobalReg::set_voice_flag(self.voice_type, memory);
-            if self.sound_loop == SoundLoop::NoLoop {
-                // sound length has elapsed?
-                // TODO: instead of millis, use nanos?
-                let sound_length = ((64f32 - self.sound_length as f32) * (1f32 / 256f32) *
-                                        1000f32) as i64; // millis
-                if self.elapsed_time() >= time::Duration::milliseconds(sound_length) {
-                    self.stop(memory);
-                    return;
-                }
-            }
-
-            let mut should_stop = false;
-            let mut should_update_device = false;
-            // handle sweep
-            if self.sweep.is_some() {
-                let sweep = self.sweep.as_ref().unwrap();
-                if sweep.sweep_time > 0 {
-                    // only apply sweep if passed sweep time
-                    // TODO: as i64 may cut some values, probably best to use nanoseconds
-                    // and multiply sweep_time by 10^9.
-                    if self.elapsed_time() >
-                        time::Duration::milliseconds(
-                            ((sweep.sweep_time as f32 / 128f32) * 1000f32) as i64,
-                        )
-                    {
-                        let mult = match sweep.func {
-                            SweepFunc::Addition => 1f32,
-                            SweepFunc::Subtraction => -1f32,
-                        };
-                        let new_freq = (self.frequency as f32 +
-                                            (mult *
-                                                 (self.frequency as f32 /
-                                                      2f32.powi(sweep.shift_number as i32)))) as
-                            u16;
-                        if new_freq > 0b0000_0111_1111_1111 {
-                            should_stop = true;
-                        } else {
-                            let nr14 = memory.read_byte(self.nr4_reg);
-                            memory.write_byte(self.nr3_reg, new_freq as u8);
-                            memory.write_byte(self.nr4_reg, nr14 | ((new_freq >> 8) & 0b111) as u8);
-                            should_update_device = true;
-                        }
-                    }
-                }
-            }
-
-            // handle envelope
-            if self.envelope.step_length > 0 {
-                // TODO: use nanos instead?
-                let len_millis = (self.envelope.step_length as f32 * (1000f32 / 64f32)) as i64;
-                if self.elapsed_time() >= time::Duration::milliseconds(len_millis) {
-                    let mult = match self.envelope.func {
-                        EnvelopeFunc::Amplify => 1i16,
-                        EnvelopeFunc::Attenuate => -1i16,
-                    };
-                    let new_value = (self.envelope.default_value as i16 + mult) as u8;
-                    if new_value < 0xF {
-                        let nr12 = memory.read_byte(self.envelope.addr);
-                        memory.write_byte(
-                            self.envelope.addr,
-                            (nr12 & 0b0000_1111) | (new_value << 4),
-                        );
-                        should_update_device = true;
-                        //println!("{}", new_value);
-                    }
-                }
-            }
 
             if self.start_time.is_none() {
                 // first loop with sound on.
@@ -360,7 +351,59 @@ impl PulseVoice {
                 self.update_device(memory);
                 self.device.resume();
                 self.start_time = Some(time::now());
-            } else if should_stop {
+            }
+
+            let mut should_update_device = self.envelope.update(memory);
+
+            let mut should_stop = false;
+            // handle sweep
+            if let Some(ref mut sweep) = self.sweep {
+                sweep.update(memory);
+                if let Some(sweep_start_time) = sweep.start_time {
+                    // TODO: as i64 may cut some values, probably best to use nanoseconds
+                    // and multiply sweep_time by 10^9.
+                    let now = time::now();
+                    if now - sweep_start_time >
+                        time::Duration::milliseconds(sweep.sweep_time_ms() as i64)
+                    {
+                        sweep.start_time = Some(now);
+                        let rhs = self.frequency as f32 / 2f32.powi(sweep.shift_number as i32);
+                        let new_freq = match sweep.func {
+                            SweepFunc::Addition => self.frequency + rhs as u16,
+                            SweepFunc::Subtraction => {
+                                // TODO: maybe we should wrapping_sub instead?
+                                if rhs > self.frequency as f32 {
+                                    0u16
+                                } else {
+                                    self.frequency - rhs as u16
+                                }
+                            }
+                        };
+                        if new_freq > 0b0000_0111_1111_1111 {
+                            should_stop = true;
+                        } else {
+                            let nr14 = memory.read_byte(self.nr4_reg);
+                            memory.write_byte(self.nr3_reg, new_freq as u8);
+                            memory.write_byte(self.nr4_reg, nr14 | (new_freq >> 8) as u8);
+                            should_update_device = true;
+                        }
+                    }
+                }
+            }
+
+            if self.sound_loop == SoundLoop::NoLoop {
+                // sound length has elapsed?
+                // TODO: instead of millis, use nanos?
+                let sound_length = ((64f32 - self.sound_length as f32) * (1f32 / 256f32) *
+                                        1000f32) as i64; // millis
+                if time::now() - self.start_time.unwrap() >=
+                    time::Duration::milliseconds(sound_length)
+                {
+                    should_stop = true;
+                }
+            }
+
+            if should_stop {
                 self.stop(memory);
             } else if should_update_device {
                 self.update_device(memory);
@@ -375,9 +418,9 @@ impl PulseVoice {
         if self.device.status() == AudioStatus::Playing {
             self.device.pause();
 
-            let mut lock = self.device.lock();
-            (*lock).phase = 0.0;
-            (*lock).volume = 0.0;
+            //let mut lock = self.device.lock();
+            //(*lock).phase = 0.0;
+            //(*lock).volume = 0.0;
 
             self.start_time = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
@@ -514,10 +557,10 @@ impl WaveVoice {
         let mut result = Vec::with_capacity(size);
         let mut curr_addr = CUSTOM_WAVE_START_ADDR;
         let mut counter = 0;
-        let mut dur = period as u32 / wave_slots as u32;
+        let dur = period / wave_slots as f32;
         let mut curr_slot = 0;
         for i in 0..size {
-            if counter > dur {
+            if counter as f32 > dur {
                 counter = 0;
                 curr_slot += 1;
                 if curr_slot == wave_slots {
@@ -659,10 +702,9 @@ impl SoundController {
         }
     }
     pub fn reset(&mut self, memory: &mut Memory) {
-        if self.pulse_a.sound_trigger == SoundTrigger::On {
-            self.pulse_a.stop(memory);
-            self.pulse_b.stop(memory);
-        }
+        self.pulse_a.stop(memory);
+        self.pulse_b.stop(memory);
+        //self.wave.stop(memory);
     }
 
     pub fn run(&mut self, memory: &mut Memory) {
@@ -674,9 +716,9 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-            //self.pulse_a.run(memory);
-            //self.pulse_b.run(memory);
-            self.wave.run(memory);
+            self.pulse_a.run(memory);
+            self.pulse_b.run(memory);
+        //self.wave.run(memory);
         } else {
             self.reset(memory);
         }
@@ -695,8 +737,8 @@ impl AudioCallback for SquareWave {
 
     fn callback(&mut self, out: &mut [f32]) {
         // Generate a square wave
-        for x in out.iter_mut() {
-            *x = if self.phase <= self.duty {
+        for sample_value in out.iter_mut() {
+            *sample_value = if self.phase <= self.duty {
                 self.volume
             } else {
                 -self.volume
