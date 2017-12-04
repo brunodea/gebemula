@@ -36,7 +36,7 @@ impl GBMode {
 
 enum SpeedMode {
     Normal,
-    Double
+    Double,
 }
 
 pub struct Gebemula<'a> {
@@ -128,7 +128,7 @@ impl<'a> Gebemula<'a> {
 
                         dma_cycles = match self.speed_mode {
                             SpeedMode::Normal => dma_cycles,
-                            SpeedMode::Double => dma_cycles * 2
+                            SpeedMode::Double => dma_cycles * 2,
                         };
                         extra_cycles += dma_cycles;
                         self.mem.set_access_oam(false);
@@ -228,9 +228,12 @@ impl<'a> Gebemula<'a> {
 
         self.sound = Some(SoundController::new(&audio_subsystem, &mut self.mem));
 
-        let window = video_subsystem.window("Gebemula Emulator",
-                    graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
-                    graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2)
+        let window = video_subsystem
+            .window(
+                "Gebemula Emulator",
+                graphics::consts::DISPLAY_WIDTH_PX as u32 * 2,
+                graphics::consts::DISPLAY_HEIGHT_PX as u32 * 2,
+            )
             .opengl()
             .build()
             .unwrap();
@@ -238,9 +241,12 @@ impl<'a> Gebemula<'a> {
         let mut renderer = window.renderer().build().unwrap();
         renderer.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
-        let mut texture = renderer.create_texture_streaming(PixelFormatEnum::ABGR8888,
-                                      graphics::consts::DISPLAY_WIDTH_PX as u32,
-                                      graphics::consts::DISPLAY_HEIGHT_PX as u32)
+        let mut texture = renderer
+            .create_texture_streaming(
+                PixelFormatEnum::ABGR8888,
+                graphics::consts::DISPLAY_WIDTH_PX as u32,
+                graphics::consts::DISPLAY_HEIGHT_PX as u32,
+            )
             .unwrap();
 
         renderer.clear();
@@ -357,13 +363,16 @@ impl<'a> Gebemula<'a> {
              */
             if self.lcd.has_entered_vblank(&self.mem) {
                 renderer.clear();
-                texture.update(None,
-                            &self.lcd.graphics.screen_buffer,
-                            graphics::consts::DISPLAY_WIDTH_PX as usize * 4)
+                texture
+                    .update(
+                        None,
+                        &self.lcd.graphics.screen_buffer,
+                        graphics::consts::DISPLAY_WIDTH_PX as usize * 4,
+                    )
                     .unwrap();
                 match renderer.copy(&texture, None, None) {
                     Ok(_) => (),
-                    Err(_) => return
+                    Err(_) => return,
                 };
                 renderer.present();
 
