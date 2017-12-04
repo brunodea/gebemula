@@ -431,6 +431,12 @@ impl Debugger {
                 let nr23 = mem.read_byte(sound::NR23_REGISTER_ADDR);
                 let nr24 = mem.read_byte(sound::NR24_REGISTER_ADDR);
 
+                let nr30 = mem.read_byte(sound::NR30_REGISTER_ADDR);
+                let nr31 = mem.read_byte(sound::NR31_REGISTER_ADDR);
+                let nr32 = mem.read_byte(sound::NR32_REGISTER_ADDR);
+                let nr33 = mem.read_byte(sound::NR33_REGISTER_ADDR);
+                let nr34 = mem.read_byte(sound::NR34_REGISTER_ADDR);
+
                 let nr50 = mem.read_byte(sound::NR50_REGISTER_ADDR);
                 let nr51 = mem.read_byte(sound::NR51_REGISTER_ADDR);
                 let nr52 = mem.read_byte(sound::NR52_REGISTER_ADDR);
@@ -464,6 +470,12 @@ impl Debugger {
                 println!("NR22: {:#b}", nr22);
                 println!("NR23: {:#b}", nr23);
                 println!("NR24: {:#b}", nr24);
+                println!("###############");
+                println!("NR30: {:#b}", nr30);
+                println!("NR31: {:#b}", nr31);
+                println!("NR32: {:#b}", nr32);
+                println!("NR33: {:#b}", nr33);
+                println!("NR34: {:#b}", nr34);
                 println!("###############");
                 println!("NR50: {:#b}", nr50);
                 println!("NR51: {:#b}", nr51);
