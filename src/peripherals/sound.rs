@@ -770,3 +770,26 @@ impl SoundController {
         }
     }
 }
+
+struct SquareWave {
+    phase_inc: f32,
+    phase: f32,
+    volume: f32,
+    duty: f32,
+}
+
+impl AudioCallback for SquareWave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        // Generate a square wave
+        for sample_value in out.iter_mut() {
+            *sample_value = if self.phase <= self.duty {
+                self.volume
+            } else {
+                -self.volume
+            };
+            self.phase = (self.phase + self.phase_inc) % 1.0;
+        }
+    }
+}
