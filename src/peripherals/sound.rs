@@ -140,7 +140,7 @@ impl Envelope {
             start_time: None,
         }
     }
-    fn update(&mut self, memory: &mut Memory) -> bool {
+    fn update(&mut self, memory: &mut Memory) {
         let envelope_raw = memory.read_byte(self.addr);
         self.step_length = envelope_raw & 0b111;
         self.func = if ((envelope_raw >> 3) & 0b1) == 0b0 {
@@ -159,7 +159,6 @@ impl Envelope {
             None
         };
 
-        let mut env_changed = false;
         if let Some(start_time) = self.start_time {
             // TODO: use nanos instead?
             let len_millis = (self.step_length as f32 * (1000f32 / 64f32)) as i64;
@@ -185,10 +184,8 @@ impl Envelope {
 
                 let nr2 = memory.read_byte(self.addr);
                 memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (new_value << 4));
-                env_changed = true;
             }
         }
-        env_changed
     }
 }
 
@@ -322,7 +319,7 @@ impl PulseVoice {
     }
 
     fn update_device(&mut self, memory: &Memory) {
-        let frequency_hz = 4194304f32 / (32f32 * (2048f32 - self.frequency as f32));
+        let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
         let mut volume =
             if GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB, memory) {
                 GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
@@ -354,7 +351,7 @@ impl PulseVoice {
                 self.start_time = Some(time::now());
             }
 
-            let mut should_update_device = self.envelope.update(memory);
+            self.envelope.update(memory);
 
             let mut should_stop = false;
             // handle sweep
@@ -386,7 +383,6 @@ impl PulseVoice {
                             let nr14 = memory.read_byte(self.nr4_reg);
                             memory.write_byte(self.nr3_reg, new_freq as u8);
                             memory.write_byte(self.nr4_reg, nr14 | (new_freq >> 8) as u8);
-                            should_update_device = true;
                         }
                     }
                 }
@@ -406,9 +402,9 @@ impl PulseVoice {
 
             if should_stop {
                 self.stop(memory);
-            } else if should_update_device {
-                self.update_device(memory);
             }
+
+            self.update_device(memory);
         } else {
             self.stop(memory);
         }
@@ -417,11 +413,9 @@ impl PulseVoice {
     fn stop(&mut self, memory: &mut Memory) {
         // this if is for extra safety
         if self.device.status() == AudioStatus::Playing {
-            self.device.pause();
-
-            //let mut lock = self.device.lock();
-            //(*lock).phase = 0.0;
-            //(*lock).volume = 0.0;
+            let mut lock = self.device.lock();
+            (*lock).volume = 0.0;
+            (*lock).duty = 0.0;
 
             self.start_time = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
@@ -621,6 +615,7 @@ impl WaveVoice {
                 // things here should be run only once when the sound is on.
                 self.update_wave(memory);
                 self.device.resume();
+                let mut lock = self.device.lock();
                 self.start_time = Some(time::now());
             }
         } else {
