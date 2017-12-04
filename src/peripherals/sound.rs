@@ -321,9 +321,9 @@ impl PulseVoice {
     fn update_device(&mut self, memory: &Memory) {
         let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
         let mut volume =
-            if GlobalReg::should_output(VoiceType::PulseA, ChannelNum::ChannelB, memory) {
+            if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory) {
                 GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
-            } else if GlobalReg::should_output(VoiceType::PulseB, ChannelNum::ChannelB, memory) {
+            } else if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelB, memory) {
                 GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
             } else {
                 0f32
