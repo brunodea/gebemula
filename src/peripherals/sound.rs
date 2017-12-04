@@ -615,7 +615,9 @@ impl WaveVoice {
     }
     fn stop(&mut self, memory: &mut Memory) {
         if self.start_time.is_some() {
-            self.device.clear();
+            self.wave = vec![0; FREQ as usize];
+            //self.device.clear();
+            self.device.queue(self.wave.as_slice());
 
             self.start_time = None;
             GlobalReg::reset_voice_flag(VoiceType::Wave, memory);
