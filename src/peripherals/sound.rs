@@ -559,32 +559,24 @@ impl WaveVoice {
             }
         };
 
-        let mut curr_slot = 0;
-        let mut phase = 0.0;
         let mut addr = CUSTOM_WAVE_START_ADDR;
-        for i in 0..self.wave.capacity() {
+        for i in 0..self.wave.len() {
             let entry = memory.read_byte(addr);
-            let s = if curr_slot % 2 == 0 {
-                addr += curr_slot / 2;
-                if addr > CUSTOM_WAVE_END_ADDR {
-                    addr = CUSTOM_WAVE_START_ADDR;
+            let s = if i % 2 == 0 {
+                entry >> 4
+            } else {
+                if addr < CUSTOM_WAVE_END_ADDR {
+                    addr += 1;
                 }
                 entry & 0b1111
-            } else {
-                entry >> 4
             };
 
             self.wave[i] = volume(s);
 
-            phase = phase + phase_inc;
-            curr_slot += 1;
-            if curr_slot > (CUSTOM_WAVE_END_ADDR - CUSTOM_WAVE_START_ADDR) * 2 {
-                curr_slot = 0;
-            }
-            if phase > 1.0 {
+            self.curr_phase = self.curr_phase + phase_inc;
+            if self.curr_phase > 1.0 {
                 // duty finished
-                phase = phase % 1.0;
-                curr_slot = 0;
+                self.curr_phase = self.curr_phase % 1.0;
                 addr = CUSTOM_WAVE_START_ADDR;
             }
         }
@@ -615,7 +607,6 @@ impl WaveVoice {
                 // things here should be run only once when the sound is on.
                 self.update_wave(memory);
                 self.device.resume();
-                let mut lock = self.device.lock();
                 self.start_time = Some(time::now());
             }
         } else {
