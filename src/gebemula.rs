@@ -211,6 +211,9 @@ impl<'a> Gebemula<'a> {
         println!(" F1: toggle background");
         println!(" F2: toggle window");
         println!(" F3: toggle sprites");
+        println!(" F4: toggle pulse A");
+        println!(" F5: toggle pulse B");
+        println!(" F6: toggle custom wave");
         println!("Tab: speed up while being held down");
         println!("Esc: quit");
         println!("######################");
@@ -266,22 +269,41 @@ impl<'a> Gebemula<'a> {
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
                         self.lcd.graphics.toggle_sprites();
                     }
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F4), .. } => {
+                        if let Some(ref mut sound) = self.sound {
+                            sound.pulse_a_toggle();
+                        }
+                    }
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F5), .. } => {
+                        if let Some(ref mut sound) = self.sound {
+                            sound.pulse_b_toggle();
+                        }
+                    }
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F6), .. } => {
+                        if let Some(ref mut sound) = self.sound {
+                            sound.wave_toggle();
+                        }
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                         self.debugger.cancel_run();
                     }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                         self.restart();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Tab),
-                                                  repeat: false,
-                                                  .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::Tab),
+                        repeat: false,
+                        ..
+                    } => {
                         speed_mul += 1;
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::KeyUp { keycode: Some(Keycode::Tab),
-                                                repeat: false,
-                                                .. } => {
+                    sdl2::event::Event::KeyUp {
+                        keycode: Some(Keycode::Tab),
+                        repeat: false,
+                        ..
+                    } => {
                         speed_mul -= 1;
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);

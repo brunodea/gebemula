@@ -33,7 +33,7 @@ const CUSTOM_WAVE_START_ADDR: u16 = 0xFF30;
 const CUSTOM_WAVE_END_ADDR: u16 = 0xFF3F;
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
-const FREQ: i32 = 44100i32;
+const FREQ: i32 = 44_100i32;
 const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
     channels: Some(1), // mono
@@ -158,6 +158,7 @@ impl Envelope {
         } else {
             None
         };
+
         let mut env_changed = false;
         if let Some(start_time) = self.start_time {
             // TODO: use nanos instead?
@@ -688,6 +689,9 @@ pub struct SoundController {
     pulse_a: PulseVoice,
     pulse_b: PulseVoice,
     wave: WaveVoice,
+    pulse_a_enabled: bool,
+    pulse_b_enabled: bool,
+    wave_enabled: bool,
 }
 
 impl SoundController {
@@ -699,12 +703,28 @@ impl SoundController {
             pulse_a: PulseVoice::new(VoiceType::PulseA, audio_subsystem, memory),
             pulse_b: PulseVoice::new(VoiceType::PulseB, audio_subsystem, memory),
             wave: WaveVoice::new(audio_subsystem, memory),
+            pulse_a_enabled: true,
+            pulse_b_enabled: true,
+            wave_enabled: true,
         }
     }
     pub fn reset(&mut self, memory: &mut Memory) {
         self.pulse_a.stop(memory);
         self.pulse_b.stop(memory);
-        //self.wave.stop(memory);
+        self.wave.stop(memory);
+    }
+
+    pub fn pulse_a_toggle(&mut self) {
+        self.pulse_a_enabled = !self.pulse_a_enabled;
+        println!("pulse a: {}", self.pulse_a_enabled);
+    }
+    pub fn pulse_b_toggle(&mut self) {
+        self.pulse_b_enabled = !self.pulse_b_enabled;
+        println!("pulse b: {}", self.pulse_b_enabled);
+    }
+    pub fn wave_toggle(&mut self) {
+        self.wave_enabled = !self.wave_enabled;
+        println!("wave: {}", self.wave_enabled);
     }
 
     pub fn run(&mut self, memory: &mut Memory) {
@@ -716,34 +736,25 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-            self.pulse_a.run(memory);
-            self.pulse_b.run(memory);
-        //self.wave.run(memory);
+            if self.pulse_a_enabled {
+                self.pulse_a.run(memory);
+            } else {
+                self.pulse_a.stop(memory);
+            }
+
+            if self.pulse_b_enabled {
+                self.pulse_b.run(memory);
+            } else {
+                self.pulse_b.stop(memory);
+            }
+
+            if self.wave_enabled {
+                self.wave.run(memory);
+            } else {
+                self.wave.stop(memory);
+            }
         } else {
             self.reset(memory);
-        }
-    }
-}
-
-struct SquareWave {
-    phase_inc: f32,
-    phase: f32,
-    volume: f32,
-    duty: f32,
-}
-
-impl AudioCallback for SquareWave {
-    type Channel = f32;
-
-    fn callback(&mut self, out: &mut [f32]) {
-        // Generate a square wave
-        for sample_value in out.iter_mut() {
-            *sample_value = if self.phase <= self.duty {
-                self.volume
-            } else {
-                -self.volume
-            };
-            self.phase = (self.phase + self.phase_inc) % 1.0;
         }
     }
 }
