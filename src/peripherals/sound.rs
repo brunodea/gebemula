@@ -455,6 +455,8 @@ struct WaveVoice {
     sound_trigger: SoundTrigger,
     device: AudioQueue<u8>,
     start_time: Option<time::Tm>,
+    curr_phase: f32,
+    wave: Vec<u8>,
 }
 
 impl WaveVoice {
@@ -499,11 +501,13 @@ impl WaveVoice {
                 .open_queue(None, &SQUARE_DESIRED_SPEC)
                 .unwrap(),
             start_time: None,
+            curr_phase: 0.0,
+            wave: vec![0; FREQ as usize],
         }
     }
     fn elapsed_time(&self) -> time::Duration {
         if self.start_time.is_none() {
-            time::Duration::milliseconds(0)
+            time::Duration::zero()
         } else {
             time::now() - self.start_time.unwrap()
         }
@@ -539,49 +543,59 @@ impl WaveVoice {
         };
     }
 
-    fn gen_wave(&mut self, memory: &Memory) -> Vec<u8> {
+    fn update_wave(&mut self, memory: &Memory) {
         let frequency_hz = 65536f32 / (2048f32 - self.frequency as f32);
-        let volume = GlobalReg::output_level(ChannelNum::ChannelA, memory);
-        let period = FREQ as f32 / frequency_hz;
-        let wave_slots = 32usize; // 16 bytes for the custom wave in memory (32 slots).
+        let channel_volume =
+            if GlobalReg::should_output(VoiceType::Wave, ChannelNum::ChannelA, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelA, memory)
+            } else if GlobalReg::should_output(VoiceType::Wave, ChannelNum::ChannelB, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelB, memory)
+            } else {
+                0
+            };
+        let phase_inc = frequency_hz / FREQ as f32;
 
-        let slot_value = |slot| -> u8 {
-            match self.output_level {
-                OutputLevelSelection::Unmodified => slot * volume, // 100%
-                OutputLevelSelection::Shifted2 => (slot >> 2) * volume, // 50%
-                OutputLevelSelection::Shifted1 => (slot >> 1) * volume, // 25%
+        let out_level = self.output_level;
+        let volume = |slot| -> u8 {
+            match out_level {
+                OutputLevelSelection::Unmodified => slot * channel_volume, // 100%
+                OutputLevelSelection::Shifted1 => (slot >> 1) * channel_volume, // 50%
+                OutputLevelSelection::Shifted2 => (slot >> 2) * channel_volume, // 25%
                 OutputLevelSelection::Mute => 0, // 0%
             }
         };
 
-        let size = FREQ as usize; // frequency * channels
-        let mut result = Vec::with_capacity(size);
-        let mut curr_addr = CUSTOM_WAVE_START_ADDR;
-        let mut counter = 0;
-        let dur = period / wave_slots as f32;
         let mut curr_slot = 0;
-        for i in 0..size {
-            if counter as f32 > dur {
-                counter = 0;
-                curr_slot += 1;
-                if curr_slot == wave_slots {
-                    curr_slot = 0;
-                }
-            }
-            counter += 1;
-            let addr = CUSTOM_WAVE_START_ADDR + (curr_slot as u16 / 2u16);
-
+        let mut phase = 0.0;
+        let mut addr = CUSTOM_WAVE_START_ADDR;
+        for i in 0..self.wave.capacity() {
             let entry = memory.read_byte(addr);
             let s = if curr_slot % 2 == 0 {
+                addr += curr_slot / 2;
+                if addr > CUSTOM_WAVE_END_ADDR {
+                    addr = CUSTOM_WAVE_START_ADDR;
+                }
                 entry & 0b1111
             } else {
                 entry >> 4
             };
 
-            result.push(slot_value(s));
-        }
+            self.wave[i] = volume(s);
 
-        result
+            phase = phase + phase_inc;
+            curr_slot += 1;
+            if curr_slot > (CUSTOM_WAVE_END_ADDR - CUSTOM_WAVE_START_ADDR) * 2 {
+                curr_slot = 0;
+            }
+            if phase > 1.0 {
+                // duty finished
+                phase = phase % 1.0;
+                curr_slot = 0;
+                addr = CUSTOM_WAVE_START_ADDR;
+            }
+        }
+        self.device.clear();
+        self.device.queue(self.wave.as_slice());
     }
 
     fn run(&mut self, memory: &mut Memory) {
@@ -605,8 +619,7 @@ impl WaveVoice {
             if self.start_time.is_none() {
                 // first loop with sound on.
                 // things here should be run only once when the sound is on.
-                let wave = self.gen_wave(memory);
-                self.device.queue(&wave);
+                self.update_wave(memory);
                 self.device.resume();
                 self.start_time = Some(time::now());
             }
@@ -615,9 +628,8 @@ impl WaveVoice {
         }
     }
     fn stop(&mut self, memory: &mut Memory) {
-        // this if is for extra safety
-        if self.device.status() == AudioStatus::Playing {
-            self.device.pause();
+        if self.start_time.is_some() {
+            self.device.clear();
 
             self.start_time = None;
             GlobalReg::reset_voice_flag(VoiceType::Wave, memory);
