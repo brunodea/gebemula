@@ -204,7 +204,7 @@ impl Envelope {
                 };
 
                 let nr2 = memory.read_byte(self.addr);
-                memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (self.default_value << 4));// & self.step_length);
+                memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (self.default_value << 4));
             }
         }
     }
