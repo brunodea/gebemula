@@ -96,7 +96,7 @@ impl Sweep {
                 self.start_time_cycles
             }
         } else {
-            new_freq_result = None;
+            new_freq_result = Ok(None);
             None
         };
 
