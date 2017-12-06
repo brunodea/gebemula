@@ -404,7 +404,7 @@ impl<'a> Gebemula<'a> {
             }
 
             if let Some(ref mut sound) = self.sound {
-                sound.run(&mut self.mem);
+                sound.run(self.cycles_per_sec, &mut self.mem);
             }
 
             let now = time::now();
