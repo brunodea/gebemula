@@ -165,25 +165,27 @@ impl Envelope {
             let now = time::now();
             if now - start_time >= time::Duration::milliseconds(len_millis) {
                 self.start_time = Some(now);
-                let new_value = match self.func {
+                self.default_value = match self.func {
                     EnvelopeFunc::Amplify => {
                         if self.default_value == 0xF {
                             0xF
                         } else {
                             self.default_value + 1
                         }
-                    }, //self.default_value.wrapping_add(1),
+                        //self.default_value.wrapping_add(1)
+                    },
                     EnvelopeFunc::Attenuate => {
                         if self.default_value == 0 {
                             0
                         } else {
                             self.default_value - 1
                         }
-                    },//self.default_value.wrapping_sub(1),
+                        //self.default_value.wrapping_sub(1)
+                    },
                 };
 
                 let nr2 = memory.read_byte(self.addr);
-                memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (new_value << 4));
+                memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (self.default_value << 4));
             }
         }
     }
