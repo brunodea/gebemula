@@ -182,7 +182,7 @@ impl Envelope {
 
         if let Some(start_time_cycles) = self.start_time_cycles {
             let steps = (cycles - start_time_cycles) / ENVELOPE_CYCLES_PER_STEP;
-            if steps >= self.step_length as u32 + 1 {
+            if steps >= self.step_length as u32 {
                 self.start_time_cycles = Some(cycles);
                 self.default_value = match self.func {
                     EnvelopeFunc::Amplify => {
