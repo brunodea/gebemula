@@ -87,6 +87,8 @@ impl Sweep {
             SweepFunc::Subtraction
         };
         self.sweep_time = (sweep_raw >> 4) & 0b111;
+
+        let mut new_freq_result = Ok(Some(old_frequency));
         self.start_time_cycles = if self.sweep_time > 0 {
             if self.start_time_cycles.is_none() {
                 Some(cycles)
@@ -94,10 +96,10 @@ impl Sweep {
                 self.start_time_cycles
             }
         } else {
+            new_freq_result = None;
             None
         };
 
-        let mut new_freq_result = Ok(Some(old_frequency));
         if let Some(sweep_start_time_cycles) = self.start_time_cycles {
             let steps = (cycles - sweep_start_time_cycles) / SWEEP_CYCLES_PER_STEP;
             if steps >= self.sweep_time as u32 {
