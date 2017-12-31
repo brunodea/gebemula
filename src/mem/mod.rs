@@ -9,7 +9,7 @@ const VRAM_BANK_SIZE: usize = 0x2000;
 const VRAM_BANKS: usize = 2;
 
 const WRAM_BANK_SIZE: usize = 0x1000;
-const WRAM_BANKS: usize = 8; // 0-7
+const WRAM_BANKS: usize = 9; // 0-7
 
 const OAM_SIZE: usize = 0xA0;
 const IO_SIZE: usize = 0x80;
