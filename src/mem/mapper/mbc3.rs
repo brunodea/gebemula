@@ -1,5 +1,5 @@
 use mem::mapper::rtc::Rtc;
-use mem::mapper::{Mapper, ROM_BANK_SIZE, RAM_BANK_SIZE};
+use mem::mapper::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 pub struct Mbc3Mapper {
     /// Mapped to the ROM area. Up to 2 MiB in size.
@@ -96,8 +96,8 @@ impl Mapper for Mbc3Mapper {
 
         match self.current_ram_bank {
             0x0...0x7 if !self.ram.is_empty() => {
-                let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
-                             (address & 0x1FFF) as usize;
+                let offset =
+                    self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
                 self.ram[offset & self.ram_mask()]
             }
             0x8...0xF if self.rtc.is_some() => {
@@ -114,14 +114,17 @@ impl Mapper for Mbc3Mapper {
 
         match self.current_ram_bank {
             0x0...0x7 if !self.ram.is_empty() => {
-                let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
-                             (address & 0x1FFF) as usize;
+                let offset =
+                    self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
                 let ram_mask = self.ram_mask();
                 self.ram[offset & ram_mask] = data;
                 self.ram_modified = true;
             }
             0x8...0xF if self.rtc.is_some() => {
-                self.rtc.as_mut().unwrap().write(self.current_ram_bank, data);
+                self.rtc
+                    .as_mut()
+                    .unwrap()
+                    .write(self.current_ram_bank, data);
             }
             _ => (),
         }

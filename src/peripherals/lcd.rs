@@ -1,5 +1,5 @@
 use super::super::mem::Memory;
-use super::super::cpu::{ioregister, interrupt};
+use super::super::cpu::{interrupt, ioregister};
 use super::super::graphics::{self, Graphics};
 
 const STAT_MODE_0_DURATION_CYCLES: u32 = 201;
@@ -53,8 +53,8 @@ impl Default for LCD {
 
 impl LCD {
     pub fn has_entered_vblank(&self, memory: &Memory) -> bool {
-        self.curr_stat_mode == StatMode::VBlank &&
-        memory.read_byte(ioregister::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
+        self.curr_stat_mode == StatMode::VBlank
+            && memory.read_byte(ioregister::LY_REGISTER_ADDR) == graphics::consts::DISPLAY_HEIGHT_PX
     }
     pub fn request_cgb_dma_transfer(&mut self) {
         self.cgb_dma_requested = true;

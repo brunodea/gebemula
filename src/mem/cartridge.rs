@@ -48,24 +48,23 @@ bitflags! {
 
 pub fn cartridge_type_string(mapper: MapperType, extra_hw: CartExtraHardware) -> String {
     let mut s = match mapper {
-            MapperType::Rom => "ROM",
+        MapperType::Rom => "ROM",
 
-            MapperType::Mbc1 => "MBC1",
-            MapperType::Mbc2 => "MBC2",
-            MapperType::Mbc3 => "MBC3",
-            MapperType::Mbc5 => "MBC5",
-            MapperType::Mbc6 => "MBC6",
-            MapperType::Mbc7 => "MBC7",
-            MapperType::Mmm01 => "MMM01",
+        MapperType::Mbc1 => "MBC1",
+        MapperType::Mbc2 => "MBC2",
+        MapperType::Mbc3 => "MBC3",
+        MapperType::Mbc5 => "MBC5",
+        MapperType::Mbc6 => "MBC6",
+        MapperType::Mbc7 => "MBC7",
+        MapperType::Mmm01 => "MMM01",
 
-            MapperType::Huc1 => "HuC1",
-            MapperType::Huc3 => "HuC3",
-            MapperType::Tama5 => "TAMA5",
-            MapperType::PocketCamera => "Pocket Camera",
+        MapperType::Huc1 => "HuC1",
+        MapperType::Huc3 => "HuC3",
+        MapperType::Tama5 => "TAMA5",
+        MapperType::PocketCamera => "Pocket Camera",
 
-            MapperType::Unknown => "???",
-        }
-        .to_owned();
+        MapperType::Unknown => "???",
+    }.to_owned();
 
     if extra_hw.contains(RAM) {
         s.push_str("+RAM");
@@ -188,9 +187,11 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     // Initialize RAM backing memory
     let expected_battery_size = ram_size + if extra_hw.contains(BATTERY) { 48 } else { 0 };
     if !battery.is_empty() && battery.len() != expected_battery_size {
-        println!("WARNING: Battery file has unexpected size: {:#X}, expected {:#X}",
-                 battery.len(),
-                 expected_battery_size);
+        println!(
+            "WARNING: Battery file has unexpected size: {:#X}, expected {:#X}",
+            battery.len(),
+            expected_battery_size
+        );
     }
 
     let mut ram_data = vec![0xFF; ram_size].into_boxed_slice();
@@ -198,25 +199,35 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     &ram_data[..copy_len].copy_from_slice(&battery[..copy_len]);
 
     match mapper_type {
-        MapperType::Rom => Box::new(RomMapper::new(rom_data, ram_data, extra_hw.contains(BATTERY))),
-        MapperType::Mbc1 => {
-            Box::new(Mbc1Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        }
-        MapperType::Mbc2 => {
-            Box::new(Mbc2Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        }
-        MapperType::Mbc3 => {
-            Box::new(Mbc3Mapper::new(rom_data,
-                                     ram_data,
-                                     extra_hw.contains(BATTERY),
-                                     extra_hw.contains(RTC)))
-        }
-        MapperType::Mbc5 => {
-            Box::new(Mbc5Mapper::new(rom_data, ram_data, extra_hw.contains(BATTERY)))
-        }
-        _ => {
-            panic!("Cartridges of type {:#X} are not yet supported.",
-                   cart_type_id)
-        }
+        MapperType::Rom => Box::new(RomMapper::new(
+            rom_data,
+            ram_data,
+            extra_hw.contains(BATTERY),
+        )),
+        MapperType::Mbc1 => Box::new(Mbc1Mapper::new(
+            rom_data,
+            ram_data,
+            extra_hw.contains(BATTERY),
+        )),
+        MapperType::Mbc2 => Box::new(Mbc2Mapper::new(
+            rom_data,
+            ram_data,
+            extra_hw.contains(BATTERY),
+        )),
+        MapperType::Mbc3 => Box::new(Mbc3Mapper::new(
+            rom_data,
+            ram_data,
+            extra_hw.contains(BATTERY),
+            extra_hw.contains(RTC),
+        )),
+        MapperType::Mbc5 => Box::new(Mbc5Mapper::new(
+            rom_data,
+            ram_data,
+            extra_hw.contains(BATTERY),
+        )),
+        _ => panic!(
+            "Cartridges of type {:#X} are not yet supported.",
+            cart_type_id
+        ),
     }
 }

@@ -12,7 +12,7 @@ mod mem;
 mod gebemula;
 mod peripherals;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -21,21 +21,27 @@ use gebemula::Gebemula;
 
 fn main() {
     let args = App::new("Gebemula")
-        .author("Bruno Romero de Azevedo <brunordea@gmail.com\n\
-                    Hugo Stefan Kaus Puhlmann <hugopuhlmann@gmail.com>\n\
-                    Vitor da Silva <vitords.42@gmail.com>\n\
-                    Yuri Kunde Schlesner <yuriks@yuriks.net>")
+        .author(
+            "Bruno Romero de Azevedo <brunordea@gmail.com\n\
+             Hugo Stefan Kaus Puhlmann <hugopuhlmann@gmail.com>\n\
+             Vitor da Silva <vitords.42@gmail.com>\n\
+             Yuri Kunde Schlesner <yuriks@yuriks.net>",
+        )
         .about("Emulator for GameBoy written in Rust.")
-        .arg(Arg::with_name("INPUT_ROM")
-            .index(1)
-            .required(true)
-            .help("Path to the game ROM."))
-        .arg(Arg::with_name("bootstrap_rom")
-            .short("b")
-            .long("bootstrap")
-            .help("Sets the path to the Gameboy bootstrap ROM.")
-            .value_name("DMG_ROM.bin")
-            .takes_value(true))
+        .arg(
+            Arg::with_name("INPUT_ROM")
+                .index(1)
+                .required(true)
+                .help("Path to the game ROM."),
+        )
+        .arg(
+            Arg::with_name("bootstrap_rom")
+                .short("b")
+                .long("bootstrap")
+                .help("Sets the path to the Gameboy bootstrap ROM.")
+                .value_name("DMG_ROM.bin")
+                .takes_value(true),
+        )
         .get_matches();
 
     let rom_path = Path::new(args.value_of("INPUT_ROM").unwrap());
@@ -78,7 +84,10 @@ fn main() {
     }
 
     let save_battery_callback = |data: &[u8]| {
-        File::create(&battery_path).unwrap().write_all(data).unwrap();
+        File::create(&battery_path)
+            .unwrap()
+            .write_all(data)
+            .unwrap();
         // Some games use SRAM as non-save scratch space, so this tends to get a bit spammy:
         //println!("Saved battery: {}", battery_path.display());
     };

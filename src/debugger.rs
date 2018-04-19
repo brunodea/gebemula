@@ -1,4 +1,4 @@
-use cpu::{ioregister, Cpu, Reg, Instruction};
+use cpu::{ioregister, Cpu, Instruction, Reg};
 use mem::{self, Memory};
 use peripherals::sound;
 use std::io::{self, Write};
@@ -307,25 +307,35 @@ impl Debugger {
         if error_msg != "" {
             println!("***ERROR: {}", error_msg);
         }
-        println!("- show [cpu|ioregs|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state \
-                  of component.");
-        println!("- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print \
-                  it.\n\tIf a number is set, run step num times and print the last one.\n\tIf a \
-                  number is set and cpu or human or both, then it will print all the \
-                  instructions until the n'th instruction.");
+        println!(
+            "- show [cpu|ioregs|memory [<min_addr_hex> <max_addr_hex>]\n\tShow state \
+             of component."
+        );
+        println!(
+            "- step [decimal] [cpu|human]\n\tRun instruction pointed by PC and print \
+             it.\n\tIf a number is set, run step num times and print the last one.\n\tIf a \
+             number is set and cpu or human or both, then it will print all the \
+             instructions until the n'th instruction."
+        );
         println!("- last\n\tPrint last instruction.");
-        println!("- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\tBreak when addr is hit or \
-                  reg has value.\n\tIf cpu, human or both are set, every instruction until the \
-                  break point will be displayed.\n\tAvailable regs: \
-                  A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\tAvailable ioregs: \
-                  LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY,DIV,TIMA");
-        println!("- run [cpu|human]\n\tDisable the debugger and run the code.\n\tIf set, \
-                  information about cpu state or instruction (human friendly) or both will be \
-                  printed.");
+        println!(
+            "- break [<0xaddr>|<reg> <0xvalue>] [cpu|human]\n\tBreak when addr is hit or \
+             reg has value.\n\tIf cpu, human or both are set, every instruction until the \
+             break point will be displayed.\n\tAvailable regs: \
+             A,F,B,C,D,E,H,L,AF,BC,DE,HL,SP,PC\n\tAvailable ioregs: \
+             LY,LYC,IF,IE,STAT,LCDC,SCX,SCY,WX,WY,DIV,TIMA"
+        );
+        println!(
+            "- run [cpu|human]\n\tDisable the debugger and run the code.\n\tIf set, \
+             information about cpu state or instruction (human friendly) or both will be \
+             printed."
+        );
         println!("- info\n\tDisplay information about the game rom.");
         println!("- help\n\tShow this.");
-        println!("Tip: when running 'run', 'step' or 'break' press 'Q' to stop it and go back to \
-                  the debugger.");
+        println!(
+            "Tip: when running 'run', 'step' or 'break' press 'Q' to stop it and go back to \
+             the debugger."
+        );
     }
 
     fn parse_step(&mut self, parameters: &[&str]) {
@@ -379,8 +389,10 @@ impl Debugger {
                     human = true;
                 }
                 _ => {
-                    Debugger::display_help(&format!("Invalid parameter for cpu|human: {}\n",
-                                                    param));
+                    Debugger::display_help(&format!(
+                        "Invalid parameter for cpu|human: {}\n",
+                        param
+                    ));
                     return None;
                 }
             }
@@ -485,8 +497,10 @@ impl Debugger {
                 Debugger::parse_show_memory(&parameters[1..], mem);
             }
             _ => {
-                Debugger::display_help(&format!("Invalid parameter for 'show': {}\n",
-                                                parameters[0]));
+                Debugger::display_help(&format!(
+                    "Invalid parameter for 'show': {}\n",
+                    parameters[0]
+                ));
             }
         }
     }

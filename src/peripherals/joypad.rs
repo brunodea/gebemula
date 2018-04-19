@@ -1,5 +1,5 @@
 use super::super::mem::Memory;
-use super::super::cpu::{ioregister, interrupt};
+use super::super::cpu::{interrupt, ioregister};
 
 bitflags! {
     pub flags JoypadKey: u8 {

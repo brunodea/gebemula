@@ -1,4 +1,4 @@
-use mem::mapper::{Mapper, ROM_BANK_SIZE, RAM_BANK_SIZE};
+use mem::mapper::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 pub struct Mbc5Mapper {
     /// Mapped to the ROM area. Up to 8 MiB in size.
@@ -89,8 +89,8 @@ impl Mapper for Mbc5Mapper {
 
     fn read_ram(&self, address: u16) -> u8 {
         if self.ram_enabled && !self.ram.is_empty() {
-            let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
-                         (address & 0x1FFF) as usize;
+            let offset =
+                self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
             self.ram[offset & self.ram_mask()]
         } else {
             0xFF
@@ -99,8 +99,8 @@ impl Mapper for Mbc5Mapper {
 
     fn write_ram(&mut self, address: u16, data: u8) {
         if self.ram_enabled && !self.ram.is_empty() {
-            let offset = self.current_ram_bank as usize * RAM_BANK_SIZE +
-                         (address & 0x1FFF) as usize;
+            let offset =
+                self.current_ram_bank as usize * RAM_BANK_SIZE + (address & 0x1FFF) as usize;
             let ram_mask = self.ram_mask();
             self.ram[offset & ram_mask] = data;
             self.ram_modified = true;

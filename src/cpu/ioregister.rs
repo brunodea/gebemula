@@ -54,12 +54,12 @@ pub const SVBK_REGISTER_ADDR: u16 = 0xFF70;
 pub const KEY1_REGISTER_ADDR: u16 = 0xFF4D;
 
 pub fn update_stat_reg_coincidence_flag(memory: &mut mem::Memory) {
-    let coincidence_flag = if memory.read_byte(LY_REGISTER_ADDR) ==
-                              memory.read_byte(LYC_REGISTER_ADDR) {
-        0b100
-    } else {
-        0b000
-    };
+    let coincidence_flag =
+        if memory.read_byte(LY_REGISTER_ADDR) == memory.read_byte(LYC_REGISTER_ADDR) {
+            0b100
+        } else {
+            0b000
+        };
     let new_stat = (memory.read_byte(STAT_REGISTER_ADDR) & 0b1111_1011) | coincidence_flag;
     memory.write_byte(STAT_REGISTER_ADDR, new_stat);
 }
@@ -71,11 +71,11 @@ pub fn update_stat_reg_mode_flag(mode_flag: u8, memory: &mut mem::Memory) {
 
 pub fn lcdc_stat_interrupt(memory: &mut mem::Memory) {
     let reg = memory.read_byte(STAT_REGISTER_ADDR);
-    if ((((reg >> 6) & 0b1) == 0b1) && ((reg >> 2) & 0b1 == 0b1)) ||
-       ((((reg >> 5) & 0b1) == 0b1) && (reg & 0b11 == 0b10)) ||
-       ((((reg >> 4) & 0b1) == 0b1) && (reg & 0b11 == 0b01)) ||
-       ((((reg >> 3) & 0b1) == 0b1) && (reg & 0b11 == 0b00)) {
-
+    if ((((reg >> 6) & 0b1) == 0b1) && ((reg >> 2) & 0b1 == 0b1))
+        || ((((reg >> 5) & 0b1) == 0b1) && (reg & 0b11 == 0b10))
+        || ((((reg >> 4) & 0b1) == 0b1) && (reg & 0b11 == 0b01))
+        || ((((reg >> 3) & 0b1) == 0b1) && (reg & 0b11 == 0b00))
+    {
         interrupt::request(interrupt::Interrupt::LCDC, memory);
     }
 }

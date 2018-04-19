@@ -112,19 +112,23 @@ impl fmt::Display for Instruction {
         }
         let addr = format!("{:#01$x}", self.address, 6);
         if imm8 == "" && imm16 == "" {
-            write!(f,
-                   "{}: {} - ({})",
-                   addr,
-                   debugger::instr_to_human(self),
-                   opcode)
+            write!(
+                f,
+                "{}: {} - ({})",
+                addr,
+                debugger::instr_to_human(self),
+                opcode
+            )
         } else {
-            write!(f,
-                   "{}: {} - ({} {}{})",
-                   addr,
-                   debugger::instr_to_human(self),
-                   opcode,
-                   imm8,
-                   imm16)
+            write!(
+                f,
+                "{}: {} - ({} {}{})",
+                addr,
+                debugger::instr_to_human(self),
+                opcode,
+                imm8,
+                imm16
+            )
         }
     }
 }
@@ -133,7 +137,7 @@ impl fmt::Display for Instruction {
 pub struct Cpu {
     // [A,F,B,C,D,E,H,L,SP,PC]
     regs: [u8; 12],
-    ime_flag: bool, // interrupt master enable flag
+    ime_flag: bool,  // interrupt master enable flag
     halt_flag: bool, // cpu doesn't run until an interrupt occurs.
     last_instruction: Option<Instruction>,
 }
@@ -355,7 +359,11 @@ impl Cpu {
                 memory.write_byte(ioregister::TIMER_INTERNAL_COUNTER_ADDR, 0);
                 (0, None)
             }
-            ioregister::SVBK_REGISTER_ADDR => if value == 0 { (1, None) } else { (value, None) },
+            ioregister::SVBK_REGISTER_ADDR => if value == 0 {
+                (1, None)
+            } else {
+                (value, None)
+            },
             ioregister::LY_REGISTER_ADDR => (0, None),
             ioregister::BGPD_REGISTER_ADDR => {
                 // TODO: cgb only (do nothing otherwise?)
@@ -418,10 +426,10 @@ impl Cpu {
         }
     }
 
-    pub fn run_instruction(&mut self,
-                           memory: &mut mem::Memory)
-                           -> (Instruction, Option<EventRequest>) {
-
+    pub fn run_instruction(
+        &mut self,
+        memory: &mut mem::Memory,
+    ) -> (Instruction, Option<EventRequest>) {
         if self.halt_flag {
             return (self.last_instruction.unwrap(), None);
         }
@@ -695,8 +703,8 @@ impl Cpu {
                 //ADD A,n; ADC A,n; SUB n; SBC A,n; AND n; XOR n; OR n; CP n;
                 instruction = self.exec_bit_alu8(byte, memory);
             }
-            0x04 | 0x14 | 0x24 | 0x34 | 0x0C | 0x1C | 0x2C | 0x3C | 0x05 | 0x15 | 0x25 | 0x35 |
-            0x0D | 0x1D | 0x2D | 0x3D => {
+            0x04 | 0x14 | 0x24 | 0x34 | 0x0C | 0x1C | 0x2C | 0x3C | 0x05 | 0x15 | 0x25 | 0x35
+            | 0x0D | 0x1D | 0x2D | 0x3D => {
                 //INC r; INC (HL)
                 //DEC r; DEC (HL)
                 let (i, e) = self.exec_inc_dec(byte, memory);
@@ -991,9 +999,10 @@ impl Cpu {
         instr
     }
 
-    fn exec_cb_prefixed(&mut self,
-                        memory: &mut mem::Memory)
-                        -> (Instruction, Option<EventRequest>) {
+    fn exec_cb_prefixed(
+        &mut self,
+        memory: &mut mem::Memory,
+    ) -> (Instruction, Option<EventRequest>) {
         let opcode = self.mem_next8(memory);
         let reg = Reg::pair_from_ddd(opcode);
         let mut value: u8;
@@ -1216,10 +1225,11 @@ impl Cpu {
         instr
     }
 
-    fn exec_inc_dec(&mut self,
-                    opcode: u8,
-                    memory: &mut mem::Memory)
-                    -> (Instruction, Option<EventRequest>) {
+    fn exec_inc_dec(
+        &mut self,
+        opcode: u8,
+        memory: &mut mem::Memory,
+    ) -> (Instruction, Option<EventRequest>) {
         let reg = Reg::pair_from_ddd(opcode >> 3);
         let result: u8;
         let cycles: u32;
@@ -1294,11 +1304,14 @@ impl Cpu {
                 let val2 = value.wrapping_add(c);
                 result = reg_a_val.wrapping_add(val2);
                 self.flag_set(false, Flag::N);
-                self.flag_set(util::has_half_carry(reg_a_val, val2) ||
-                              util::has_half_carry(value, c),
-                              Flag::H);
-                self.flag_set(util::has_carry(reg_a_val, val2) || util::has_carry(value, c),
-                              Flag::C);
+                self.flag_set(
+                    util::has_half_carry(reg_a_val, val2) || util::has_half_carry(value, c),
+                    Flag::H,
+                );
+                self.flag_set(
+                    util::has_carry(reg_a_val, val2) || util::has_carry(value, c),
+                    Flag::C,
+                );
             }
             0x90...0x97 | 0xD6 => {
                 // SUB
@@ -1313,8 +1326,10 @@ impl Cpu {
                 let val2 = value.wrapping_add(c);
                 result = reg_a_val.wrapping_sub(val2);
                 self.flag_set(true, Flag::N);
-                self.flag_set(util::has_borrow(reg_a_val, val2) || util::has_half_carry(value, c),
-                              Flag::H);
+                self.flag_set(
+                    util::has_borrow(reg_a_val, val2) || util::has_half_carry(value, c),
+                    Flag::H,
+                );
                 self.flag_set(val2 > reg_a_val || util::has_carry(value, c), Flag::C);
             }
             0xA0...0xA7 | 0xE6 => {
@@ -1375,10 +1390,11 @@ impl Cpu {
         instr
     }
 
-    fn exec_ld_rr_a(&mut self,
-                    opcode: u8,
-                    memory: &mut mem::Memory)
-                    -> (Instruction, Option<EventRequest>) {
+    fn exec_ld_rr_a(
+        &mut self,
+        opcode: u8,
+        memory: &mut mem::Memory,
+    ) -> (Instruction, Option<EventRequest>) {
         let mut reg = Reg::pair_from_dd(opcode >> 4);
         if reg == Reg::SP {
             reg = Reg::HL;

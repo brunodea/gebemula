@@ -2,8 +2,8 @@ mod mapper;
 pub mod cartridge;
 
 use mem::mapper::Mapper;
-use super::cpu::ioregister::{VBK_REGISTER_ADDR, SVBK_REGISTER_ADDR, BGPI_REGISTER_ADDR,
-                             OBPI_REGISTER_ADDR, BGPD_REGISTER_ADDR, OBPD_REGISTER_ADDR};
+use super::cpu::ioregister::{BGPD_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPD_REGISTER_ADDR,
+                             OBPI_REGISTER_ADDR, SVBK_REGISTER_ADDR, VBK_REGISTER_ADDR};
 
 const VRAM_BANK_SIZE: usize = 0x2000;
 const VRAM_BANKS: usize = 2;
@@ -127,7 +127,7 @@ impl Memory {
                     self.oam[(address - 0xFE00) as usize] = value;
                 }
             }
-            0xFEA0...0xFEFF => (),// panic!("writing to unusable ram."),
+            0xFEA0...0xFEFF => (), // panic!("writing to unusable ram."),
             0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupts_enable = value,

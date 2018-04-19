@@ -1,7 +1,7 @@
 use super::super::mem::Memory;
 use super::super::cpu::ioregister::CPU_FREQUENCY_HZ;
 use sdl2::AudioSubsystem;
-use sdl2::audio::{AudioStatus, AudioDevice, AudioQueue, AudioCallback, AudioSpecDesired};
+use sdl2::audio::{AudioCallback, AudioDevice, AudioQueue, AudioSpecDesired, AudioStatus};
 
 // PulseAVoice registers
 pub const NR10_REGISTER_ADDR: u16 = 0xFF10;
@@ -39,7 +39,7 @@ const FREQ: i32 = 44_100;
 const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
     channels: Some(1), // mono
-    samples: None, // default sample size
+    samples: None,     // default sample size
 };
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -78,7 +78,12 @@ impl Sweep {
 
     // returns new frequency value or the old one or None if it is off. Err is returned if the
     // sound output should stop.
-    fn update(&mut self, cycles: u32, old_frequency: u16, memory: &Memory) -> Result<Option<u16>, ()> {
+    fn update(
+        &mut self,
+        cycles: u32,
+        old_frequency: u16,
+        memory: &Memory,
+    ) -> Result<Option<u16>, ()> {
         let sweep_raw = memory.read_byte(self.addr);
         self.shift_number = sweep_raw & 0b111;
         self.func = if ((sweep_raw >> 3) & 0b1) == 0b0 {
@@ -187,12 +192,12 @@ impl Envelope {
                 self.default_value = match self.func {
                     EnvelopeFunc::Amplify => {
                         if self.default_value == 0xF {
-                            self.default_value 
+                            self.default_value
                         } else {
                             self.default_value + 1
                         }
                         //self.default_value.wrapping_add(1)
-                    },
+                    }
                     EnvelopeFunc::Attenuate => {
                         if self.default_value == 0 {
                             self.default_value
@@ -200,7 +205,7 @@ impl Envelope {
                             self.default_value - 1
                         }
                         //self.default_value.wrapping_sub(1)
-                    },
+                    }
                 };
 
                 let nr2 = memory.read_byte(self.addr);
@@ -241,24 +246,20 @@ struct PulseVoice {
 impl PulseVoice {
     fn new(voice_type: VoiceType, audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
         let (sweep, nr1_reg, nr2_reg, nr3_reg, nr4_reg) = match voice_type {
-            VoiceType::PulseA => {
-                (
-                    Some(Sweep::new(NR10_REGISTER_ADDR, memory)),
-                    NR11_REGISTER_ADDR,
-                    NR12_REGISTER_ADDR,
-                    NR13_REGISTER_ADDR,
-                    NR14_REGISTER_ADDR,
-                )
-            }
-            VoiceType::PulseB => {
-                (
-                    None,
-                    NR21_REGISTER_ADDR,
-                    NR22_REGISTER_ADDR,
-                    NR23_REGISTER_ADDR,
-                    NR24_REGISTER_ADDR,
-                )
-            }
+            VoiceType::PulseA => (
+                Some(Sweep::new(NR10_REGISTER_ADDR, memory)),
+                NR11_REGISTER_ADDR,
+                NR12_REGISTER_ADDR,
+                NR13_REGISTER_ADDR,
+                NR14_REGISTER_ADDR,
+            ),
+            VoiceType::PulseB => (
+                None,
+                NR21_REGISTER_ADDR,
+                NR22_REGISTER_ADDR,
+                NR23_REGISTER_ADDR,
+                NR24_REGISTER_ADDR,
+            ),
             _ => panic!(),
         };
 
@@ -296,13 +297,11 @@ impl PulseVoice {
             sound_trigger: sound_trigger,
             start_time_cycles: None,
             device: audio_subsystem
-                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| {
-                    SquareWave {
-                        phase_inc: 0f32,
-                        phase: 0f32,
-                        volume: 0f32,
-                        duty: 0f32,
-                    }
+                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| SquareWave {
+                    phase_inc: 0f32,
+                    phase: 0f32,
+                    volume: 0f32,
+                    duty: 0f32,
                 })
                 .unwrap(),
             voice_type: voice_type,
@@ -341,14 +340,14 @@ impl PulseVoice {
 
     fn update_device(&mut self, memory: &Memory) {
         let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
-        let mut volume =
-            if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory) {
-                GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
-            } else if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelB, memory) {
-                GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
-            } else {
-                0f32
-            };
+        let mut volume = if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory)
+        {
+            GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
+        } else if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelB, memory) {
+            GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
+        } else {
+            0f32
+        };
         if self.envelope.step_length > 0 {
             volume *= self.envelope.default_value as f32 / 0xF as f32;
         }
@@ -385,10 +384,10 @@ impl PulseVoice {
                             memory.write_byte(self.nr3_reg, new_freq as u8);
                             memory.write_byte(self.nr4_reg, nr14 | (new_freq >> 8) as u8);
                         }
-                    },
+                    }
                     Err(_) => {
                         should_stop = true;
-                    },
+                    }
                 }
             }
 
@@ -548,7 +547,7 @@ impl WaveVoice {
                 OutputLevelSelection::Unmodified => slot * channel_volume, // 100%
                 OutputLevelSelection::Shifted1 => (slot >> 1) * channel_volume, // 50%
                 OutputLevelSelection::Shifted2 => (slot >> 2) * channel_volume, // 25%
-                OutputLevelSelection::Mute => 0, // 0%
+                OutputLevelSelection::Mute => 0,                           // 0%
             }
         };
 
@@ -597,7 +596,6 @@ impl WaveVoice {
                     self.stop(memory);
                 }
             }
-
         } else {
             self.stop(memory);
         }

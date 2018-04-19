@@ -11,8 +11,8 @@ use mem::Memory;
 use debugger::Debugger;
 
 use sdl2;
-use sdl2::pixels::{PixelFormatEnum, Color};
-use sdl2::keyboard::{Scancode, Keycode};
+use sdl2::pixels::{Color, PixelFormatEnum};
+use sdl2::keyboard::{Keycode, Scancode};
 
 use time;
 use std::{self, thread};
@@ -269,37 +269,64 @@ impl<'a> Gebemula<'a> {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::B), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::B),
+                        ..
+                    } => {
                         self.cpu.bypass_nintendo_logo(&mut self.mem);
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F1),
+                        ..
+                    } => {
                         self.lcd.graphics.toggle_bg();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F2), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F2),
+                        ..
+                    } => {
                         self.lcd.graphics.toggle_wn();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F3), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F3),
+                        ..
+                    } => {
                         self.lcd.graphics.toggle_sprites();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F4), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F4),
+                        ..
+                    } => {
                         if let Some(ref mut sound) = self.sound {
                             sound.pulse_a_toggle();
                         }
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F5), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F5),
+                        ..
+                    } => {
                         if let Some(ref mut sound) = self.sound {
                             sound.pulse_b_toggle();
                         }
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::F6), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F6),
+                        ..
+                    } => {
                         if let Some(ref mut sound) = self.sound {
                             sound.wave_toggle();
                         }
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::Q),
+                        ..
+                    } => {
                         self.debugger.cancel_run();
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::R), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::R),
+                        ..
+                    } => {
                         self.restart();
                     }
                     sdl2::event::Event::KeyDown {
@@ -320,7 +347,10 @@ impl<'a> Gebemula<'a> {
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::U), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::U),
+                        ..
+                    } => {
                         speed_mul += 1;
                         if speed_mul >= 15 {
                             speed_mul = 15;
@@ -328,7 +358,10 @@ impl<'a> Gebemula<'a> {
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::I), .. } => {
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::I),
+                        ..
+                    } => {
                         speed_mul -= 1;
                         if speed_mul == 0 {
                             speed_mul = 1;
@@ -336,10 +369,11 @@ impl<'a> Gebemula<'a> {
                         println!("speed x{}", speed_mul);
                         desired_frametime_ns = 1_000_000_000 / (target_fps * speed_mul);
                     }
-                    sdl2::event::Event::Quit { .. } |
-                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                        break 'running
-                    }
+                    sdl2::event::Event::Quit { .. }
+                    | sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'running,
                     _ => {}
                 }
             }
@@ -380,8 +414,8 @@ impl<'a> Gebemula<'a> {
                     Ok(_) => (),
                     Err(_) => {
                         println!("Unable to draw texture to canvas!");
-                        return
-                    },
+                        return;
+                    }
                 };
                 canvas.present();
 
