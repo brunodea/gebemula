@@ -235,9 +235,12 @@ impl Memory {
         self.sprite_palette_data = [255; PALETTE_SIZE];
     }
 
+    pub fn is_bootstrap_enabled(&self) -> bool {
+        self.bootstrap_enabled
+    }
+
     pub fn disable_bootstrap(&mut self) {
         self.bootstrap_enabled = false;
-        /*
         self.write_byte(0xFF05, 0x00);
         self.write_byte(0xFF06, 0x00);
         self.write_byte(0xFF07, 0x00);
@@ -269,7 +272,7 @@ impl Memory {
         self.write_byte(0xFF4A, 0x00);
         self.write_byte(0xFF4B, 0x00);
         self.write_byte(0xFF4F, 0x00);
-        self.write_byte(0xFFFF, 0x00);*/
+        self.write_byte(0xFFFF, 0x00);
     }
 
     pub fn load_bootstrap_rom(&mut self, rom: &[u8]) {

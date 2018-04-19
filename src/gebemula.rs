@@ -208,6 +208,7 @@ impl<'a> Gebemula<'a> {
         println!("  U: increase speed");
         println!("  I: decrease speed");
         println!("  R: restart");
+        println!("  B: bypass nintendo logo");
         println!(" F1: toggle background");
         println!(" F2: toggle window");
         println!(" F3: toggle sprites");
@@ -266,6 +267,9 @@ impl<'a> Gebemula<'a> {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
+                    sdl2::event::Event::KeyDown { keycode: Some(Keycode::B), .. } => {
+                        self.cpu.bypass_nintendo_logo(&mut self.mem);
+                    }
                     sdl2::event::Event::KeyDown { keycode: Some(Keycode::F1), .. } => {
                         self.lcd.graphics.toggle_bg();
                     }

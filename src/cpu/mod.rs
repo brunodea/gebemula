@@ -396,6 +396,13 @@ impl Cpu {
         event
     }
 
+    pub fn bypass_nintendo_logo(&mut self, memory: &mut mem::Memory) {
+        if memory.is_bootstrap_enabled() {
+            memory.disable_bootstrap();
+            self.reg_set16(Reg::PC, 0x100);
+        }
+    }
+
     pub fn handle_interrupts(&mut self, memory: &mut mem::Memory) {
         if let Some(interrupt) = interrupt::next_request(memory) {
             self.halt_flag = false;
