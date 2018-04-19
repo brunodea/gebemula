@@ -49,7 +49,12 @@ fn main() {
             }
         }
     };
-    let battery_path = rom_path.with_extension("sav");
+    // battery files should start with '.'.
+    let rom_file_name = rom_path.file_name().unwrap().to_str().unwrap();
+    let battery_file_name = &format!(".{}", rom_file_name);
+    let battery_path = rom_path
+        .with_file_name(battery_file_name)
+        .with_extension("sav");
 
     let mut bootstrap_data = Vec::new();
     File::open(bootstrap_path)
