@@ -239,10 +239,13 @@ impl<'a> Gebemula<'a> {
             .build()
             .unwrap();
 
-        let mut renderer = window.renderer().build().unwrap();
-        renderer.set_draw_color(Color::RGBA(0, 0, 0, 255));
+        let mut canvas = window.into_canvas().build().unwrap();
+        canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
+        canvas.clear();
 
-        let mut texture = renderer
+        let texture_creator = canvas.texture_creator();
+
+        let mut texture = texture_creator
             .create_texture_streaming(
                 PixelFormatEnum::ABGR8888,
                 graphics::consts::DISPLAY_WIDTH_PX as u32,
@@ -250,8 +253,7 @@ impl<'a> Gebemula<'a> {
             )
             .unwrap();
 
-        renderer.clear();
-        renderer.present();
+        canvas.present();
 
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut last_time_seconds = time::now();
@@ -366,7 +368,6 @@ impl<'a> Gebemula<'a> {
              * https://github.com/yuriks/super-match-5-dx/blob/master/src/main.cpp#L224
              */
             if self.lcd.has_entered_vblank(&self.mem) {
-                renderer.clear();
                 texture
                     .update(
                         None,
@@ -374,11 +375,15 @@ impl<'a> Gebemula<'a> {
                         graphics::consts::DISPLAY_WIDTH_PX as usize * 4,
                     )
                     .unwrap();
-                match renderer.copy(&texture, None, None) {
+                canvas.clear();
+                match canvas.copy(&texture, None, None) {
                     Ok(_) => (),
-                    Err(_) => return,
+                    Err(_) => {
+                        println!("Unable to draw texture to canvas!");
+                        return
+                    },
                 };
-                renderer.present();
+                canvas.present();
 
                 //clear buffer
                 for p in self.lcd.graphics.screen_buffer.chunks_mut(4) {
@@ -415,7 +420,7 @@ impl<'a> Gebemula<'a> {
             if now - last_time_seconds >= time::Duration::seconds(1) {
                 last_time_seconds = now;
                 let title = &format!("{} Gebemula - {}", fps, self.cycles_per_sec);
-                renderer.window_mut().unwrap().set_title(title).unwrap();
+                canvas.window_mut().set_title(title).unwrap();
                 self.cycles_per_sec = 0;
                 fps = 0;
 

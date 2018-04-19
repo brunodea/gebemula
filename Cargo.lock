@@ -19,6 +19,11 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "cfg-if"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "clap"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -37,7 +42,7 @@ version = "0.3.0"
 dependencies = [
  "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2 0.29.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.34 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -75,7 +80,7 @@ dependencies = [
 
 [[package]]
 name = "sdl2"
-version = "0.29.1"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -83,15 +88,15 @@ dependencies = [
  "libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2-sys 0.27.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2-sys 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sdl2-sys"
-version = "0.27.3"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cfg-if 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -134,14 +139,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum bitflags 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8dead7461c1127cf637931a1e50934eb6eee8bff2f74433ac7909e9afcee04a3"
 "checksum bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4f67931368edf3a9a51d29886d245f1c3db2f1ef0dcc9e35ff70341b78c10d23"
 "checksum bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aad18937a628ec6abcd26d1489012cc0e18c21798210f491af69ded9b881106d"
+"checksum cfg-if 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d4c819a1287eb618df47cc647173c5c4c66ba19d888a6e50d605672aed3140de"
 "checksum clap 2.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1a4f480668bbfc4ae9ed10fa2185bc1da6ba7f20416372bc15bcf1838a3af47e"
 "checksum kernel32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b5b5e7edf375e6d26243bde172f1d5ed1446f4a766fc9b7006e1fd27258243f1"
 "checksum lazy_static 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "236eb37a62591d4a41a89b7763d7de3e06ca02d5ab2815446a8bae5d2f8c2d57"
 "checksum libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "52f45f4d4d75de96cf7f8b0e37b6a8e2f96619749b80bd79aa9f5a3100d63208"
 "checksum num 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)" = "be45b3e341522564415a07118d7cf44896d0919e7a1bb21d59ad82af48256324"
 "checksum rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)" = "2791d88c6defac799c3f20d74f094ca33b9332612d9aef9078519c82e4fe04a5"
-"checksum sdl2 0.29.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4c366cfa1f22d001774214ce2fb13f369af760b016bc79cc62d7f5ae15c00fea"
-"checksum sdl2-sys 0.27.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8d9f87e3d948f94f2d8688970422f49249c20e97f8f3aad76cb8729901d4eb10"
+"checksum sdl2 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a74c2a98a354b20713b90cce70aef9e927e46110d1bc4ef728fd74e0d53eba60"
+"checksum sdl2-sys 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5c543ce8a6e33a30cb909612eeeb22e693848211a84558d5a00bb11e791b7ab7"
 "checksum strsim 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b1d6a2200349ab2221a712c79e797cbb814086eea4ad5d12cc5cafab5f2089d9"
 "checksum time 0.1.34 (registry+https://github.com/rust-lang/crates.io-index)" = "8c4aeaa1c95974f5763c3a5ac0db95a19793589bcea5d22e161b5587e3aad029"
 "checksum unicode-width 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2d6722facc10989f63ee0e20a83cd4e1714a9ae11529403ac7e0afd069abc39e"

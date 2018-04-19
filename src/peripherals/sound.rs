@@ -35,7 +35,7 @@ const SWEEP_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 128;
 const ENVELOPE_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 64; // every 'envelope step' has cycles.
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
-const FREQ: i32 = 44_100i32;
+const FREQ: i32 = 44_100;
 const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
     channels: Some(1), // mono
