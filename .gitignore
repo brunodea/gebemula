@@ -4,5 +4,6 @@ target
 *.gb
 *.gbc
 *.sav
+.idea/
 DMG_ROM.bin
 CGB_ROM.bin
