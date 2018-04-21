@@ -23,6 +23,12 @@ pub const NR32_REGISTER_ADDR: u16 = 0xFF1C;
 pub const NR33_REGISTER_ADDR: u16 = 0xFF1D;
 pub const NR34_REGISTER_ADDR: u16 = 0xFF1E;
 
+// White Noise registers
+pub const NR41_REGISTER_ADDR: u16 = 0xFF20;
+pub const NR42_REGISTER_ADDR: u16 = 0xFF21;
+pub const NR43_REGISTER_ADDR: u16 = 0xFF22;
+pub const NR44_REGISTER_ADDR: u16 = 0xFF23;
+
 // Global sound registers
 pub const NR50_REGISTER_ADDR: u16 = 0xFF24;
 pub const NR51_REGISTER_ADDR: u16 = 0xFF25;
@@ -33,6 +39,8 @@ const CUSTOM_WAVE_END_ADDR: u16 = 0xFF3F;
 
 const SWEEP_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 128;
 const ENVELOPE_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 64; // every 'envelope step' has cycles.
+
+const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
 const FREQ: i32 = 44_100;
@@ -159,13 +167,18 @@ impl Envelope {
         let default_value = envelope_raw >> 4;
 
         Envelope {
-            step_length: step_length,
-            func: func,
-            default_value: default_value,
-            addr: addr,
+            step_length,
+            func,
+            default_value,
+            addr,
             start_time_cycles: None,
         }
     }
+
+    fn reset(&mut self) {
+        self.start_time_cycles = None;
+    }
+
     fn update(&mut self, cycles: u32, memory: &mut Memory) {
         let envelope_raw = memory.read_byte(self.addr);
         self.step_length = envelope_raw & 0b111;
@@ -311,7 +324,7 @@ impl PulseVoice {
         }
     }
 
-    fn update(&mut self, memory: &mut Memory) {
+    fn update(&mut self, memory: &Memory) {
         let nr1 = memory.read_byte(self.nr1_reg);
         let nr3 = memory.read_byte(self.nr3_reg);
         let nr4 = memory.read_byte(self.nr4_reg);
@@ -414,6 +427,8 @@ impl PulseVoice {
             let mut lock = self.device.lock();
             (*lock).volume = 0.0;
             (*lock).duty = 0.0;
+
+            self.envelope.reset();
 
             self.start_time_cycles = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
@@ -616,6 +631,200 @@ impl WaveVoice {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
+enum PolynomialCounterWidth {
+    Tone, // output more "regular", acting more like Tone than Noise.
+    Noise,
+}
+
+struct PolynomialCounter {
+    shift_clock_frq: u8,
+    width: PolynomialCounterWidth,
+    dividing_ratio_frq: u8,
+    lfsr_value: u16,
+    start_cycles: Option<u32>,
+}
+
+// linear-feedback shift register
+impl PolynomialCounter {
+    fn new(memory: &Memory) -> Self {
+        let nr43 = memory.read_byte(NR43_REGISTER_ADDR);
+        PolynomialCounter {
+            shift_clock_frq: nr43 >> 4,
+            width: if ((nr43 >> 3) & 0b1) == 0b0 {
+                PolynomialCounterWidth::Noise
+            } else {
+                PolynomialCounterWidth::Tone
+            },
+            dividing_ratio_frq: nr43 & 0b111,
+            lfsr_value: (!0u16) >> 1, // 15 registers
+            start_cycles: None,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.start_cycles = None;
+        // shift registers should ways start at 1
+        self.lfsr_value = (!0u16) >> 1;
+    }
+
+    fn update(&mut self, cycles: u32, memory: &Memory) {
+        let nr43 = memory.read_byte(NR43_REGISTER_ADDR);
+        self.shift_clock_frq = nr43 >> 4;
+        self.width = if ((nr43 >> 3) & 0b1) == 0b0 {
+            PolynomialCounterWidth::Noise
+        } else {
+            PolynomialCounterWidth::Tone
+        };
+        self.dividing_ratio_frq = nr43 & 0b111;
+
+        if self.start_cycles.is_none() {
+            self.start_cycles = Some(cycles);
+        }
+
+        // is clock pulse?
+        if (cycles - self.start_cycles.unwrap()) as f32 >= self.frequency_hz() {
+            let bit_0 = self.lfsr_value & 0b1;
+            let bit_1 = (self.lfsr_value >> 1) & 0b1;
+            let xor = bit_0^bit_1;
+
+            let xor = match self.width {
+                PolynomialCounterWidth::Tone => {
+                    (xor << 14) | (xor << 6)
+                },
+                PolynomialCounterWidth::Noise => {
+                    xor << 14
+                },
+            };
+            self.lfsr_value = (self.lfsr_value >> 1) | xor;
+
+            self.start_cycles = Some(cycles);
+        }
+    }
+
+    // lfsr clock
+    // after every clock pulse, a shift is made in lfsr
+    fn frequency_hz(&self) -> f32 {
+        let s = SOUND_SYSTEM_CLOCK_HZ as f32 / 8f32;
+        let out_divider = match self.dividing_ratio_frq {
+            0 => s * 2f32,
+            _ => s / self.dividing_ratio_frq as f32,
+        };
+
+        out_divider as f32 / (2f32.powi(1i32 + self.shift_clock_frq as i32))
+    }
+}
+
+struct WhiteNoiseVoice {
+    sound_length: u8,
+    envelope: Envelope,
+    poly: PolynomialCounter,
+    sound_loop: SoundLoop,
+    sound_trigger: SoundTrigger,
+    start_time_cycles: Option<u32>,
+    device: AudioDevice<WhiteNoiseWave>,
+}
+
+impl WhiteNoiseVoice {
+    fn new(audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
+        let nr41 = memory.read_byte(NR41_REGISTER_ADDR);
+        let nr44 = memory.read_byte(NR44_REGISTER_ADDR);
+
+        let sound_length = nr41 & 0b0011_1111;
+        let envelope = Envelope::new(NR42_REGISTER_ADDR, memory);
+        let poly = PolynomialCounter::new(memory);
+        let sound_trigger = if (nr44 >> 7) & 0b1 == 0b1 {
+            SoundTrigger::On
+        } else {
+            SoundTrigger::Off
+        };
+        let sound_loop = if (nr44 >> 6) & 0b1 == 0b1 {
+            SoundLoop::NoLoop
+        } else {
+            SoundLoop::Loop
+        };
+        WhiteNoiseVoice {
+            sound_length,
+            envelope,
+            poly,
+            sound_loop,
+            sound_trigger,
+            start_time_cycles: None,
+            device: audio_subsystem
+                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| WhiteNoiseWave {
+                    volume: 0f32,
+                })
+                .unwrap(),
+        }
+    }
+
+    fn update(&mut self, memory: &Memory) {
+        let nr41 = memory.read_byte(NR41_REGISTER_ADDR);
+        let nr44 = memory.read_byte(NR44_REGISTER_ADDR);
+
+        self.sound_length = nr41 & 0b0011_1111;
+        self.sound_trigger = if (nr44 >> 7) & 0b1 == 0b1 {
+            SoundTrigger::On
+        } else {
+            SoundTrigger::Off
+        };
+        self.sound_loop = if (nr44 >> 6) & 0b1 == 0b1 {
+            SoundLoop::NoLoop
+        } else {
+            SoundLoop::Loop
+        };
+    }
+
+    fn update_device(&mut self, memory: &Memory) {
+        let mut lock = self.device.lock();
+        (*lock).volume = if self.poly.lfsr_value & 0b1 == 0b1 {
+            self.envelope.default_value as f32
+        } else {
+            -(self.envelope.default_value as f32)
+        };
+    }
+
+    fn run(&mut self, cycles: u32, memory: &mut Memory) {
+        self.update(memory);
+        if self.sound_trigger == SoundTrigger::On {
+           GlobalReg::set_voice_flag(VoiceType::WhiteNoise, memory);
+            if self.start_time_cycles.is_none() {
+                // first loop with sound on.
+                // things here should be run only once when the sound is on.
+                self.update_device(memory);
+                self.device.resume();
+                self.start_time_cycles = Some(cycles);
+            }
+
+            self.envelope.update(cycles, memory);
+            self.poly.update(cycles, memory);
+
+            if self.sound_loop == SoundLoop::NoLoop {
+                let sound_length_cycles = CPU_FREQUENCY_HZ as f32 * (256f32 - self.sound_length as f32) / 256f32;
+                if (cycles - self.start_time_cycles.unwrap()) as f32 >= sound_length_cycles {
+                    self.stop(memory);
+                }
+            }
+        }
+    }
+
+    fn stop(&mut self, memory: &mut Memory) {
+        if self.device.status() == AudioStatus::Playing {
+            let mut lock = self.device.lock();
+            (*lock).volume = 0.0;
+
+            self.poly.reset();
+            self.envelope.reset();
+
+            self.start_time_cycles = None;
+            GlobalReg::reset_voice_flag(VoiceType::WhiteNoise, memory);
+            // reset initial flag
+            let nr44 = memory.read_byte(NR44_REGISTER_ADDR);
+            memory.write_byte(NR44_REGISTER_ADDR, nr44 & 0b0100_0000);
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum VoiceType {
     PulseA,
     PulseB,
@@ -676,9 +885,11 @@ pub struct SoundController {
     pulse_a: PulseVoice,
     pulse_b: PulseVoice,
     wave: WaveVoice,
+    whitenoise: WhiteNoiseVoice,
     pulse_a_enabled: bool,
     pulse_b_enabled: bool,
     wave_enabled: bool,
+    whitenoise_enabled: bool,
 }
 
 impl SoundController {
@@ -690,15 +901,18 @@ impl SoundController {
             pulse_a: PulseVoice::new(VoiceType::PulseA, audio_subsystem, memory),
             pulse_b: PulseVoice::new(VoiceType::PulseB, audio_subsystem, memory),
             wave: WaveVoice::new(audio_subsystem, memory),
+            whitenoise: WhiteNoiseVoice::new(audio_subsystem, memory),
             pulse_a_enabled: true,
             pulse_b_enabled: true,
             wave_enabled: true,
+            whitenoise_enabled: true,
         }
     }
     pub fn reset(&mut self, memory: &mut Memory) {
         self.pulse_a.stop(memory);
         self.pulse_b.stop(memory);
         self.wave.stop(memory);
+        self.whitenoise.stop(memory);
     }
 
     pub fn pulse_a_toggle(&mut self) {
@@ -712,6 +926,10 @@ impl SoundController {
     pub fn wave_toggle(&mut self) {
         self.wave_enabled = !self.wave_enabled;
         println!("wave: {}", self.wave_enabled);
+    }
+    pub fn whitenoise_toggle(&mut self) {
+        self.whitenoise_enabled = !self.whitenoise_enabled;
+        println!("whitenoise: {}", self.whitenoise_enabled);
     }
 
     pub fn run(&mut self, cycles: u32, memory: &mut Memory) {
@@ -740,6 +958,13 @@ impl SoundController {
             } else {
                 self.wave.stop(memory);
             }
+
+            if self.whitenoise_enabled {
+                self.whitenoise.run(cycles, memory);
+            } else {
+                self.whitenoise.stop(memory);
+            }
+
         } else {
             self.reset(memory);
         }
@@ -765,6 +990,20 @@ impl AudioCallback for SquareWave {
                 -self.volume
             };
             self.phase = (self.phase + self.phase_inc) % 1.0;
+        }
+    }
+}
+
+struct WhiteNoiseWave {
+    volume: f32,
+}
+
+impl AudioCallback for WhiteNoiseWave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        for sample_value in out.iter_mut() {
+            *sample_value = self.volume;
         }
     }
 }

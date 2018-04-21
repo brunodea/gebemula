@@ -215,6 +215,7 @@ impl<'a> Gebemula<'a> {
         println!(" F4: toggle pulse A");
         println!(" F5: toggle pulse B");
         println!(" F6: toggle custom wave");
+        println!(" F7: toggle white noise");
         println!("Tab: speed up while being held down");
         println!("Esc: quit");
         println!("######################");
@@ -315,6 +316,14 @@ impl<'a> Gebemula<'a> {
                     } => {
                         if let Some(ref mut sound) = self.sound {
                             sound.wave_toggle();
+                        }
+                    }
+                    sdl2::event::Event::KeyDown {
+                        keycode: Some(Keycode::F7),
+                        ..
+                    } => {
+                        if let Some(ref mut sound) = self.sound {
+                            sound.whitenoise_toggle();
                         }
                     }
                     sdl2::event::Event::KeyDown {
