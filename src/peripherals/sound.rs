@@ -721,7 +721,7 @@ struct WhiteNoiseVoice {
     sound_loop: SoundLoop,
     sound_trigger: SoundTrigger,
     start_time_cycles: Option<u32>,
-    device: AudioDevice<WhiteNoiseWave>,
+    device: AudioDevice<SquareWave>,
 }
 
 impl WhiteNoiseVoice {
@@ -750,8 +750,11 @@ impl WhiteNoiseVoice {
             sound_trigger,
             start_time_cycles: None,
             device: audio_subsystem
-                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| WhiteNoiseWave {
+                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| SquareWave {
+                    phase_inc: 0f32,
+                    phase: 0f32,
                     volume: 0f32,
+                    duty: 0f32,
                 })
                 .unwrap(),
         }
@@ -776,11 +779,24 @@ impl WhiteNoiseVoice {
 
     fn update_device(&mut self, memory: &Memory) {
         let mut lock = self.device.lock();
-        (*lock).volume = if self.poly.lfsr_value & 0b1 == 0b1 {
-            self.envelope.default_value as f32
-        } else {
-            -(self.envelope.default_value as f32)
-        };
+        let mut channel_volume =
+            if GlobalReg::should_output(VoiceType::WhiteNoise, ChannelNum::ChannelA, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
+            } else if GlobalReg::should_output(VoiceType::WhiteNoise, ChannelNum::ChannelB, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
+            } else {
+                0f32
+            };
+        (*lock).phase_inc = self.poly.frequency_hz() / FREQ as f32;
+        if self.envelope.step_length > 0 {
+            channel_volume = if self.poly.lfsr_value & 0b1 == 0b1 {
+                channel_volume * self.envelope.default_value as f32
+            } else {
+                channel_volume * -(self.envelope.default_value as f32)
+            };
+        }
+        (*lock).volume = channel_volume;
+        (*lock).duty = 0.50;
     }
 
     fn run(&mut self, cycles: u32, memory: &mut Memory) {
@@ -804,6 +820,9 @@ impl WhiteNoiseVoice {
                     self.stop(memory);
                 }
             }
+            self.update_device(memory);
+        } else {
+            self.stop(memory);
         }
     }
 
