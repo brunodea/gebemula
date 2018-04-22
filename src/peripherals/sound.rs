@@ -65,21 +65,12 @@ struct Sweep {
 }
 
 impl Sweep {
-    fn new(addr: u16, memory: &Memory) -> Self {
-        let sweep_raw = memory.read_byte(addr);
-        let shift_number = sweep_raw & 0b111;
-        let func = if ((sweep_raw >> 3) & 0b1) == 0b0 {
-            SweepFunc::Addition
-        } else {
-            SweepFunc::Subtraction
-        };
-        let sweep_time = (sweep_raw >> 4) & 0b111;
-
+    fn new(addr: u16) -> Self {
         Sweep {
-            shift_number: shift_number,
-            func: func,
-            sweep_time: sweep_time,
-            addr: addr,
+            shift_number: 0,
+            func: SweepFunc::Addition,
+            sweep_time: 0,
+            addr,
             start_time_cycles: None,
         }
     }
@@ -156,20 +147,11 @@ struct Envelope {
 }
 
 impl Envelope {
-    fn new(addr: u16, memory: &Memory) -> Self {
-        let envelope_raw = memory.read_byte(addr);
-        let step_length = envelope_raw & 0b111;
-        let func = if ((envelope_raw >> 3) & 0b1) == 0b0 {
-            EnvelopeFunc::Attenuate
-        } else {
-            EnvelopeFunc::Amplify
-        };
-        let default_value = envelope_raw >> 4;
-
+    fn new(addr: u16) -> Self {
         Envelope {
-            step_length,
-            func,
-            default_value,
+            step_length: 0,
+            func: EnvelopeFunc::Amplify,
+            default_value: 0,
             addr,
             start_time_cycles: None,
         }
@@ -260,7 +242,7 @@ impl PulseVoice {
     fn new(voice_type: VoiceType, audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
         let (sweep, nr1_reg, nr2_reg, nr3_reg, nr4_reg) = match voice_type {
             VoiceType::PulseA => (
-                Some(Sweep::new(NR10_REGISTER_ADDR, memory)),
+                Some(Sweep::new(NR10_REGISTER_ADDR)),
                 NR11_REGISTER_ADDR,
                 NR12_REGISTER_ADDR,
                 NR13_REGISTER_ADDR,
@@ -301,13 +283,13 @@ impl PulseVoice {
         };
 
         PulseVoice {
-            sweep: sweep,
-            sound_length: sound_length,
-            waveform_duty_cycles: waveform_duty_cycles,
-            envelope: Envelope::new(nr2_reg, memory),
-            frequency: frequency,
-            sound_loop: sound_loop,
-            sound_trigger: sound_trigger,
+            sweep,
+            sound_length,
+            waveform_duty_cycles,
+            envelope: Envelope::new(nr2_reg),
+            frequency,
+            sound_loop,
+            sound_trigger,
             start_time_cycles: None,
             device: audio_subsystem
                 .open_playback(None, &SQUARE_DESIRED_SPEC, |_| SquareWave {
@@ -317,10 +299,10 @@ impl PulseVoice {
                     duty: 0f32,
                 })
                 .unwrap(),
-            voice_type: voice_type,
-            nr1_reg: nr1_reg,
-            nr3_reg: nr3_reg,
-            nr4_reg: nr4_reg,
+            voice_type,
+            nr1_reg,
+            nr3_reg,
+            nr4_reg,
         }
     }
 
@@ -641,34 +623,34 @@ struct PolynomialCounter {
     width: PolynomialCounterWidth,
     dividing_ratio_frq: u8,
     lfsr_value: u16,
+    lfsr_out: u8,
     start_cycles: Option<u32>,
 }
 
 // linear-feedback shift register
 impl PolynomialCounter {
-    fn new(memory: &Memory) -> Self {
-        let nr43 = memory.read_byte(NR43_REGISTER_ADDR);
+    fn new() -> Self {
         PolynomialCounter {
-            shift_clock_frq: nr43 >> 4,
-            width: if ((nr43 >> 3) & 0b1) == 0b0 {
-                PolynomialCounterWidth::Noise
-            } else {
-                PolynomialCounterWidth::Tone
-            },
-            dividing_ratio_frq: nr43 & 0b111,
-            lfsr_value: (!0u16) >> 1, // 15 registers
+            shift_clock_frq: 0,
+            width: PolynomialCounterWidth::Noise,
+            dividing_ratio_frq: 0,
+            lfsr_value: 0x7FFF, // least significant bit is the output
+            lfsr_out: 0,
             start_cycles: None,
         }
     }
 
     fn reset(&mut self) {
         self.start_cycles = None;
-        // shift registers should ways start at 1
-        self.lfsr_value = (!0u16) >> 1;
+        self.lfsr_value = 0x7FFF;
+        self.lfsr_out = 0;
     }
 
     fn update(&mut self, cycles: u32, memory: &Memory) {
         let nr43 = memory.read_byte(NR43_REGISTER_ADDR);
+        if nr43 >> 4 >= 14 {
+            return;
+        }
         self.shift_clock_frq = nr43 >> 4;
         self.width = if ((nr43 >> 3) & 0b1) == 0b0 {
             PolynomialCounterWidth::Noise
@@ -683,19 +665,20 @@ impl PolynomialCounter {
 
         // is clock pulse?
         if (cycles - self.start_cycles.unwrap()) as f32 >= self.frequency_hz() {
-            let bit_0 = self.lfsr_value & 0b1;
-            let bit_1 = (self.lfsr_value >> 1) & 0b1;
-            let xor = bit_0^bit_1;
+            let bit_0 = self.lfsr_value;
+            let bit_1 = self.lfsr_value >> 1;
+            let r = (bit_0^bit_1) & 0b1;
 
             let xor = match self.width {
                 PolynomialCounterWidth::Tone => {
-                    (xor << 14) | (xor << 6)
+                    (r << 14) | (r << 6)
                 },
                 PolynomialCounterWidth::Noise => {
-                    xor << 14
+                    r << 14
                 },
             };
             self.lfsr_value = (self.lfsr_value >> 1) | xor;
+            self.lfsr_out = !r as u8;
 
             self.start_cycles = Some(cycles);
         }
@@ -721,40 +704,21 @@ struct WhiteNoiseVoice {
     sound_loop: SoundLoop,
     sound_trigger: SoundTrigger,
     start_time_cycles: Option<u32>,
-    device: AudioDevice<SquareWave>,
+    device: AudioDevice<WhiteNoiseWave>,
 }
 
 impl WhiteNoiseVoice {
-    fn new(audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
-        let nr41 = memory.read_byte(NR41_REGISTER_ADDR);
-        let nr44 = memory.read_byte(NR44_REGISTER_ADDR);
-
-        let sound_length = nr41 & 0b0011_1111;
-        let envelope = Envelope::new(NR42_REGISTER_ADDR, memory);
-        let poly = PolynomialCounter::new(memory);
-        let sound_trigger = if (nr44 >> 7) & 0b1 == 0b1 {
-            SoundTrigger::On
-        } else {
-            SoundTrigger::Off
-        };
-        let sound_loop = if (nr44 >> 6) & 0b1 == 0b1 {
-            SoundLoop::NoLoop
-        } else {
-            SoundLoop::Loop
-        };
+    fn new(audio_subsystem: &AudioSubsystem) -> Self {
         WhiteNoiseVoice {
-            sound_length,
-            envelope,
-            poly,
-            sound_loop,
-            sound_trigger,
+            sound_length: 0,
+            envelope: Envelope::new(NR42_REGISTER_ADDR),
+            poly: PolynomialCounter::new(),
+            sound_loop: SoundLoop::NoLoop,
+            sound_trigger: SoundTrigger::Off,
             start_time_cycles: None,
             device: audio_subsystem
-                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| SquareWave {
-                    phase_inc: 0f32,
-                    phase: 0f32,
+                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| WhiteNoiseWave {
                     volume: 0f32,
-                    duty: 0f32,
                 })
                 .unwrap(),
         }
@@ -765,12 +729,12 @@ impl WhiteNoiseVoice {
         let nr44 = memory.read_byte(NR44_REGISTER_ADDR);
 
         self.sound_length = nr41 & 0b0011_1111;
-        self.sound_trigger = if (nr44 >> 7) & 0b1 == 0b1 {
+        self.sound_trigger = if ((nr44 >> 7) & 0b1) == 0b1 {
             SoundTrigger::On
         } else {
             SoundTrigger::Off
         };
-        self.sound_loop = if (nr44 >> 6) & 0b1 == 0b1 {
+        self.sound_loop = if ((nr44 >> 6) & 0b1) == 0b1 {
             SoundLoop::NoLoop
         } else {
             SoundLoop::Loop
@@ -787,22 +751,18 @@ impl WhiteNoiseVoice {
             } else {
                 0f32
             };
-        (*lock).phase_inc = self.poly.frequency_hz() / FREQ as f32;
         if self.envelope.step_length > 0 {
-            channel_volume = if self.poly.lfsr_value & 0b1 == 0b1 {
-                channel_volume * self.envelope.default_value as f32
-            } else {
-                channel_volume * -(self.envelope.default_value as f32)
-            };
+            channel_volume *= self.envelope.default_value as f32;
         }
-        (*lock).volume = channel_volume;
-        (*lock).duty = 0.50;
+
+        (*lock).volume = channel_volume * self.poly.lfsr_out as f32;
     }
 
     fn run(&mut self, cycles: u32, memory: &mut Memory) {
         self.update(memory);
         if self.sound_trigger == SoundTrigger::On {
-           GlobalReg::set_voice_flag(VoiceType::WhiteNoise, memory);
+            GlobalReg::set_voice_flag(VoiceType::WhiteNoise, memory);
+            self.poly.update(cycles, memory);
             if self.start_time_cycles.is_none() {
                 // first loop with sound on.
                 // things here should be run only once when the sound is on.
@@ -812,7 +772,6 @@ impl WhiteNoiseVoice {
             }
 
             self.envelope.update(cycles, memory);
-            self.poly.update(cycles, memory);
 
             if self.sound_loop == SoundLoop::NoLoop {
                 let sound_length_cycles = CPU_FREQUENCY_HZ as f32 * (256f32 - self.sound_length as f32) / 256f32;
@@ -828,8 +787,9 @@ impl WhiteNoiseVoice {
 
     fn stop(&mut self, memory: &mut Memory) {
         if self.device.status() == AudioStatus::Playing {
-            let mut lock = self.device.lock();
-            (*lock).volume = 0.0;
+            //let mut lock = self.device.lock();
+            //(*lock).volume = 0.0;
+            self.device.pause();
 
             self.poly.reset();
             self.envelope.reset();
@@ -920,7 +880,7 @@ impl SoundController {
             pulse_a: PulseVoice::new(VoiceType::PulseA, audio_subsystem, memory),
             pulse_b: PulseVoice::new(VoiceType::PulseB, audio_subsystem, memory),
             wave: WaveVoice::new(audio_subsystem, memory),
-            whitenoise: WhiteNoiseVoice::new(audio_subsystem, memory),
+            whitenoise: WhiteNoiseVoice::new(audio_subsystem),
             pulse_a_enabled: true,
             pulse_b_enabled: true,
             wave_enabled: true,
@@ -1021,8 +981,15 @@ impl AudioCallback for WhiteNoiseWave {
     type Channel = f32;
 
     fn callback(&mut self, out: &mut [f32]) {
+        let mut x = 0;
+        let period = 44_100 / 512;
         for sample_value in out.iter_mut() {
-            *sample_value = self.volume;
+            if (x / period) % 2 == 0 {
+                *sample_value = self.volume;
+            } else {
+                *sample_value = -self.volume;
+            }
+            x += 1;
         }
     }
 }
