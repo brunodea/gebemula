@@ -1,6 +1,6 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
-use peripherals::sound::{SoundController, SQUARE_DESIRED_SPEC, Wave};
+use peripherals::sound::{SoundController, SQUARE_DESIRED_SPEC, SAMPLES, Wave, PulseParams};
 
 use cpu::{ioregister, Cpu, EventRequest};
 use cpu::timer::Timer;
@@ -225,10 +225,13 @@ impl<'a> Gebemula<'a> {
 
         let device = audio_subsystem
             .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
-                ch_1: None,
-                ch_2: None,
-                ch_3: None,
-                ch_4: None,
+                ch_1: vec![0f32; SAMPLES as usize],
+                ch_2: vec![0f32; SAMPLES as usize],
+                ch_3: vec![0f32; SAMPLES as usize],
+                ch_4: vec![0f32; SAMPLES as usize],
+
+                param_ch1: PulseParams::default(),
+                param_ch2: PulseParams::default(),
             })
             .unwrap();
         let mut sound = SoundController::new(device);

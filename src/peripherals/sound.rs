@@ -43,7 +43,7 @@ const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
 const FREQ: i32 = 44_100;
-const SAMPLES: u16 = 4096;
+pub const SAMPLES: u16 = 4096;
 pub const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
     channels: Some(1),
@@ -303,33 +303,31 @@ impl PulseVoice {
         };
     }
 
-    fn update_wave(&mut self, memory: &Memory) {
-        let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
-        let mut volume = if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory)
-        {
-            GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
-        } else if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelB, memory) {
-            GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
+    fn volume(&self, memory: &Memory) -> f32 {
+        if self.start_time_cycles.is_some() {
+            let mut volume = if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory)
+            {
+                GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
+            } else if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelB, memory) {
+                GlobalReg::output_level(ChannelNum::ChannelB, memory) as f32
+            } else {
+                0f32
+            };
+            if self.envelope.step_length > 0 {
+                volume *= self.envelope.default_value as f32;
+            }
+
+            volume
         } else {
             0f32
-        };
-        if self.envelope.step_length > 0 {
-            volume *= self.envelope.default_value as f32;
         }
+    }
 
-        if volume > 0f32 {
-            let duty = self.waveform_duty_cycles;
-            let volume = volume;
-            let phase_inc = frequency_hz / FREQ as f32;
-            let mut phase = 0f32;
-            for i in 0..self.wave.len() {
-                self.wave[i] = if phase <= duty {
-                    volume
-                } else {
-                    -volume
-                };
-                phase = (phase + phase_inc) % 1.0;
-            }
+    fn freq_hz(&self) -> f32 {
+        if self.start_time_cycles.is_some() {
+            131072f32 / (2048f32 - self.frequency as f32)
+        } else {
+            0f32
         }
     }
 
@@ -374,7 +372,6 @@ impl PulseVoice {
                 self.stop(memory);
             }
 
-            self.update_wave(memory);
         } else {
             self.stop(memory);
         }
@@ -851,32 +848,8 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-            if self.pulse_a_enabled {
-                self.pulse_a.run(cycles, memory);
-            } else {
-                self.pulse_a.stop(memory);
-            }
 
-            if self.pulse_b_enabled {
-                self.pulse_b.run(cycles, memory);
-            } else {
-                self.pulse_b.stop(memory);
-            }
-
-            if self.wave_enabled {
-                self.wave.run(cycles, memory);
-            } else {
-                self.wave.stop(memory);
-            }
-
-            if self.whitenoise_enabled {
-                self.whitenoise.run(cycles, memory);
-            } else {
-                self.whitenoise.stop(memory);
-            }
-
-            let mut lock = self.device.lock();
-
+            /*
             let copy_vec = |dest: &mut Option<Vec<f32>>, from: &[f32]| {
                 //use std::iter::FromIterator;
 
@@ -885,41 +858,133 @@ impl SoundController {
                 } else {
                     dest.as_mut().unwrap().copy_from_slice(from);
                 }
-            };
+            };*/
 
-            copy_vec(&mut (*lock).ch_1, self.pulse_a.wave.as_slice());
-            copy_vec(&mut (*lock).ch_2, self.pulse_b.wave.as_slice());
-            copy_vec(&mut (*lock).ch_3, self.wave.wave.as_slice());
-            copy_vec(&mut (*lock).ch_4, self.whitenoise.wave.as_slice());
+            if self.pulse_a_enabled {
+                self.pulse_a.run(cycles, memory);
+                let mut lock = self.device.lock();
+                (*lock).param_ch1 = PulseParams {
+                    volume: self.pulse_a.volume(memory),
+                    duty: self.pulse_a.waveform_duty_cycles,
+                    freq_hz: self.pulse_a.freq_hz(),
+                };
+            } else {
+                self.pulse_a.stop(memory);
+            }
+
+            if self.pulse_b_enabled {
+                self.pulse_b.run(cycles, memory);
+                let mut lock = self.device.lock();
+                (*lock).param_ch2 = PulseParams {
+                    volume: self.pulse_b.volume(memory),
+                    duty: self.pulse_b.waveform_duty_cycles,
+                    freq_hz: self.pulse_b.freq_hz(),
+                };
+            } else {
+                self.pulse_b.stop(memory);
+            }
+
+            /*
+            if self.wave_enabled {
+                self.wave.run(cycles, memory);
+                let mut lock = self.device.lock();
+                for i in 0..SAMPLES as usize {
+                    (*lock).ch_3[i] = self.wave.wave[i];
+                }
+                //copy_vec(&mut (*lock).ch_3, self.wave.wave.as_slice());
+            } else {
+                self.wave.stop(memory);
+            }*/
+
+            /*
+            if self.whitenoise_enabled {
+                self.whitenoise.run(cycles, memory);
+                let mut lock = self.device.lock();
+                for i in 0..SAMPLES as usize {
+                    (*lock).ch_4[i] = self.whitenoise.wave[i];
+                }
+                //copy_vec(&mut (*lock).ch_4, self.whitenoise.wave.as_slice());
+            } else {
+                self.whitenoise.stop(memory);
+            }*/
+
         } else {
             self.reset(memory);
         }
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct PulseParams {
+    volume: f32,
+    duty: f32,
+    freq_hz: f32,
+}
+
+impl Default for PulseParams {
+    fn default() -> Self {
+        PulseParams {
+            volume: 0f32,
+            duty: 0f32,
+            freq_hz: 0f32,
+        }
+    }
+}
+
 pub struct Wave {
-    pub ch_1: Option<Vec<f32>>,
-    pub ch_2: Option<Vec<f32>>,
-    pub ch_3: Option<Vec<f32>>,
-    pub ch_4: Option<Vec<f32>>,
+    pub ch_1: Vec<f32>,
+    pub ch_2: Vec<f32>,
+    pub ch_3: Vec<f32>,
+    pub ch_4: Vec<f32>,
+
+    pub param_ch1: PulseParams,
+    pub param_ch2: PulseParams,
+}
+
+impl Wave {
+    fn update_ch1(&mut self, volume: f32, duty: f32, frequency_hz: f32) {
+        //let duty = self.waveform_duty_cycles;
+        //let volume = volume;
+        let phase_inc = frequency_hz / FREQ as f32;
+        let mut phase = 0f32;
+        for i in 0..self.ch_1.len() {
+            self.ch_1[i] = if phase <= duty {
+                volume
+            } else {
+                -volume
+            };
+            phase = (phase + phase_inc) % 1.0;
+        }
+    }
+    fn update_ch2(&mut self, volume: f32, duty: f32, frequency_hz: f32) {
+        //let duty = self.waveform_duty_cycles;
+        //let volume = volume;
+        let phase_inc = frequency_hz / FREQ as f32;
+        let mut phase = 0f32;
+        for i in 0..self.ch_2.len() {
+            self.ch_2[i] = if phase <= duty {
+                volume
+            } else {
+                -volume
+            };
+            phase = (phase + phase_inc) % 1.0;
+        }
+    }
 }
 
 impl AudioCallback for Wave {
     type Channel = f32;
 
     fn callback(&mut self, out: &mut [f32]) {
-        let get = |ch: &Option<Vec<f32>>, pos: usize| -> f32 {
-            if ch.is_some() {
-                ch.as_ref().unwrap()[pos]
-            } else {
-                0f32
-            }
-        };
+        let p1 = self.param_ch1;
+        let p2 = self.param_ch2;
+        self.update_ch1(p1.volume, p1.duty, p1.freq_hz);
+        self.update_ch2(p2.volume, p2.duty, p2.freq_hz);
         for (i, sample) in out.iter_mut().enumerate() {
-            *sample = get(&self.ch_1, i) +
-                get(&self.ch_2, i) +
-                get(&self.ch_3, i) +
-                get(&self.ch_4, i);
+            *sample = self.ch_1[i] +
+                self.ch_2[i] +
+                self.ch_3[i] +
+                self.ch_4[i];
         }
     }
 }
