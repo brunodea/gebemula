@@ -1,6 +1,6 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
-use peripherals::sound::SoundController;
+use peripherals::sound::{SoundController, SQUARE_DESIRED_SPEC, Wave};
 
 use cpu::{ioregister, Cpu, EventRequest};
 use cpu::timer::Timer;
@@ -47,7 +47,6 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
-    sound: Option<SoundController>,
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
     speed_mode: SpeedMode,
@@ -62,7 +61,6 @@ impl<'a> Default for Gebemula<'a> {
             debugger: Debugger::default(),
             cycles_per_sec: 0,
             lcd: LCD::default(),
-            sound: None,
             joypad: Joypad::default(),
             battery_save_callback: None,
             speed_mode: SpeedMode::Normal,
@@ -78,9 +76,6 @@ impl<'a> Gebemula<'a> {
         self.timer = Timer::default();
         self.cycles_per_sec = 0;
         self.joypad = Joypad::default();
-        if let Some(ref mut sound) = self.sound {
-            sound.reset(&mut self.mem);
-        }
     }
 
     pub fn load_bootstrap_rom(&mut self, bootstrap_rom: &[u8]) {
@@ -221,14 +216,19 @@ impl<'a> Gebemula<'a> {
         println!("######################");
     }
 
-    pub fn run_sdl(&mut self) {
+    pub fn run_sdl(&'a mut self) {
         Gebemula::print_buttons();
 
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
         let audio_subsystem = sdl_context.audio().unwrap();
 
-        self.sound = Some(SoundController::new(&audio_subsystem, &mut self.mem));
+        let mut device = audio_subsystem
+            .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
+                func: None,
+            })
+            .unwrap();
+        let mut sound = SoundController::new(&mut device);
 
         let window = video_subsystem
             .window(
@@ -298,33 +298,25 @@ impl<'a> Gebemula<'a> {
                         keycode: Some(Keycode::F4),
                         ..
                     } => {
-                        if let Some(ref mut sound) = self.sound {
-                            sound.pulse_a_toggle();
-                        }
+                        sound.pulse_a_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F5),
                         ..
                     } => {
-                        if let Some(ref mut sound) = self.sound {
-                            sound.pulse_b_toggle();
-                        }
+                        sound.pulse_b_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F6),
                         ..
                     } => {
-                        if let Some(ref mut sound) = self.sound {
-                            sound.wave_toggle();
-                        }
+                        sound.wave_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F7),
                         ..
                     } => {
-                        if let Some(ref mut sound) = self.sound {
-                            sound.whitenoise_toggle();
-                        }
+                        sound.whitenoise_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::Q),
@@ -337,6 +329,7 @@ impl<'a> Gebemula<'a> {
                         ..
                     } => {
                         self.restart();
+                        sound.reset(&mut self.mem);
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::Tab),
@@ -455,9 +448,7 @@ impl<'a> Gebemula<'a> {
                 fps += 1;
             }
 
-            if let Some(ref mut sound) = self.sound {
-                sound.run(self.cycles_per_sec, &mut self.mem);
-            }
+            sound.run(self.cycles_per_sec, &mut self.mem);
 
             let now = time::now();
             if now - last_time_seconds >= time::Duration::seconds(1) {

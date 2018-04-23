@@ -44,9 +44,9 @@ const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
 const FREQ: i32 = 44_100;
-const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
+pub const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
-    channels: Some(1), // mono
+    channels: Some(2),
     samples: None,     // default sample size
 };
 
@@ -231,7 +231,6 @@ struct PulseVoice {
     sound_loop: SoundLoop,
     sound_trigger: SoundTrigger,
     start_time_cycles: Option<u32>,
-    device: AudioDevice<SquareWave>,
     voice_type: VoiceType,
     nr1_reg: u16,
     nr3_reg: u16,
@@ -239,8 +238,9 @@ struct PulseVoice {
 }
 
 impl PulseVoice {
-    fn new(voice_type: VoiceType, audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
-        let (sweep, nr1_reg, nr2_reg, nr3_reg, nr4_reg) = match voice_type {
+    fn new(voice_type: VoiceType) -> Self {
+        let (sweep, nr1_reg, nr2_reg, nr3_reg, nr4_reg
+        ) = match voice_type {
             VoiceType::PulseA => (
                 Some(Sweep::new(NR10_REGISTER_ADDR)),
                 NR11_REGISTER_ADDR,
@@ -258,47 +258,15 @@ impl PulseVoice {
             _ => panic!(),
         };
 
-        let nr1 = memory.read_byte(nr1_reg);
-        let nr3 = memory.read_byte(nr3_reg);
-        let nr4 = memory.read_byte(nr4_reg);
-
-        let sound_length = nr1 & 0b0011_1111;
-        let waveform_duty_cycles = match nr1 >> 6 {
-            0b00 => 0.125f32,
-            0b01 => 0.25f32,
-            0b10 => 0.50f32,
-            0b11 => 0.75f32,
-            _ => unreachable!(),
-        };
-        let frequency = ((nr4 as u16 & 0b111) << 8) | nr3 as u16;
-        let sound_loop = if ((nr4 >> 6) & 0b1) == 0b0 {
-            SoundLoop::Loop
-        } else {
-            SoundLoop::NoLoop
-        };
-        let sound_trigger = if ((nr4 >> 7) & 0b1) == 0b0 {
-            SoundTrigger::Off
-        } else {
-            SoundTrigger::On
-        };
-
         PulseVoice {
             sweep,
-            sound_length,
-            waveform_duty_cycles,
+            sound_length: 0,
+            waveform_duty_cycles: 0.50f32,
             envelope: Envelope::new(nr2_reg),
-            frequency,
-            sound_loop,
-            sound_trigger,
+            frequency: 0,
+            sound_loop: SoundLoop::NoLoop,
+            sound_trigger: SoundTrigger::Off,
             start_time_cycles: None,
-            device: audio_subsystem
-                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| SquareWave {
-                    phase_inc: 0f32,
-                    phase: 0f32,
-                    volume: 0f32,
-                    duty: 0f32,
-                })
-                .unwrap(),
             voice_type,
             nr1_reg,
             nr3_reg,
@@ -333,7 +301,7 @@ impl PulseVoice {
         };
     }
 
-    fn update_device(&mut self, memory: &Memory) {
+    fn update_device(&mut self, device: &mut AudioDevice<Wave>, memory: &Memory) {
         let frequency_hz = 131072f32 / (2048f32 - self.frequency as f32);
         let mut volume = if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory)
         {
@@ -344,15 +312,29 @@ impl PulseVoice {
             0f32
         };
         if self.envelope.step_length > 0 {
-            volume *= self.envelope.default_value as f32 / 0xF as f32;
+            volume *= self.envelope.default_value as f32;
         }
-        let mut lock = self.device.lock();
-        (*lock).phase_inc = frequency_hz / FREQ as f32;
-        (*lock).volume = volume;
-        (*lock).duty = self.waveform_duty_cycles;
+
+        if volume > 0f32 {
+            let duty = self.waveform_duty_cycles;
+            let volume = volume;
+            let mut lock = device.lock();
+            (*lock).func = Some(Box::new(move |data: &mut [f32]| {
+                let phase_inc = frequency_hz / FREQ as f32;
+                let mut phase = 0f32;
+                for sample in data.iter_mut() {
+                    *sample = if phase <= duty {
+                        volume
+                    } else {
+                        -volume
+                    };
+                    phase = (phase + phase_inc) % 1.0;
+                }
+            }));
+        }
     }
 
-    fn run(&mut self, cycles: u32, memory: &mut Memory) {
+    fn run(&mut self, cycles: u32, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
         self.update(memory);
         if self.sound_trigger == SoundTrigger::On {
             // update ON flag all the time.
@@ -361,8 +343,8 @@ impl PulseVoice {
             if self.start_time_cycles.is_none() {
                 // first loop with sound on.
                 // things here should be run only once when the sound is on.
-                self.update_device(memory);
-                self.device.resume();
+                self.update_device(device, memory);
+                device.resume();
                 self.start_time_cycles = Some(cycles);
             }
 
@@ -394,23 +376,23 @@ impl PulseVoice {
             }
 
             if should_stop {
-                self.stop(memory);
+                self.stop(device, memory);
             }
 
-            self.update_device(memory);
+            self.update_device(device, memory);
         } else {
-            self.stop(memory);
+            self.stop(device, memory);
         }
     }
 
-    fn stop(&mut self, memory: &mut Memory) {
+    fn stop(&mut self, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
         // this if is for extra safety
-        if self.device.status() == AudioStatus::Playing {
-            let mut lock = self.device.lock();
-            (*lock).volume = 0.0;
-            (*lock).duty = 0.0;
-
+        if device.status() == AudioStatus::Playing {
             self.envelope.reset();
+            {
+                let mut lock = device.lock();
+                (*lock).func = None;
+            }
 
             self.start_time_cycles = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
@@ -857,41 +839,45 @@ impl GlobalReg {
     }
 }
 
-pub struct SoundController {
+pub struct SoundController<'a> {
     sound_is_on: bool,
     channel_1_volume: u8,
     channel_2_volume: u8,
+    //device: &'a mut AudioQueue<f32>,
+    device: &'a mut AudioDevice<Wave>,
     pulse_a: PulseVoice,
     pulse_b: PulseVoice,
-    wave: WaveVoice,
-    whitenoise: WhiteNoiseVoice,
+    //wave: WaveVoice,
+    //whitenoise: WhiteNoiseVoice,
     pulse_a_enabled: bool,
     pulse_b_enabled: bool,
     wave_enabled: bool,
     whitenoise_enabled: bool,
 }
 
-impl SoundController {
-    pub fn new(audio_subsystem: &AudioSubsystem, memory: &Memory) -> Self {
+impl<'a> SoundController<'a> {
+    pub fn new(device: &'a mut AudioDevice<Wave>) -> Self {
         SoundController {
             sound_is_on: false,
             channel_1_volume: 0,
             channel_2_volume: 0,
-            pulse_a: PulseVoice::new(VoiceType::PulseA, audio_subsystem, memory),
-            pulse_b: PulseVoice::new(VoiceType::PulseB, audio_subsystem, memory),
-            wave: WaveVoice::new(audio_subsystem, memory),
-            whitenoise: WhiteNoiseVoice::new(audio_subsystem),
+            device,
+            pulse_a: PulseVoice::new(VoiceType::PulseA),
+            pulse_b: PulseVoice::new(VoiceType::PulseB),
+            //wave: WaveVoice::new(audio_subsystem, memory),
+            //whitenoise: WhiteNoiseVoice::new(audio_subsystem),
             pulse_a_enabled: true,
             pulse_b_enabled: true,
             wave_enabled: true,
             whitenoise_enabled: true,
         }
     }
+
     pub fn reset(&mut self, memory: &mut Memory) {
-        self.pulse_a.stop(memory);
-        self.pulse_b.stop(memory);
-        self.wave.stop(memory);
-        self.whitenoise.stop(memory);
+        self.pulse_a.stop(&mut self.device, memory);
+        self.pulse_b.stop(&mut self.device, memory);
+        //self.wave.stop(memory);
+        //self.whitenoise.stop(memory);
     }
 
     pub fn pulse_a_toggle(&mut self) {
@@ -921,31 +907,47 @@ impl SoundController {
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
             if self.pulse_a_enabled {
-                self.pulse_a.run(cycles, memory);
+                self.pulse_a.run(cycles, &mut self.device, memory);
             } else {
-                self.pulse_a.stop(memory);
+                self.pulse_a.stop(&mut self.device, memory);
             }
 
             if self.pulse_b_enabled {
-                self.pulse_b.run(cycles, memory);
+                self.pulse_b.run(cycles, &mut self.device, memory);
             } else {
-                self.pulse_b.stop(memory);
+                self.pulse_b.stop(&mut self.device, memory);
             }
 
-            if self.wave_enabled {
-                self.wave.run(cycles, memory);
-            } else {
-                self.wave.stop(memory);
-            }
+            //if self.wave_enabled {
+            //    self.wave.run(cycles, memory);
+            //} else {
+            //    self.wave.stop(memory);
+            //}
 
-            if self.whitenoise_enabled {
-                self.whitenoise.run(cycles, memory);
-            } else {
-                self.whitenoise.stop(memory);
-            }
+            //if self.whitenoise_enabled {
+            //    self.whitenoise.run(cycles, memory);
+            //} else {
+            //    self.whitenoise.stop(memory);
+            //}
 
         } else {
             self.reset(memory);
+        }
+    }
+}
+
+type WaveClosureType = Box<Fn(&mut [f32]) + Send>; 
+
+pub struct Wave {
+    pub func: Option<WaveClosureType>,
+}
+
+impl AudioCallback for Wave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        if let Some(ref f) = self.func {
+            f(out);
         }
     }
 }
