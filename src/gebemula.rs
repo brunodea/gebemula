@@ -226,6 +226,10 @@ impl<'a> Gebemula<'a> {
         let mut device = audio_subsystem
             .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
                 func: None,
+                ch_1: None,
+                ch_2: None,
+                ch_3: None,
+                ch_4: None,
             })
             .unwrap();
         let mut sound = SoundController::new(&mut device);

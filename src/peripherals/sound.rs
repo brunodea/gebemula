@@ -45,8 +45,8 @@ const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
 const FREQ: i32 = 44_100;
 pub const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
-    channels: Some(2),
-    samples: None,     // default sample size
+    channels: Some(1),
+    samples: None, // default sample size
 };
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -316,20 +316,22 @@ impl PulseVoice {
 
         if volume > 0f32 {
             let duty = self.waveform_duty_cycles;
+            let voice_type = self.voice_type;
             let volume = volume;
             let mut lock = device.lock();
-            (*lock).func = Some(Box::new(move |data: &mut [f32]| {
+            (*lock).func = Some(Box::new(move |data_len: usize| -> (VoiceType, Vec<f32>) {
+                let mut res = vec![0f32; data_len];
                 let phase_inc = frequency_hz / FREQ as f32;
                 let mut phase = 0f32;
-                for sample in data.iter_mut() {
-                    let v = if phase <= duty {
+                for i in 0..data_len {
+                    res[i] = if phase <= duty {
                         volume
                     } else {
                         -volume
                     };
-                    *sample = v;
                     phase = (phase + phase_inc) % 1.0;
                 }
+                (voice_type, res)
             }));
         }
     }
@@ -390,6 +392,11 @@ impl PulseVoice {
             {
                 let mut lock = device.lock();
                 (*lock).func = None;
+                if self.voice_type == VoiceType::PulseA {
+                    (*lock).ch_1 = None;
+                } else {
+                    (*lock).ch_2 = None;
+                }
             }
 
             self.envelope.reset();
@@ -519,12 +526,12 @@ impl WaveVoice {
         }
         let my_wave = self.wave.clone();
         let mut lock = device.lock();
-        (*lock).func = Some(Box::new(move |data: &mut [f32]| {
-            let mut index = 0;
-            for sample in data.iter_mut() {
-                *sample = my_wave[index] as f32;
-                index += 1;
+        (*lock).func = Some(Box::new(move |data_len: usize| -> (VoiceType, Vec<f32>) {
+            let mut res = vec![0f32; data_len];
+            for i in 0..data_len {
+                res[i] = my_wave[i] as f32;
             }
+            (VoiceType::Wave, res)
         }));
     }
 
@@ -557,6 +564,7 @@ impl WaveVoice {
             {
                 let mut lock = device.lock();
                 (*lock).func = None;
+                (*lock).ch_3 = None;
             }
 
             self.start_time_cycles = None;
@@ -706,10 +714,12 @@ impl WhiteNoiseVoice {
 
         let out = self.poly.lfsr_out as f32;
         let mut lock = device.lock();
-        (*lock).func = Some(Box::new(move |data: &mut [f32]| {
-            for sample in data.iter_mut() {
-                *sample = channel_volume * out;
+        (*lock).func = Some(Box::new(move |data_len: usize| -> (VoiceType, Vec<f32>) {
+            let mut res = vec![0f32; data_len];
+            for i in 0..data_len {
+                res[i] = channel_volume * out;
             }
+            (VoiceType::WhiteNoise, res)
         }));
     }
 
@@ -745,6 +755,7 @@ impl WhiteNoiseVoice {
             {
                 let mut lock = device.lock();
                 (*lock).func = None;
+                (*lock).ch_4 = None;
             }
 
             self.poly.reset();
@@ -760,7 +771,7 @@ impl WhiteNoiseVoice {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum VoiceType {
+pub enum VoiceType {
     PulseA,
     PulseB,
     Wave,
@@ -909,10 +920,14 @@ impl<'a> SoundController<'a> {
     }
 }
 
-type WaveClosureType = Box<Fn(&mut [f32]) + Send>; 
+type WaveClosureType = Box<Fn(usize) -> (VoiceType, Vec<f32>) + Send>; 
 
 pub struct Wave {
     pub func: Option<WaveClosureType>,
+    pub ch_1: Option<Vec<f32>>,
+    pub ch_2: Option<Vec<f32>>,
+    pub ch_3: Option<Vec<f32>>,
+    pub ch_4: Option<Vec<f32>>,
 }
 
 impl AudioCallback for Wave {
@@ -920,7 +935,36 @@ impl AudioCallback for Wave {
 
     fn callback(&mut self, out: &mut [f32]) {
         if let Some(ref f) = self.func {
-            f(out);
+            let (voice_type, result) = f(out.len());
+            match voice_type {
+                VoiceType::PulseA => {
+                    self.ch_1 = Some(result);
+                }
+                VoiceType::PulseB => {
+                    self.ch_2 = Some(result);
+                }
+                VoiceType::Wave => {
+                    self.ch_3 = Some(result);
+                }
+                VoiceType::WhiteNoise => {
+                    self.ch_4 = Some(result);
+                }
+            }
+            let aux = |i: usize, v: &Option<Vec<f32>>| -> f32 {
+                if v.is_some() {
+                    v.as_ref().unwrap()[i]
+                } else {
+                    0f32
+                }
+            };
+            for (i, sample) in out.iter_mut().enumerate() {
+                let ch_1_i = aux(i, &self.ch_1);
+                let ch_2_i = aux(i, &self.ch_2);
+                let ch_3_i = aux(i, &self.ch_3);
+                let ch_4_i = aux(i, &self.ch_4);
+
+                *sample = ch_1_i + ch_2_i + ch_3_i + ch_4_i;
+            }
         } else {
             for sample in out.iter_mut() {
                 *sample = 0f32;
