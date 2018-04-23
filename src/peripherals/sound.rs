@@ -950,30 +950,26 @@ pub struct Wave {
 }
 
 impl Wave {
-    fn update_ch1(&mut self, volume: f32, duty: f32, frequency_hz: f32) {
-        //let duty = self.waveform_duty_cycles;
-        //let volume = volume;
-        let phase_inc = frequency_hz / FREQ as f32;
+    fn update_ch1(&mut self) {
+        let phase_inc = self.param_ch1.freq_hz / FREQ as f32;
         let mut phase = 0f32;
         for i in 0..self.ch_1.len() {
-            self.ch_1[i] = if phase <= duty {
-                volume
+            self.ch_1[i] = if phase <= self.param_ch1.duty {
+                self.param_ch1.volume
             } else {
-                -volume
+                -self.param_ch1.volume
             };
             phase = (phase + phase_inc) % 1.0;
         }
     }
-    fn update_ch2(&mut self, volume: f32, duty: f32, frequency_hz: f32) {
-        //let duty = self.waveform_duty_cycles;
-        //let volume = volume;
-        let phase_inc = frequency_hz / FREQ as f32;
+    fn update_ch2(&mut self) {
+        let phase_inc = self.param_ch2.freq_hz / FREQ as f32;
         let mut phase = 0f32;
-        for i in 0..self.ch_2.len() {
-            self.ch_2[i] = if phase <= duty {
-                volume
+        for i in 0..self.ch_1.len() {
+            self.ch_2[i] = if phase <= self.param_ch2.duty {
+                self.param_ch2.volume
             } else {
-                -volume
+                -self.param_ch2.volume
             };
             phase = (phase + phase_inc) % 1.0;
         }
@@ -984,10 +980,8 @@ impl AudioCallback for Wave {
     type Channel = f32;
 
     fn callback(&mut self, out: &mut [f32]) {
-        let p1 = self.param_ch1;
-        let p2 = self.param_ch2;
-        self.update_ch1(p1.volume, p1.duty, p1.freq_hz);
-        self.update_ch2(p2.volume, p2.duty, p2.freq_hz);
+        self.update_ch1();
+        self.update_ch2();
         for (i, sample) in out.iter_mut().enumerate() {
             *sample = self.ch_1[i] +
                 self.ch_2[i] +
