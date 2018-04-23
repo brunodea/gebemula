@@ -642,7 +642,7 @@ impl PolynomialCounter {
                 },
             };
             self.lfsr_value = (self.lfsr_value >> 1) | xor;
-            self.lfsr_out = !r as u8;
+            self.lfsr_out = (!r as u8) & 0b1;
 
             self.start_cycles = Some(cycles);
         }
