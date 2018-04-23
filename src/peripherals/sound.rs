@@ -387,9 +387,6 @@ impl PulseVoice {
 
     fn stop(&mut self, memory: &mut Memory) {
         if self.start_time_cycles.is_some() {
-            for w in self.wave.iter_mut() {
-                *w = 0f32;
-            }
             self.envelope.reset();
             self.start_time_cycles = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
@@ -856,7 +853,6 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-
             /*
             let copy_vec = |dest: &mut Option<Vec<f32>>, from: &[f32]| {
                 //use std::iter::FromIterator;
@@ -878,6 +874,12 @@ impl SoundController {
                 };
             } else {
                 self.pulse_a.stop(memory);
+                let mut lock = self.device.lock();
+                (*lock).param_ch1 = PulseParams {
+                    volume: 0f32,
+                    duty: 0f32,
+                    freq_hz: 0f32,
+                };
             }
 
             if self.pulse_b_enabled {
@@ -890,6 +892,12 @@ impl SoundController {
                 };
             } else {
                 self.pulse_b.stop(memory);
+                let mut lock = self.device.lock();
+                (*lock).param_ch2 = PulseParams {
+                    volume: 0f32,
+                    duty: 0f32,
+                    freq_hz: 0f32,
+                };
             }
 
             /*
@@ -965,7 +973,7 @@ impl Wave {
     fn update_ch2(&mut self) {
         let phase_inc = self.param_ch2.freq_hz / FREQ as f32;
         let mut phase = 0f32;
-        for i in 0..self.ch_1.len() {
+        for i in 0..self.ch_2.len() {
             self.ch_2[i] = if phase <= self.param_ch2.duty {
                 self.param_ch2.volume
             } else {
@@ -983,10 +991,7 @@ impl AudioCallback for Wave {
         self.update_ch1();
         self.update_ch2();
         for (i, sample) in out.iter_mut().enumerate() {
-            *sample = self.ch_1[i] +
-                self.ch_2[i] +
-                self.ch_3[i] +
-                self.ch_4[i];
+            *sample = self.ch_1[i] + self.ch_2[i] + self.ch_3[i] + self.ch_4[i];
         }
     }
 }
