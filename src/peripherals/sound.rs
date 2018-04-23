@@ -105,7 +105,11 @@ impl Sweep {
         };
 
         if let Some(sweep_start_time_cycles) = self.start_time_cycles {
-            let steps = (cycles - sweep_start_time_cycles) / SWEEP_CYCLES_PER_STEP;
+            let steps = if cycles > sweep_start_time_cycles {
+	        (cycles - sweep_start_time_cycles) / SWEEP_CYCLES_PER_STEP
+	    } else {
+		0
+	    };
             if steps >= self.sweep_time as u32 {
                 self.start_time_cycles = Some(cycles);
                 let rhs = old_frequency as f32 / 2f32.powi(self.shift_number as i32);
@@ -181,7 +185,11 @@ impl Envelope {
         };
 
         if let Some(start_time_cycles) = self.start_time_cycles {
-            let steps = (cycles - start_time_cycles) / ENVELOPE_CYCLES_PER_STEP;
+            let steps = if cycles > start_time_cycles {
+	        (cycles - start_time_cycles) / ENVELOPE_CYCLES_PER_STEP
+	    } else {
+		0
+	    };
             if steps >= self.step_length as u32 {
                 self.start_time_cycles = Some(cycles);
                 self.default_value = match self.func {
