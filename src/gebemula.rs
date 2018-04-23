@@ -223,16 +223,15 @@ impl<'a> Gebemula<'a> {
         let video_subsystem = sdl_context.video().unwrap();
         let audio_subsystem = sdl_context.audio().unwrap();
 
-        let mut device = audio_subsystem
+        let device = audio_subsystem
             .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
-                func: None,
                 ch_1: None,
                 ch_2: None,
                 ch_3: None,
                 ch_4: None,
             })
             .unwrap();
-        let mut sound = SoundController::new(&mut device);
+        let mut sound = SoundController::new(device);
 
         let window = video_subsystem
             .window(
