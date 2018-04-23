@@ -1,7 +1,6 @@
 use super::super::mem::Memory;
 use super::super::cpu::ioregister::CPU_FREQUENCY_HZ;
-use sdl2::AudioSubsystem;
-use sdl2::audio::{AudioCallback, AudioDevice, AudioQueue, AudioSpecDesired, AudioStatus};
+use sdl2::audio::{AudioCallback, AudioDevice, AudioSpecDesired};
 
 // PulseAVoice registers
 pub const NR10_REGISTER_ADDR: u16 = 0xFF10;
@@ -323,11 +322,12 @@ impl PulseVoice {
                 let phase_inc = frequency_hz / FREQ as f32;
                 let mut phase = 0f32;
                 for sample in data.iter_mut() {
-                    *sample = if phase <= duty {
+                    let v = if phase <= duty {
                         volume
                     } else {
                         -volume
                     };
+                    *sample = v;
                     phase = (phase + phase_inc) % 1.0;
                 }
             }));
@@ -386,14 +386,13 @@ impl PulseVoice {
     }
 
     fn stop(&mut self, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
-        // this if is for extra safety
-        if device.status() == AudioStatus::Playing {
-            self.envelope.reset();
+        if self.start_time_cycles.is_some() {
             {
                 let mut lock = device.lock();
                 (*lock).func = None;
             }
 
+            self.envelope.reset();
             self.start_time_cycles = None;
             GlobalReg::reset_voice_flag(self.voice_type, memory);
             // reset initialize (trigger) flag
@@ -523,7 +522,7 @@ impl WaveVoice {
         (*lock).func = Some(Box::new(move |data: &mut [f32]| {
             let mut index = 0;
             for sample in data.iter_mut() {
-                *sample = my_wave[index].into();
+                *sample = my_wave[index] as f32;
                 index += 1;
             }
         }));
@@ -555,7 +554,6 @@ impl WaveVoice {
     }
     fn stop(&mut self, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
         if self.start_time_cycles.is_some() {
-            self.wave = vec![0; FREQ as usize];
             {
                 let mut lock = device.lock();
                 (*lock).func = None;
@@ -662,11 +660,10 @@ struct WhiteNoiseVoice {
     sound_loop: SoundLoop,
     sound_trigger: SoundTrigger,
     start_time_cycles: Option<u32>,
-    device: AudioDevice<WhiteNoiseWave>,
 }
 
 impl WhiteNoiseVoice {
-    fn new(audio_subsystem: &AudioSubsystem) -> Self {
+    fn new() -> Self {
         WhiteNoiseVoice {
             sound_length: 0,
             envelope: Envelope::new(NR42_REGISTER_ADDR),
@@ -674,11 +671,6 @@ impl WhiteNoiseVoice {
             sound_loop: SoundLoop::NoLoop,
             sound_trigger: SoundTrigger::Off,
             start_time_cycles: None,
-            device: audio_subsystem
-                .open_playback(None, &SQUARE_DESIRED_SPEC, |_| WhiteNoiseWave {
-                    volume: 0f32,
-                })
-                .unwrap(),
         }
     }
 
@@ -699,8 +691,7 @@ impl WhiteNoiseVoice {
         };
     }
 
-    fn update_device(&mut self, memory: &Memory) {
-        let mut lock = self.device.lock();
+    fn update_device(&mut self, device: &mut AudioDevice<Wave>, memory: &Memory) {
         let mut channel_volume =
             if GlobalReg::should_output(VoiceType::WhiteNoise, ChannelNum::ChannelA, memory) {
                 GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
@@ -713,10 +704,16 @@ impl WhiteNoiseVoice {
             channel_volume *= self.envelope.default_value as f32;
         }
 
-        (*lock).volume = channel_volume * self.poly.lfsr_out as f32;
+        let out = self.poly.lfsr_out as f32;
+        let mut lock = device.lock();
+        (*lock).func = Some(Box::new(move |data: &mut [f32]| {
+            for sample in data.iter_mut() {
+                *sample = channel_volume * out;
+            }
+        }));
     }
 
-    fn run(&mut self, cycles: u32, memory: &mut Memory) {
+    fn run(&mut self, cycles: u32, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
         self.update(memory);
         if self.sound_trigger == SoundTrigger::On {
             GlobalReg::set_voice_flag(VoiceType::WhiteNoise, memory);
@@ -724,8 +721,8 @@ impl WhiteNoiseVoice {
             if self.start_time_cycles.is_none() {
                 // first loop with sound on.
                 // things here should be run only once when the sound is on.
-                self.update_device(memory);
-                self.device.resume();
+                self.update_device(device, memory);
+                device.resume();
                 self.start_time_cycles = Some(cycles);
             }
 
@@ -734,20 +731,21 @@ impl WhiteNoiseVoice {
             if self.sound_loop == SoundLoop::NoLoop {
                 let sound_length_cycles = CPU_FREQUENCY_HZ as f32 * (256f32 - self.sound_length as f32) / 256f32;
                 if (cycles - self.start_time_cycles.unwrap()) as f32 >= sound_length_cycles {
-                    self.stop(memory);
+                    self.stop(device, memory);
                 }
             }
-            self.update_device(memory);
+            self.update_device(device, memory);
         } else {
-            self.stop(memory);
+            self.stop(device, memory);
         }
     }
 
-    fn stop(&mut self, memory: &mut Memory) {
-        if self.device.status() == AudioStatus::Playing {
-            //let mut lock = self.device.lock();
-            //(*lock).volume = 0.0;
-            self.device.pause();
+    fn stop(&mut self, device: &mut AudioDevice<Wave>, memory: &mut Memory) {
+        if self.start_time_cycles.is_some() {
+            {
+                let mut lock = device.lock();
+                (*lock).func = None;
+            }
 
             self.poly.reset();
             self.envelope.reset();
@@ -819,12 +817,11 @@ pub struct SoundController<'a> {
     sound_is_on: bool,
     channel_1_volume: u8,
     channel_2_volume: u8,
-    //device: &'a mut AudioQueue<f32>,
     device: &'a mut AudioDevice<Wave>,
     pulse_a: PulseVoice,
     pulse_b: PulseVoice,
     wave: WaveVoice,
-    //whitenoise: WhiteNoiseVoice,
+    whitenoise: WhiteNoiseVoice,
     pulse_a_enabled: bool,
     pulse_b_enabled: bool,
     wave_enabled: bool,
@@ -841,7 +838,7 @@ impl<'a> SoundController<'a> {
             pulse_a: PulseVoice::new(VoiceType::PulseA),
             pulse_b: PulseVoice::new(VoiceType::PulseB),
             wave: WaveVoice::new(),
-            //whitenoise: WhiteNoiseVoice::new(audio_subsystem),
+            whitenoise: WhiteNoiseVoice::new(),
             pulse_a_enabled: true,
             pulse_b_enabled: true,
             wave_enabled: true,
@@ -853,7 +850,7 @@ impl<'a> SoundController<'a> {
         self.pulse_a.stop(&mut self.device, memory);
         self.pulse_b.stop(&mut self.device, memory);
         self.wave.stop(&mut self.device, memory);
-        //self.whitenoise.stop(memory);
+        self.whitenoise.stop(&mut self.device, memory);
     }
 
     pub fn pulse_a_toggle(&mut self) {
@@ -900,11 +897,11 @@ impl<'a> SoundController<'a> {
                 self.wave.stop(&mut self.device, memory);
             }
 
-            //if self.whitenoise_enabled {
-            //    self.whitenoise.run(cycles, memory);
-            //} else {
-            //    self.whitenoise.stop(memory);
-            //}
+            if self.whitenoise_enabled {
+                self.whitenoise.run(cycles, &mut self.device, memory);
+            } else {
+                self.whitenoise.stop(&mut self.device, memory);
+            }
 
         } else {
             self.reset(memory);
@@ -928,50 +925,6 @@ impl AudioCallback for Wave {
             for sample in out.iter_mut() {
                 *sample = 0f32;
             }
-        }
-    }
-}
-
-struct SquareWave {
-    phase_inc: f32,
-    phase: f32,
-    volume: f32,
-    duty: f32,
-}
-
-impl AudioCallback for SquareWave {
-    type Channel = f32;
-
-    fn callback(&mut self, out: &mut [f32]) {
-        // Generate a square wave
-        for sample_value in out.iter_mut() {
-            *sample_value = if self.phase <= self.duty {
-                self.volume
-            } else {
-                -self.volume
-            };
-            self.phase = (self.phase + self.phase_inc) % 1.0;
-        }
-    }
-}
-
-struct WhiteNoiseWave {
-    volume: f32,
-}
-
-impl AudioCallback for WhiteNoiseWave {
-    type Channel = f32;
-
-    fn callback(&mut self, out: &mut [f32]) {
-        let mut x = 0;
-        let period = 44_100 / 512;
-        for sample_value in out.iter_mut() {
-            if (x / period) % 2 == 0 {
-                *sample_value = self.volume;
-            } else {
-                *sample_value = -self.volume;
-            }
-            x += 1;
         }
     }
 }
