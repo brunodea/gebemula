@@ -225,11 +225,6 @@ impl<'a> Gebemula<'a> {
 
         let device = audio_subsystem
             .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
-                ch_1: vec![0f32; SAMPLES as usize],
-                ch_2: vec![0f32; SAMPLES as usize],
-                ch_3: vec![0f32; SAMPLES as usize],
-                ch_4: vec![0f32; SAMPLES as usize],
-
                 param_ch1: PulseParams::default(),
                 param_ch2: PulseParams::default(),
             })
@@ -387,7 +382,8 @@ impl<'a> Gebemula<'a> {
             }
 
             self.adjust_joypad_keys(&event_pump);
-            self.cycles_per_sec += self.step();
+            let cycles_ran = self.step();
+            self.cycles_per_sec += cycles_ran;
 
             if !cfg!(debug_assertions) {
                 if self.debugger.exit {
@@ -454,7 +450,7 @@ impl<'a> Gebemula<'a> {
                 fps += 1;
             }
 
-            sound.run(self.cycles_per_sec, &mut self.mem);
+            sound.run(cycles_ran, &mut self.mem);
 
             let now = time::now();
             if now - last_time_seconds >= time::Duration::seconds(1) {

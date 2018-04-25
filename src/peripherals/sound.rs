@@ -43,11 +43,11 @@ const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
 
 // TODO make sure it is 44100 and not some other thing such as 48000.
 const FREQ: i32 = 44_100;
-pub const SAMPLES: u16 = 4096;
+pub const SAMPLES: u16 = 1024 * 4;
 pub const SQUARE_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(FREQ),
-    channels: Some(1),
-    samples: Some(SAMPLES), // default sample size
+    channels: Some(2),
+    samples: None, // default sample size
 };
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -61,7 +61,7 @@ struct Sweep {
     func: SweepFunc,
     sweep_time: u8,
     addr: u16,
-    start_time_cycles: Option<u32>,
+    sweep_time_remaining_cycles: Option<u32>,
 }
 
 impl Sweep {
@@ -71,7 +71,7 @@ impl Sweep {
             func: SweepFunc::Addition,
             sweep_time: 0,
             addr,
-            start_time_cycles: None,
+            sweep_time_remaining_cycles: None,
         }
     }
 
@@ -93,25 +93,13 @@ impl Sweep {
         self.sweep_time = (sweep_raw >> 4) & 0b111;
 
         let mut new_freq_result = Ok(Some(old_frequency));
-        self.start_time_cycles = if self.sweep_time > 0 {
-            if self.start_time_cycles.is_none() {
-                Some(cycles)
+        self.sweep_time_remaining_cycles = if self.sweep_time > 0 {
+            if self.sweep_time_remaining_cycles.is_none() {
+                Some(self.sweep_time as u32 * SWEEP_CYCLES_PER_STEP)
+            } else if cycles < self.sweep_time_remaining_cycles.unwrap() {
+                Some(self.sweep_time_remaining_cycles.unwrap() - cycles)
             } else {
-                self.start_time_cycles
-            }
-        } else {
-            new_freq_result = Ok(None);
-            None
-        };
-
-        if let Some(sweep_start_time_cycles) = self.start_time_cycles {
-            let steps = if cycles > sweep_start_time_cycles {
-	        (cycles - sweep_start_time_cycles) / SWEEP_CYCLES_PER_STEP
-	    } else {
-		0
-	    };
-            if steps >= self.sweep_time as u32 {
-                self.start_time_cycles = Some(cycles);
+                // TODO: be sure it should only perform the sweep after a sweep step has passed.
                 let rhs = old_frequency as f32 / 2f32.powi(self.shift_number as i32);
                 let new_freq = match self.func {
                     SweepFunc::Addition => old_frequency + rhs as u16,
@@ -129,8 +117,13 @@ impl Sweep {
                 } else {
                     new_freq_result = Ok(Some(new_freq));
                 }
+                None
+                //--------------------------------------------------
             }
-        }
+        } else {
+            new_freq_result = Ok(None);
+            None
+        };
 
         new_freq_result
     }
@@ -147,7 +140,7 @@ struct Envelope {
     func: EnvelopeFunc,
     default_value: u8, // 0x0-0xF
     addr: u16,
-    start_time_cycles: Option<u32>,
+    step_remaining_cycles: Option<u32>, // remaining cycles for a single step
 }
 
 impl Envelope {
@@ -157,12 +150,12 @@ impl Envelope {
             func: EnvelopeFunc::Amplify,
             default_value: 0,
             addr,
-            start_time_cycles: None,
+            step_remaining_cycles: None,
         }
     }
 
     fn reset(&mut self) {
-        self.start_time_cycles = None;
+        self.step_remaining_cycles = None;
     }
 
     fn update(&mut self, cycles: u32, memory: &mut Memory) {
@@ -174,24 +167,17 @@ impl Envelope {
             EnvelopeFunc::Amplify
         };
         self.default_value = envelope_raw >> 4;
-        self.start_time_cycles = if self.step_length > 0 {
-            if self.start_time_cycles.is_none() {
-                Some(cycles)
-            } else {
-                self.start_time_cycles
-            }
-        } else {
-            None
-        };
 
-        if let Some(start_time_cycles) = self.start_time_cycles {
-            let steps = if cycles > start_time_cycles {
-	        (cycles - start_time_cycles) / ENVELOPE_CYCLES_PER_STEP
-	    } else {
-		0
-	    };
-            if steps >= self.step_length as u32 {
-                self.start_time_cycles = Some(cycles);
+        self.step_remaining_cycles = if self.step_length > 0 {
+            if self.step_remaining_cycles.is_none() {
+                Some(self.step_length as u32 * ENVELOPE_CYCLES_PER_STEP)
+            } else if cycles < self.step_remaining_cycles.unwrap() {
+                Some(self.step_remaining_cycles.unwrap() - cycles)
+            } else {
+                // actual envelope function
+                // only perform this if the step time has passed.
+                // TODO: maybe it should also run the first time it is called? I don't think so,
+                // tho.
                 self.default_value = match self.func {
                     EnvelopeFunc::Amplify => {
                         if self.default_value == 0xF {
@@ -213,8 +199,12 @@ impl Envelope {
 
                 let nr2 = memory.read_byte(self.addr);
                 memory.write_byte(self.addr, (nr2 & 0b0000_1111) | (self.default_value << 4));
+                None
+                //--------------------------------------------------
             }
-        }
+        } else {
+            None
+        };
     }
 }
 
@@ -238,9 +228,8 @@ struct PulseVoice {
     frequency: u16, // 11bits
     sound_loop: SoundLoop,
     sound_trigger: SoundTrigger,
-    start_time_cycles: Option<u32>,
+    remaining_cycles: Option<u32>,
     voice_type: VoiceType,
-    wave: Vec<f32>,
     nr1_reg: u16,
     nr3_reg: u16,
     nr4_reg: u16,
@@ -275,16 +264,15 @@ impl PulseVoice {
             frequency: 0,
             sound_loop: SoundLoop::NoLoop,
             sound_trigger: SoundTrigger::Off,
-            start_time_cycles: None,
+            remaining_cycles: None, // only used in case of SoundLoop::NoLoop.
             voice_type,
-            wave: vec![0f32; SAMPLES as usize],
             nr1_reg,
             nr3_reg,
             nr4_reg,
         }
     }
 
-    fn update(&mut self, memory: &Memory) {
+    fn update(&mut self, cycles: u32, memory: &Memory) {
         let nr1 = memory.read_byte(self.nr1_reg);
         let nr3 = memory.read_byte(self.nr3_reg);
         let nr4 = memory.read_byte(self.nr4_reg);
@@ -309,10 +297,28 @@ impl PulseVoice {
         } else {
             SoundTrigger::Off
         };
+
+        self.remaining_cycles = if self.sound_trigger == SoundTrigger::On {
+            // if the sound should loop, then its 'remaining cycles' should never change.
+            if self.sound_loop == SoundLoop::Loop || self.remaining_cycles.is_none() {
+                let sound_length_cycles = SOUND_SYSTEM_CLOCK_HZ * (64 - self.sound_length as u32) / 256;
+                Some(sound_length_cycles)
+            } else if cycles < self.remaining_cycles.unwrap() {
+                Some(self.remaining_cycles.unwrap() - cycles)
+            } else if self.remaining_cycles.unwrap() == 0 {
+                // stops playing if there are no more remaining cycles
+                // TODO: maybe we should stop playing once remaining cycles < cycles?
+                None
+            } else {
+                Some(0)
+            }
+        } else {
+            None
+        };
     }
 
     fn volume(&self, memory: &Memory) -> f32 {
-        if self.start_time_cycles.is_some() {
+        if self.remaining_cycles.is_some() {
             let mut volume = if GlobalReg::should_output(self.voice_type, ChannelNum::ChannelA, memory)
             {
                 GlobalReg::output_level(ChannelNum::ChannelA, memory) as f32
@@ -321,9 +327,13 @@ impl PulseVoice {
             } else {
                 0f32
             };
+
             if self.envelope.step_length > 0 {
                 volume *= self.envelope.default_value as f32;
+            } else {
+                volume = 0f32;
             }
+                
 
             volume
         } else {
@@ -332,25 +342,18 @@ impl PulseVoice {
     }
 
     fn freq_hz(&self) -> f32 {
-        if self.start_time_cycles.is_some() {
-            131072f32 / (2048f32 - self.frequency as f32)
-        } else {
-            0f32
-        }
+        SOUND_SYSTEM_CLOCK_HZ as f32 / (32f32 * (2048f32 - self.frequency as f32))
     }
 
-    fn run(&mut self, cycles: u32, memory: &mut Memory) {
-        self.update(memory);
-        if self.sound_trigger == SoundTrigger::On {
-            // update ON flag all the time.
+    fn run(&mut self, cycles: u32, memory: &mut Memory) -> bool {
+        self.update(cycles, memory);
+        // we only care here about remaining_cycles because it already takes sound_trigger into
+        // account.
+        if self.remaining_cycles.is_some() {
+            // update global ON flag all the time.
             GlobalReg::set_voice_flag(self.voice_type, memory);
 
-            if self.start_time_cycles.is_none() {
-                self.start_time_cycles = Some(cycles);
-            }
-
             self.envelope.update(cycles, memory);
-
             let mut should_stop = false;
             // handle sweep
             if let Some(ref mut sweep) = self.sweep {
@@ -369,31 +372,26 @@ impl PulseVoice {
                 }
             }
 
-            if self.sound_loop == SoundLoop::NoLoop {
-                let sound_length_cycles = CPU_FREQUENCY_HZ * (64 - self.sound_length as u32) / 256;
-                if cycles - self.start_time_cycles.unwrap() >= sound_length_cycles {
-                    should_stop = true;
-                }
-            }
-
             if should_stop {
                 self.stop(memory);
+                return false;
             }
 
+            return true;
         } else {
             self.stop(memory);
         }
+
+        false
     }
 
     fn stop(&mut self, memory: &mut Memory) {
-        if self.start_time_cycles.is_some() {
-            self.envelope.reset();
-            self.start_time_cycles = None;
-            GlobalReg::reset_voice_flag(self.voice_type, memory);
-            // reset initialize (trigger) flag
-            let nr4 = memory.read_byte(self.nr4_reg);
-            memory.write_byte(self.nr4_reg, nr4 & 0b0111_1111);
-        }
+        self.envelope.reset();
+        self.remaining_cycles = None;
+        GlobalReg::reset_voice_flag(self.voice_type, memory);
+        // reset initialize (trigger) flag
+        let nr4 = memory.read_byte(self.nr4_reg);
+        memory.write_byte(self.nr4_reg, nr4 & 0b0111_1111);
     }
 }
 
@@ -853,52 +851,45 @@ impl SoundController {
             self.channel_1_volume = channel_ctrl & 0b111;
             self.channel_2_volume = (channel_ctrl >> 4) & 0b111;
 
-            /*
-            let copy_vec = |dest: &mut Option<Vec<f32>>, from: &[f32]| {
-                //use std::iter::FromIterator;
+            let pa_on = self.pulse_a_enabled;
+            let pb_on = self.pulse_b_enabled;
+            let mut lock = self.device.lock();
+            let mut pulse = |p: &mut PulseVoice| {
+                let mut params = PulseParams {
+                    volume: 0f32,
+                    duty: 0f32,
+                    freq_hz: 0f32,
+                    phase: 0f32,
+                };
 
-                if dest.is_none() {
-                    *dest = Some(from.to_vec());
+                let enabled = if p.voice_type == VoiceType::PulseA {
+                    pa_on
                 } else {
-                    dest.as_mut().unwrap().copy_from_slice(from);
+                    pb_on
+                };
+
+                if enabled {
+                    if p.run(cycles, memory) {
+                        params.volume = p.volume(memory);
+                        params.duty = p.waveform_duty_cycles;
+                        params.freq_hz = p.freq_hz();
+                        // params.phase always goes back to 0 here. So it is all fine!
+                    }
                 }
-            };*/
 
-            if self.pulse_a_enabled {
-                self.pulse_a.run(cycles, memory);
-                let mut lock = self.device.lock();
-                (*lock).param_ch1 = PulseParams {
-                    volume: self.pulse_a.volume(memory),
-                    duty: self.pulse_a.waveform_duty_cycles,
-                    freq_hz: self.pulse_a.freq_hz(),
-                };
-            } else {
-                self.pulse_a.stop(memory);
-                let mut lock = self.device.lock();
-                (*lock).param_ch1 = PulseParams {
-                    volume: 0f32,
-                    duty: 0f32,
-                    freq_hz: 0f32,
-                };
-            }
+                {
+                    if p.voice_type == VoiceType::PulseA {
+                        (*lock).param_ch1 = params;
+                    } else if p.voice_type == VoiceType::PulseB {
+                        (*lock).param_ch2 = params;
+                    } else {
+                        unimplemented!();
+                    }
+                }
+            };
 
-            if self.pulse_b_enabled {
-                self.pulse_b.run(cycles, memory);
-                let mut lock = self.device.lock();
-                (*lock).param_ch2 = PulseParams {
-                    volume: self.pulse_b.volume(memory),
-                    duty: self.pulse_b.waveform_duty_cycles,
-                    freq_hz: self.pulse_b.freq_hz(),
-                };
-            } else {
-                self.pulse_b.stop(memory);
-                let mut lock = self.device.lock();
-                (*lock).param_ch2 = PulseParams {
-                    volume: 0f32,
-                    duty: 0f32,
-                    freq_hz: 0f32,
-                };
-            }
+            pulse(&mut self.pulse_a);
+            pulse(&mut self.pulse_b);
 
             /*
             if self.wave_enabled {
@@ -935,6 +926,7 @@ pub struct PulseParams {
     volume: f32,
     duty: f32,
     freq_hz: f32,
+    phase: f32,
 }
 
 impl Default for PulseParams {
@@ -943,44 +935,34 @@ impl Default for PulseParams {
             volume: 0f32,
             duty: 0f32,
             freq_hz: 0f32,
+            phase: 0f32,
         }
     }
 }
 
 pub struct Wave {
-    pub ch_1: Vec<f32>,
-    pub ch_2: Vec<f32>,
-    pub ch_3: Vec<f32>,
-    pub ch_4: Vec<f32>,
-
     pub param_ch1: PulseParams,
     pub param_ch2: PulseParams,
 }
 
 impl Wave {
-    fn update_ch1(&mut self) {
-        let phase_inc = self.param_ch1.freq_hz / FREQ as f32;
-        let mut phase = 0f32;
-        for i in 0..self.ch_1.len() {
-            self.ch_1[i] = if phase <= self.param_ch1.duty {
-                self.param_ch1.volume
-            } else {
-                -self.param_ch1.volume
-            };
-            phase = (phase + phase_inc) % 1.0;
-        }
-    }
-    fn update_ch2(&mut self) {
-        let phase_inc = self.param_ch2.freq_hz / FREQ as f32;
-        let mut phase = 0f32;
-        for i in 0..self.ch_2.len() {
-            self.ch_2[i] = if phase <= self.param_ch2.duty {
-                self.param_ch2.volume
-            } else {
-                -self.param_ch2.volume
-            };
-            phase = (phase + phase_inc) % 1.0;
-        }
+    fn value_of(&mut self, voice_type: VoiceType) -> f32 {
+        let params = if voice_type == VoiceType::PulseA {
+            &mut self.param_ch1
+        } else if voice_type == VoiceType::PulseB {
+            &mut self.param_ch2
+        } else {
+            panic!("Used invalid voice type: {:?}", voice_type);
+        };
+        let phase_inc = params.freq_hz / (FREQ as f32 * 2f32);
+        let result = if params.phase <= params.duty {
+            params.volume
+        } else {
+            -params.volume
+        };
+        params.phase = (params.phase + phase_inc) % 1.0;
+
+        result
     }
 }
 
@@ -988,10 +970,12 @@ impl AudioCallback for Wave {
     type Channel = f32;
 
     fn callback(&mut self, out: &mut [f32]) {
-        self.update_ch1();
-        self.update_ch2();
-        for (i, sample) in out.iter_mut().enumerate() {
-            *sample = self.ch_1[i] + self.ch_2[i] + self.ch_3[i] + self.ch_4[i];
+        for sample in out.iter_mut() {
+            *sample = self.value_of(VoiceType::PulseA) + self.value_of(VoiceType::PulseB);
         }
+        // TODO: maybe the lines below are not needed because of params.phase = 0 in the sound
+        // controller.run()?
+        self.param_ch1.phase = 0f32;
+        self.param_ch2.phase = 0f32;
     }
 }
