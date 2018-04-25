@@ -330,8 +330,6 @@ impl PulseVoice {
 
             if self.envelope.step_length > 0 {
                 volume *= self.envelope.default_value as f32;
-            } else {
-                volume = 0f32;
             }
                 
 
@@ -954,6 +952,8 @@ impl Wave {
         } else {
             panic!("Used invalid voice type: {:?}", voice_type);
         };
+        // TODO: I have no idea why multiplying FREQ by 2 is necessary to make the sound more
+        // correct, but it does. Probably would be good to figure out if its correct!
         let phase_inc = params.freq_hz / (FREQ as f32 * 2f32);
         let result = if params.phase <= params.duty {
             params.volume
