@@ -258,6 +258,7 @@ impl<'a> Gebemula<'a> {
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut last_time_seconds = time::now();
         let mut last_time = time::now();
+        let mut frame_time_err = 0;
 
         let mut speed_mul = 1;
         let target_fps = 60;
@@ -437,12 +438,14 @@ impl<'a> Gebemula<'a> {
                     p[3] = 255;
                 }
 
+                frame_time_err += desired_frametime_ns;
                 let now = time::now();
-                let elapsed = (now - last_time).num_nanoseconds().unwrap() as u32;
-                if elapsed < desired_frametime_ns {
-                    thread::sleep(std::time::Duration::new(0, desired_frametime_ns - elapsed));
+                let elapsed = (now - last_time).num_nanoseconds().unwrap() as i32;
+                frame_time_err -= elapsed;
+                if frame_time_err > 0 {
+                    thread::sleep(std::time::Duration::new(0, frame_time_err as u32));
                 }
-                last_time = time::now();
+                last_time = now;
                 fps += 1;
             }
 
