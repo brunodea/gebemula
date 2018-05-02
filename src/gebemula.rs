@@ -440,7 +440,7 @@ impl<'a> Gebemula<'a> {
 
                 frame_time_err += desired_frametime_ns;
                 let now = time::now();
-                let elapsed = (now - last_time).num_nanoseconds().unwrap() as i32;
+                let elapsed = (now - last_time).num_nanoseconds().unwrap() as i64;
                 frame_time_err -= elapsed;
                 if frame_time_err > 0 {
                     thread::sleep(std::time::Duration::new(0, frame_time_err as u32));
