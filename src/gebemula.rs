@@ -216,7 +216,7 @@ impl<'a> Gebemula<'a> {
         println!("######################");
     }
 
-    pub fn run_sdl(&'a mut self) {
+    pub fn run_sdl(&mut self) {
         Gebemula::print_buttons();
 
         let sdl_context = sdl2::init().unwrap();
@@ -415,19 +415,16 @@ impl<'a> Gebemula<'a> {
                     )
                     .unwrap();
                 canvas.clear();
-                match canvas.copy(&texture, None, None) {
-                    Ok(_) => (),
-                    Err(_) => {
-                        println!("Unable to draw texture to canvas!");
-                        return;
-                    }
-                };
+                if let Err(_) = canvas.copy(&texture, None, None) {
+                    println!("Unable to draw texture to canvas!");
+                    return;
+                }
                 canvas.present();
 
                 //clear buffer
                 for p in self.lcd.graphics.screen_buffer.chunks_mut(4) {
                     // This actually makes the code faster by skipping redundant bound checking:
-                    assert!(p.len() == 4);
+                    assert_eq!(p.len(), 4);
 
                     let color = match GBMode::get(&self.mem) {
                         GBMode::Color => {
