@@ -1,9 +1,12 @@
 mod mapper;
 pub mod cartridge;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use mem::mapper::Mapper;
 use super::cpu::ioregister::{BGPD_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPD_REGISTER_ADDR,
                              OBPI_REGISTER_ADDR, SVBK_REGISTER_ADDR, VBK_REGISTER_ADDR};
+use super::peripherals::sound::AudioController;
 
 const VRAM_BANK_SIZE: usize = 0x2000;
 const VRAM_BANKS: usize = 2;
@@ -29,13 +32,16 @@ pub struct Memory {
     bootstrap_enabled: bool,
     can_access_vram: bool,
     can_access_oam: bool,
+
+    apu: Rc<RefCell<AudioController>>,
+
     // color mode only
     bg_palette_data: [u8; PALETTE_SIZE],
     sprite_palette_data: [u8; PALETTE_SIZE],
 }
 
-impl Default for Memory {
-    fn default() -> Memory {
+impl Memory {
+    pub fn new(apu: Rc<RefCell<AudioController>>) -> Memory {
         Memory {
             bootstrap_rom: [0; BOOT_SIZE],
             vram: [0; VRAM_BANKS * VRAM_BANK_SIZE],
@@ -48,19 +54,20 @@ impl Default for Memory {
             bootstrap_enabled: true,
             can_access_vram: true,
             can_access_oam: true,
+
+            apu,
+
             // all colors are set to white
             bg_palette_data: [255; PALETTE_SIZE],
             sprite_palette_data: [255; PALETTE_SIZE],
         }
     }
-}
 
-impl Memory {
     // returns a string with the memory data from min_addr to max_addr.
     pub fn format(&self, min_addr: Option<u16>, max_addr: Option<u16>) -> String {
         let columns = 16;
 
-        let mut res = "".to_owned();
+        let mut res = String::new();
 
         let mut to = 0xffff;
         let mut from = 0;
@@ -128,6 +135,7 @@ impl Memory {
                 }
             }
             0xFEA0...0xFEFF => (), // panic!("writing to unusable ram."),
+            0xFF10...0xFF3F => self.apu.borrow_mut().write_reg(address, value),
             0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
             0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupts_enable = value,
@@ -171,6 +179,7 @@ impl Memory {
                 }
             }
             0xFEA0...0xFEFF => 0x0,
+            0xFF10...0xFF3F => self.apu.borrow().read_reg(address),
             0xFF00...0xFF7F => {
                 match address {
                     BGPD_REGISTER_ADDR => {

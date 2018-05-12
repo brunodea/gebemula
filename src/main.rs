@@ -1,16 +1,19 @@
 #[macro_use]
+extern crate arrayref;
+#[macro_use]
 extern crate bitflags;
+extern crate blip_buf;
 extern crate clap;
 extern crate sdl2;
 extern crate time;
 
-mod util;
-mod graphics;
-mod debugger;
 mod cpu;
-mod mem;
+mod debugger;
 mod gebemula;
+mod graphics;
+mod mem;
 mod peripherals;
+mod util;
 
 use clap::{App, Arg};
 use std::fs::File;

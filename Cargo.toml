@@ -3,8 +3,13 @@ name = "gebemula"
 version = "0.3.0"
 authors = ["Bruno Romero de Azevedo <brunodea@inf.ufsm.br>", "Hugo Stefan Kaus Puhlmann <hugopuhlmann@gmail.com>", "Vitor da Silva <vitords.42@gmail.com>", "Yuri Kunde Schlesner <yuriks@yuriks.net>"]
 
+[profile.release]
+debug = true
+
 [dependencies]
+arrayref = "0.3"
 bitflags = "0.5"
 clap = "2.2.2"
 time = "0.1"
 sdl2 = "0.31.0"
+blip_buf = "0.1.4"

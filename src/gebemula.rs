@@ -1,6 +1,6 @@
 use peripherals::joypad::{self, Joypad, JoypadKey};
 use peripherals::lcd::LCD;
-use peripherals::sound::{SoundController, SQUARE_DESIRED_SPEC, SAMPLES, Wave, PulseParams};
+use peripherals::sound::{AudioController, AUDIO_DESIRED_SPEC};
 
 use cpu::{ioregister, Cpu, EventRequest};
 use cpu::timer::Timer;
@@ -16,6 +16,9 @@ use sdl2::keyboard::{Keycode, Scancode};
 
 use time;
 use std::{self, thread};
+use std::cell::RefCell;
+use std::rc::Rc;
+use sdl2::audio::AudioQueue;
 
 const GB_MODE_ADDR: u16 = 0x143;
 
@@ -47,6 +50,7 @@ pub struct Gebemula<'a> {
     cycles_per_sec: u32,
     lcd: LCD,
     joypad: Joypad,
+    apu: Rc<RefCell<AudioController>>,
     /// Used to periodically save the battery-backed cartridge SRAM to file.
     battery_save_callback: Option<&'a Fn(&[u8])>,
     speed_mode: SpeedMode,
@@ -54,14 +58,17 @@ pub struct Gebemula<'a> {
 
 impl<'a> Default for Gebemula<'a> {
     fn default() -> Gebemula<'a> {
+        let apu = Rc::new(RefCell::new(AudioController::new()));
+
         Gebemula {
             cpu: Cpu::default(),
-            mem: Memory::default(),
+            mem: Memory::new(apu.clone()),
             timer: Timer::default(),
             debugger: Debugger::default(),
             cycles_per_sec: 0,
             lcd: LCD::default(),
             joypad: Joypad::default(),
+            apu,
             battery_save_callback: None,
             speed_mode: SpeedMode::Normal,
         }
@@ -159,6 +166,7 @@ impl<'a> Gebemula<'a> {
             };
             self.cpu.handle_interrupts(&mut self.mem);
             self.timer.update(instr_cycles, &mut self.mem);
+            self.apu.borrow_mut().run_for(instr_cycles);
             if cfg!(debug_assertions) {
                 self.debugger.run(&instruction, &self.cpu, &self.mem);
                 if self.debugger.exit {
@@ -223,13 +231,11 @@ impl<'a> Gebemula<'a> {
         let video_subsystem = sdl_context.video().unwrap();
         let audio_subsystem = sdl_context.audio().unwrap();
 
-        let device = audio_subsystem
-            .open_playback(None, &SQUARE_DESIRED_SPEC, |_| Wave {
-                param_ch1: PulseParams::default(),
-                param_ch2: PulseParams::default(),
-            })
-            .unwrap();
-        let mut sound = SoundController::new(device);
+        let audio_device = audio_subsystem.open_queue(None, &AUDIO_DESIRED_SPEC).unwrap();
+        let audio_spec = audio_device.spec();
+        let mut audio_buffer = Vec::new();
+
+        self.apu.borrow_mut().set_sample_rate(audio_spec.freq as u32);
 
         let window = video_subsystem
             .window(
@@ -256,6 +262,7 @@ impl<'a> Gebemula<'a> {
             .unwrap();
 
         canvas.present();
+        audio_device.resume();
 
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut last_time_seconds = time::now();
@@ -300,25 +307,28 @@ impl<'a> Gebemula<'a> {
                         keycode: Some(Keycode::F4),
                         ..
                     } => {
-                        sound.pulse_a_toggle();
+                        //sound_controller.pulse_a_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F5),
                         ..
                     } => {
-                        sound.pulse_b_toggle();
+                        //sound_controller.pulse_b_toggle();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F6),
                         ..
                     } => {
-                        sound.wave_toggle();
+                        //sound_controller.wave_toggle();
+                        println!("Queue size: {}", audio_device.size());
+                        audio_device.clear();
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F7),
                         ..
                     } => {
-                        sound.whitenoise_toggle();
+                        //sound_controller.whitenoise_toggle();
+                        println!("Queue size: {}", audio_device.size());
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::Q),
@@ -331,7 +341,7 @@ impl<'a> Gebemula<'a> {
                         ..
                     } => {
                         self.restart();
-                        sound.reset(&mut self.mem);
+                        //sound_controller.reset(&mut self.mem);
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::Tab),
@@ -385,6 +395,8 @@ impl<'a> Gebemula<'a> {
             self.adjust_joypad_keys(&event_pump);
             let cycles_ran = self.step();
             self.cycles_per_sec += cycles_ran;
+
+            self.feed_audio(&audio_device, &mut audio_buffer);
 
             if !cfg!(debug_assertions) {
                 if self.debugger.exit {
@@ -450,8 +462,6 @@ impl<'a> Gebemula<'a> {
                 fps += 1;
             }
 
-            sound.run(cycles_ran, &mut self.mem);
-
             let now = time::now();
             if now - last_time_seconds >= time::Duration::seconds(1) {
                 last_time_seconds = now;
@@ -464,5 +474,15 @@ impl<'a> Gebemula<'a> {
             }
         }
         self.update_battery();
+    }
+
+    fn feed_audio(&mut self, audio_device: &AudioQueue<i16>, audio_buffer: &mut Vec<i16>) {
+        self.apu.borrow_mut().generate_audio(audio_buffer);
+        let current_audio_buf = audio_device.size();
+        audio_device.queue(audio_buffer.as_ref());
+        if current_audio_buf < 128 {
+            println!("Audio buffer underrun: {} (adding {})", current_audio_buf, audio_buffer.len());
+        }
+        audio_buffer.clear();
     }
 }
