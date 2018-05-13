@@ -1,8 +1,8 @@
 use super::super::cpu::ioregister::CPU_FREQUENCY_HZ;
 use blip_buf::BlipBuf;
 use sdl2::audio::AudioSpecDesired;
-use std::fmt::Debug;
 use std::fmt;
+use std::fmt::Debug;
 
 const IO_START: u16 = 0xFF10;
 const IO_END: u16 = 0xFF3F;
@@ -55,7 +55,7 @@ const SAMPLES: u16 = 1024 * 4;
 pub const AUDIO_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(48000),
     channels: Some(2),
-    samples: Some(32), // default sample size
+    samples: None, // default sample size
 };
 
 pub fn make_blip_buf(sample_rate: u32) -> BlipBuf {
@@ -76,8 +76,8 @@ impl SquareVoiceSettings {
     fn sweep_period(&self) -> u8 {
         (self.regs[0] & 0b0111_0000) >> 4
     }
-    fn sweep_negate(&self) -> u8 {
-        (self.regs[0] & 0b0000_1000) >> 3
+    fn sweep_negate(&self) -> bool {
+        (self.regs[0] & 0b0000_1000) >> 3 != 0
     }
     fn sweep_shift(&self) -> u8 {
         (self.regs[0] & 0b0000_0111) >> 0
@@ -162,8 +162,14 @@ const SQUARE_WAVEFORMS: [u8; 4] = [0b00000001, 0b10000001, 0b10000111, 0b0111111
 
 struct SquareVoice {
     channel_num: u8,
+
     has_sweep: bool,
+    sweep_active: bool,
+    sweep_counter: u8,
+    sweep_frequency: u16,
+
     length_counter: u16,
+    frequency: u16, // shadow register
     frequency_counter: u16, // Decremented every 32 clocks
     envelope_counter: u8,
     waveform_index: u8,
@@ -182,12 +188,30 @@ fn adjust_volume_envelope(volume: &mut u8, direction: u8) {
     }
 }
 
+// Returns (new_frequency, overflow)
+fn compute_sweep(old_frequency: u16, regs: SquareVoiceSettings) -> (u16, bool) {
+    let abs_delta = old_frequency >> regs.sweep_shift();
+    let new_frequency = if regs.sweep_negate() {
+        old_frequency - abs_delta
+    } else {
+        old_frequency + abs_delta
+    };
+
+    (new_frequency, new_frequency >= 2048)
+}
+
 impl SquareVoice {
     fn new(channel_num: u8) -> SquareVoice {
         SquareVoice {
             channel_num,
+
             has_sweep: channel_num == 1,
+            sweep_active: false,
+            sweep_counter: 0,
+            sweep_frequency: 0,
+
             length_counter: 0,
+            frequency: 0,
             frequency_counter: 0,
             envelope_counter: 0,
             waveform_index: 0,
@@ -195,12 +219,29 @@ impl SquareVoice {
         }
     }
 
-    fn step_sweep(&mut self, _regs: SquareVoiceSettings) {
+    fn step_sweep(&mut self, regs: SquareVoiceSettings) {
         if !self.has_sweep {
             unreachable!();
         }
 
-        // TODO
+        if self.sweep_active && regs.sweep_period() != 0 {
+            if self.sweep_counter == 0 {
+                let (new_frequency, overflow) = compute_sweep(self.sweep_frequency, regs);
+                let (_, overflow2) = compute_sweep(new_frequency, regs);
+
+                if !overflow {
+                    self.sweep_frequency = new_frequency;
+                    self.frequency = new_frequency;
+                }
+                if overflow || overflow2 {
+                    // TODO disable channel
+                }
+
+                self.sweep_counter = regs.sweep_period();
+            } else {
+                self.sweep_counter -= 1;
+            }
+        }
     }
 
     fn step_envelope(&mut self, regs: SquareVoiceSettings) {
@@ -225,16 +266,33 @@ impl SquareVoice {
         false
     }
 
+    fn get_frequency_period(&self) -> u16 {
+        (32 / 8) * (2048 - self.frequency)
+    }
+
     fn trigger(&mut self, regs: SquareVoiceSettings) {
         self.volume = regs.initial_volume();
-        self.frequency_counter = (32 / 8) * (2048 - regs.frequency());
+        self.frequency_counter = self.get_frequency_period();
         self.envelope_counter = regs.env_period();
 
-        println!("trigger ch{}: regs={:?}\nvolume={} freq={} len={}",
-                 self.channel_num, regs,
-                 self.volume, self.frequency_counter, self.length_counter);
+        println!(
+            "trigger ch{}: regs={:?}\nvolume={} freq={} len={}",
+            self.channel_num, regs, self.volume, self.frequency_counter, self.length_counter
+        );
         if self.length_counter == 0 {
             self.length_counter = 64;
+        }
+
+        if self.has_sweep {
+            self.sweep_frequency = self.frequency;
+            self.sweep_counter = regs.sweep_period();
+            self.sweep_active = regs.sweep_shift() != 0 || regs.sweep_period() != 0;
+            if regs.sweep_shift() != 0 {
+                let (new_frequency, overflow) = compute_sweep(self.sweep_frequency, regs);
+                if overflow {
+                    // TODO: Disable channel
+                }
+            }
         }
     }
 
@@ -242,7 +300,7 @@ impl SquareVoice {
         if self.frequency_counter > 0 {
             self.frequency_counter -= 1;
         } else {
-            self.frequency_counter = (32 / 8) * (2048 - regs.frequency());
+            self.frequency_counter = self.get_frequency_period();
             self.waveform_index = (self.waveform_index + 1) % 8;
         }
     }
@@ -340,15 +398,43 @@ impl AudioController {
             NR11_REGISTER_ADDR => {
                 let regs = self.nr1x();
                 self.ch1.length_counter = 64 - regs.note_length() as u16;
+            }
+            NR13_REGISTER_ADDR => {
+                let regs = self.nr1x();
+                self.ch1.frequency &= !0xFF;
+                self.ch1.frequency |= regs.frequency_lsb() as u16;
+            }
+            NR14_REGISTER_ADDR => {
+                let regs = self.nr1x();
+                self.ch1.frequency &= !0x700;
+                self.ch1.frequency |= (regs.frequency_msb() as u16) << 8;
+
+                if regs.trigger() {
+                    self.enabled_channels[0] = true;
+                    self.ch1.trigger(regs);
+                }
             },
-            NR14_REGISTER_ADDR => self.trigger_ch1(),
             NR21_REGISTER_ADDR => {
                 let regs = self.nr2x();
                 self.ch1.length_counter = 64 - regs.note_length() as u16;
+            }
+            NR23_REGISTER_ADDR => {
+                let regs = self.nr2x();
+                self.ch2.frequency &= !0xFF;
+                self.ch2.frequency |= regs.frequency_lsb() as u16;
+            }
+            NR24_REGISTER_ADDR => {
+                let regs = self.nr2x();
+                self.ch2.frequency &= !0x700;
+                self.ch2.frequency |= (regs.frequency_msb() as u16) << 8;
+
+                if regs.trigger() {
+                    self.enabled_channels[1] = true;
+                    self.ch2.trigger(regs);
+                }
             },
-            NR24_REGISTER_ADDR => self.trigger_ch2(),
-            NR34_REGISTER_ADDR => self.trigger_ch3(),
-            NR44_REGISTER_ADDR => self.trigger_ch4(),
+            //NR34_REGISTER_ADDR => self.trigger_ch3(),
+            //NR44_REGISTER_ADDR => self.trigger_ch4(),
             _ => {}
         }
     }
@@ -363,25 +449,6 @@ impl AudioController {
             *x = 0
         }
     }
-
-    fn trigger_ch1(&mut self) {
-        let regs = self.nr1x();
-        if regs.trigger() {
-            self.enabled_channels[0] = true;
-            self.ch1.trigger(regs);
-        }
-    }
-
-    fn trigger_ch2(&mut self) {
-        let regs = self.nr2x();
-        if regs.trigger() {
-            self.enabled_channels[1] = true;
-            self.ch2.trigger(regs);
-        }
-    }
-
-    fn trigger_ch3(&mut self) {}
-    fn trigger_ch4(&mut self) {}
 
     pub fn read_reg(&self, addr: u16) -> u8 {
         const UNUSED_BITS: [u8; 0x30] = [
@@ -569,8 +636,12 @@ impl AudioController {
             self.sequencer.step();
         }
 
-        if self.enabled_channels[0] { self.ch1.step(nr1x); }
-        if self.enabled_channels[1] { self.ch2.step(nr2x); }
+        if self.enabled_channels[0] {
+            self.ch1.step(nr1x);
+        }
+        if self.enabled_channels[1] {
+            self.ch2.step(nr2x);
+        }
         // TODO ch3
         // TODO ch4
 
