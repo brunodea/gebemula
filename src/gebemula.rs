@@ -307,28 +307,31 @@ impl<'a> Gebemula<'a> {
                         keycode: Some(Keycode::F4),
                         ..
                     } => {
-                        //sound_controller.pulse_a_toggle();
+                        println!("Pulse A: {:?}",
+                            self.apu.borrow_mut().debug_toggle_channel(0)
+                        );
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F5),
                         ..
                     } => {
-                        //sound_controller.pulse_b_toggle();
+                        println!("Pulse B: {:?}",
+                            self.apu.borrow_mut().debug_toggle_channel(1)
+                        );
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F6),
                         ..
                     } => {
-                        //sound_controller.wave_toggle();
-                        println!("Queue size: {}", audio_device.size());
-                        audio_device.clear();
+                        println!("Custom Wave: {:?}",
+                            self.apu.borrow_mut().debug_toggle_channel(2)
+                        );
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::F7),
                         ..
                     } => {
                         //sound_controller.whitenoise_toggle();
-                        println!("Queue size: {}", audio_device.size());
                     }
                     sdl2::event::Event::KeyDown {
                         keycode: Some(Keycode::Q),
@@ -481,7 +484,7 @@ impl<'a> Gebemula<'a> {
         let current_audio_buf = audio_device.size();
         audio_device.queue(audio_buffer.as_ref());
         if current_audio_buf < 128 {
-            println!("Audio buffer underrun: {} (adding {})", current_audio_buf, audio_buffer.len());
+            //println!("Audio buffer underrun: {} (adding {})", current_audio_buf, audio_buffer.len());
         }
         audio_buffer.clear();
     }

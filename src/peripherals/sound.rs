@@ -41,24 +41,17 @@ pub const NR52_REGISTER_ADDR: u16 = 0xFF26;
 const CUSTOM_WAVE_START_ADDR: u16 = 0xFF30;
 const CUSTOM_WAVE_END_ADDR: u16 = 0xFF3F;
 
-const SWEEP_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 128;
-const ENVELOPE_CYCLES_PER_STEP: u32 = CPU_FREQUENCY_HZ / 64; // every 'envelope step' has cycles.
-
-const SOUND_SYSTEM_CLOCK_HZ: u32 = CPU_FREQUENCY_HZ;
-
 /// Sample rate at which sound samples will be generated (before being downsampled to the output device's samplerate)
 pub const OUTPUT_FREQUENCY: u32 = CPU_FREQUENCY_HZ;
 pub const OUTPUT_CHANNELS: usize = 2;
 
-const FREQ: i32 = 44_100;
-const SAMPLES: u16 = 1024 * 4;
 pub const AUDIO_DESIRED_SPEC: AudioSpecDesired = AudioSpecDesired {
     freq: Some(48000),
     channels: Some(2),
     samples: None, // default sample size
 };
 
-pub fn make_blip_buf(sample_rate: u32) -> BlipBuf {
+fn make_blip_buf(sample_rate: u32) -> BlipBuf {
     let mut buf = BlipBuf::new(sample_rate * 2);
     buf.set_rates(CPU_FREQUENCY_HZ as f64, sample_rate as f64);
     buf
@@ -131,6 +124,46 @@ sweep_period={}, sweep_neg={}, sweep_shift={}, duty={}, len={}, vol={}, env_dir=
                 self.duty_cycle(), self.note_length(),
                 self.initial_volume(), self.env_direction(), self.env_period(),
                 self.frequency(), self.trigger(), self.length_enable())
+    }
+}
+
+#[derive(Copy, Clone)]
+struct WaveVoiceSettings {
+    regs: [u8; 5],
+}
+
+impl WaveVoiceSettings {
+    fn output_on(&self) -> bool {
+        (self.regs[0] & 0b1000_0000) >> 7 != 0
+    }
+
+    fn sound_length(&self) -> u8 {
+        (self.regs[1] & 0b1111_1111) >> 0
+    }
+
+    // volume is either 0%, 100%, 50% or 25%
+    fn volume(&self) -> u8 {
+        (self.regs[2] & 0b0110_0000) >> 5
+    }
+
+    fn frequency_lsb(&self) -> u8 {
+        self.regs[3]
+    }
+
+    fn trigger(&self) -> bool {
+        (self.regs[4] & 0b1000_0000) >> 7 != 0
+    }
+    fn length_enable(&self) -> bool {
+        (self.regs[4] & 0b0100_0000) >> 6 != 0
+    }
+    fn frequency_msb(&self) -> u8 {
+        (self.regs[4] & 0b0000_0111) >> 0
+    }
+
+    fn frequency(&self) -> u16 {
+        let lsb = self.frequency_lsb() as u16;
+        let msb = self.frequency_msb() as u16;
+        msb << 8 | lsb
     }
 }
 
@@ -255,6 +288,7 @@ impl SquareVoice {
         }
     }
 
+    /// Returns true if the sound should stop based on its length.
     fn step_length(&mut self, regs: SquareVoiceSettings) -> bool {
         if regs.length_enable() {
             if self.length_counter > 0 {
@@ -275,10 +309,10 @@ impl SquareVoice {
         self.frequency_counter = self.get_frequency_period();
         self.envelope_counter = regs.env_period();
 
-        println!(
+        /*println!(
             "trigger ch{}: regs={:?}\nvolume={} freq={} len={}",
             self.channel_num, regs, self.volume, self.frequency_counter, self.length_counter
-        );
+        );*/
         if self.length_counter == 0 {
             self.length_counter = 64;
         }
@@ -316,7 +350,78 @@ impl SquareVoice {
     }
 }
 
-struct WaveVoice {}
+const CUSTOM_WAVE_SIZE: usize = (CUSTOM_WAVE_END_ADDR-CUSTOM_WAVE_START_ADDR + 1) as usize;
+
+struct WaveVoice {
+    custom_wave: [u8; CUSTOM_WAVE_SIZE],
+    pos_counter: u16,
+    length_counter: u16,
+    frequency: u16,
+    frequency_counter: u16,
+}
+
+impl WaveVoice {
+    fn new() -> Self {
+        WaveVoice {
+            custom_wave: [0; CUSTOM_WAVE_SIZE],
+            pos_counter: 0,
+            length_counter: 0,
+            frequency: 0,
+            frequency_counter: 0,
+        }
+    }
+
+    /// Returns true if the sound should stop based on its length.
+    fn step_length(&mut self, regs: WaveVoiceSettings) -> bool {
+        if regs.length_enable() {
+            if self.length_counter > 0 {
+                self.length_counter -= 1;
+            } else {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn get_frequency_period(&self) -> u16 {
+        (2048 - self.frequency) * 2
+    }
+
+    fn trigger(&mut self, regs: WaveVoiceSettings) {
+        self.pos_counter = 0;
+        self.frequency_counter = self.get_frequency_period();
+        
+        if self.length_counter == 0 {
+            self.length_counter = 256;
+        }
+    }
+
+    fn step(&mut self, regs: WaveVoiceSettings) {
+        if self.frequency_counter > 0 {
+            self.frequency_counter -= 1;
+        } else {
+            self.frequency_counter = self.get_frequency_period();
+            self.pos_counter = (self.pos_counter + 1) % (self.custom_wave.len() as u16 * 2); //*2 because each nibble is a sample
+        }
+    }
+
+    //4 bit output
+    fn sample(&self, regs: WaveVoiceSettings) -> u8 {
+        if regs.volume() == 0 {
+            0
+        } else {
+            let pos = (self.pos_counter / 2) as usize;
+            let nibble = self.pos_counter % 2;
+            let sample = if nibble == 0 {
+                self.custom_wave[pos] >> 4
+            } else {
+                self.custom_wave[pos] & 0x0F
+            };
+            sample >> (regs.volume() - 1)
+        }
+    }
+}
+
 struct NoiseVoice {}
 
 pub struct AudioController {
@@ -346,6 +451,8 @@ pub struct AudioController {
     ch2: SquareVoice,
     ch3: WaveVoice,
     ch4: NoiseVoice,
+
+    debug_enabled_channels: [bool; NUM_CHANNELS],
 }
 
 impl AudioController {
@@ -366,8 +473,10 @@ impl AudioController {
             enabled_channels: [false; NUM_CHANNELS],
             ch1: SquareVoice::new(1),
             ch2: SquareVoice::new(2),
-            ch3: WaveVoice {},
+            ch3: WaveVoice::new(),
             ch4: NoiseVoice {},
+
+            debug_enabled_channels: [true; NUM_CHANNELS],
         }
     }
 
@@ -389,7 +498,9 @@ impl AudioController {
             }
             // Check if register write is allowed by current power-on status
             _ if self.apu_enabled => {}
-            CUSTOM_WAVE_START_ADDR...CUSTOM_WAVE_END_ADDR => {}
+            CUSTOM_WAVE_START_ADDR...CUSTOM_WAVE_END_ADDR => {
+                self.ch3.custom_wave[(addr - CUSTOM_WAVE_START_ADDR) as usize] = val;
+            }
             _ => return,
         }
 
@@ -416,7 +527,7 @@ impl AudioController {
             },
             NR21_REGISTER_ADDR => {
                 let regs = self.nr2x();
-                self.ch1.length_counter = 64 - regs.note_length() as u16;
+                self.ch2.length_counter = 64 - regs.note_length() as u16;
             }
             NR23_REGISTER_ADDR => {
                 let regs = self.nr2x();
@@ -432,8 +543,25 @@ impl AudioController {
                     self.enabled_channels[1] = true;
                     self.ch2.trigger(regs);
                 }
-            },
-            //NR34_REGISTER_ADDR => self.trigger_ch3(),
+            }
+            NR31_REGISTER_ADDR => {
+                let regs = self.nr3x();
+                self.ch3.length_counter = 256 - regs.sound_length() as u16;
+            }
+            NR33_REGISTER_ADDR => {
+                let regs = self.nr3x();
+                self.ch3.frequency &= !0xFF;
+                self.ch3.frequency |= regs.frequency_lsb() as u16;
+            }
+            NR34_REGISTER_ADDR => {
+                let regs = self.nr3x();
+                self.ch3.frequency &= !0x700;
+                self.ch3.frequency |= (regs.frequency_msb() as u16) << 8;
+                if regs.trigger() {
+                    self.enabled_channels[2] = true;
+                    self.ch3.trigger(regs);
+                }
+            }
             //NR44_REGISTER_ADDR => self.trigger_ch4(),
             _ => {}
         }
@@ -541,8 +669,10 @@ impl AudioController {
         }
     }
 
-    fn nr3x(&self) -> &[u8; 5] {
-        array_ref![self.regs, 10, 5]
+    fn nr3x(&self) -> WaveVoiceSettings {
+        WaveVoiceSettings {
+            regs: *array_ref![self.regs, 10, 5],
+        }
     }
 
     fn nr4x(&self) -> &[u8; 5] {
@@ -602,6 +732,12 @@ impl AudioController {
         output.pop();
     }
 
+    pub fn debug_toggle_channel(&mut self, ch: usize) -> bool {
+        //assert 0 <= ch <= 3
+        self.debug_enabled_channels[ch] = !self.debug_enabled_channels[ch];
+        self.debug_enabled_channels[ch]
+    }
+
     fn step(&mut self) -> (i32, i32) {
         if !self.apu_enabled {
             return (0, 0);
@@ -609,6 +745,7 @@ impl AudioController {
 
         let nr1x = self.nr1x();
         let nr2x = self.nr2x();
+        let nr3x = self.nr3x();
 
         self.sequencer_counter = (self.sequencer_counter + 1) % 8192;
         if self.sequencer_counter == 0 {
@@ -618,6 +755,9 @@ impl AudioController {
                 }
                 if self.ch2.step_length(nr2x) {
                     self.enabled_channels[1] = false;
+                }
+                if self.ch3.step_length(nr3x) {
+                    self.enabled_channels[2] = false;
                 }
             }
 
@@ -642,18 +782,27 @@ impl AudioController {
         if self.enabled_channels[1] {
             self.ch2.step(nr2x);
         }
-        // TODO ch3
+        if self.enabled_channels[2] {
+            self.ch3.step(nr3x);
+        }
         // TODO ch4
 
         let mut mixed = 0;
         let ch1_val = self.ch1.sample(nr1x) as i32;
         let ch2_val = self.ch2.sample(nr2x) as i32;
+        let ch3_val = self.ch3.sample(nr3x) as i32;
 
-        if self.enabled_channels[0] {
+        if self.debug_enabled_channels[0] && self.enabled_channels[0] {
             mixed += (ch1_val - 7) * 0x200;
         }
-        if self.enabled_channels[1] {
+        if self.debug_enabled_channels[1] && self.enabled_channels[1] {
             mixed += (ch2_val - 7) * 0x200;
+        }
+        if self.debug_enabled_channels[2] && self.enabled_channels[2] {
+            if ch3_val != 0 {
+                println!("ch3: {}", ch3_val);
+            }
+            mixed += (ch3_val - 7) * 0x200;
         }
 
         (mixed, mixed)
