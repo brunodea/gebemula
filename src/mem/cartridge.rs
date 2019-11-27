@@ -1,10 +1,10 @@
-use mem::Memory;
-use mem::mapper::{Mapper, NullMapper};
-use mem::mapper::rom::RomMapper;
-use mem::mapper::mbc1::Mbc1Mapper;
-use mem::mapper::mbc2::Mbc2Mapper;
-use mem::mapper::mbc3::Mbc3Mapper;
-use mem::mapper::mbc5::Mbc5Mapper;
+use crate::mem::Memory;
+use crate::mem::mapper::{Mapper, NullMapper};
+use crate::mem::mapper::rom::RomMapper;
+use crate::mem::mapper::mbc1::Mbc1Mapper;
+use crate::mem::mapper::mbc2::Mbc2Mapper;
+use crate::mem::mapper::mbc3::Mbc3Mapper;
+use crate::mem::mapper::mbc5::Mbc5Mapper;
 use std::str;
 use std::cmp;
 
@@ -36,13 +36,13 @@ pub enum MapperType {
 }
 
 bitflags! {
-    pub flags CartExtraHardware : u32 {
-        const NONE_HW       = 0,
-        const RAM           = 1 << 0,
-        const BATTERY       = 1 << 1,
-        const RTC           = 1 << 2,
-        const RUMBLE        = 1 << 3,
-        const ACCELEROMETER = 1 << 4,
+    pub struct CartExtraHardware: u32 {
+        const NONE_HW       = 0;
+        const RAM           = 1 << 0;
+        const BATTERY       = 1 << 1;
+        const RTC           = 1 << 2;
+        const RUMBLE        = 1 << 3;
+        const ACCELEROMETER = 1 << 4;
     }
 }
 
@@ -66,16 +66,16 @@ pub fn cartridge_type_string(mapper: MapperType, extra_hw: CartExtraHardware) ->
         MapperType::Unknown => "???",
     }.to_owned();
 
-    if extra_hw.contains(RAM) {
+    if extra_hw.contains(CartExtraHardware::RAM) {
         s.push_str("+RAM");
     }
-    if extra_hw.contains(BATTERY) {
+    if extra_hw.contains(CartExtraHardware::BATTERY) {
         s.push_str("+BATTERY");
     }
-    if extra_hw.contains(RTC) {
-        s.push_str("+RTC");
+    if extra_hw.contains(CartExtraHardware::RTC) {
+        s.push_str("+CartExtraHardware::RTC");
     }
-    if extra_hw.contains(RUMBLE) {
+    if extra_hw.contains(CartExtraHardware::RUMBLE) {
         s.push_str("+RUMBLE");
     }
 
@@ -84,44 +84,44 @@ pub fn cartridge_type_string(mapper: MapperType, extra_hw: CartExtraHardware) ->
 
 pub fn cart_type_from_id(id: u8) -> (MapperType, CartExtraHardware) {
     match id {
-        0x00 => (MapperType::Rom, NONE_HW),
-        0x01 => (MapperType::Mbc1, NONE_HW),
-        0x02 => (MapperType::Mbc1, RAM),
-        0x03 => (MapperType::Mbc1, RAM | BATTERY),
+        0x00 => (MapperType::Rom, CartExtraHardware::NONE_HW),
+        0x01 => (MapperType::Mbc1, CartExtraHardware::NONE_HW),
+        0x02 => (MapperType::Mbc1, CartExtraHardware::RAM),
+        0x03 => (MapperType::Mbc1, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x05 => (MapperType::Mbc2, NONE_HW),
-        0x06 => (MapperType::Mbc2, RAM | BATTERY),
+        0x05 => (MapperType::Mbc2, CartExtraHardware::NONE_HW),
+        0x06 => (MapperType::Mbc2, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x08 => (MapperType::Rom, RAM),
-        0x09 => (MapperType::Rom, RAM | BATTERY),
+        0x08 => (MapperType::Rom, CartExtraHardware::RAM),
+        0x09 => (MapperType::Rom, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x0B => (MapperType::Mmm01, NONE_HW),
-        0x0C => (MapperType::Mmm01, RAM),
-        0x0D => (MapperType::Mmm01, RAM | BATTERY),
+        0x0B => (MapperType::Mmm01, CartExtraHardware::NONE_HW),
+        0x0C => (MapperType::Mmm01, CartExtraHardware::RAM),
+        0x0D => (MapperType::Mmm01, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x0F => (MapperType::Mbc3, RTC | BATTERY),
-        0x10 => (MapperType::Mbc3, RAM | RTC | BATTERY),
-        0x11 => (MapperType::Mbc3, NONE_HW),
-        0x12 => (MapperType::Mbc3, RAM),
-        0x13 => (MapperType::Mbc3, RAM | BATTERY),
+        0x0F => (MapperType::Mbc3, CartExtraHardware::RTC | CartExtraHardware::BATTERY),
+        0x10 => (MapperType::Mbc3, CartExtraHardware::RAM | CartExtraHardware::RTC | CartExtraHardware::BATTERY),
+        0x11 => (MapperType::Mbc3, CartExtraHardware::NONE_HW),
+        0x12 => (MapperType::Mbc3, CartExtraHardware::RAM),
+        0x13 => (MapperType::Mbc3, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x19 => (MapperType::Mbc5, NONE_HW),
-        0x1A => (MapperType::Mbc5, RAM),
-        0x1B => (MapperType::Mbc5, RAM | BATTERY),
-        0x1C => (MapperType::Mbc5, RUMBLE),
-        0x1D => (MapperType::Mbc5, RAM | RUMBLE),
-        0x1E => (MapperType::Mbc5, RAM | BATTERY | RUMBLE),
+        0x19 => (MapperType::Mbc5, CartExtraHardware::NONE_HW),
+        0x1A => (MapperType::Mbc5, CartExtraHardware::RAM),
+        0x1B => (MapperType::Mbc5, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
+        0x1C => (MapperType::Mbc5, CartExtraHardware::RUMBLE),
+        0x1D => (MapperType::Mbc5, CartExtraHardware::RAM | CartExtraHardware::RUMBLE),
+        0x1E => (MapperType::Mbc5, CartExtraHardware::RAM | CartExtraHardware::BATTERY | CartExtraHardware::RUMBLE),
 
-        0x20 => (MapperType::Mbc6, RAM | BATTERY),
+        0x20 => (MapperType::Mbc6, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        0x22 => (MapperType::Mbc7, RAM | BATTERY | ACCELEROMETER),
+        0x22 => (MapperType::Mbc7, CartExtraHardware::RAM | CartExtraHardware::BATTERY | CartExtraHardware::ACCELEROMETER),
 
-        0xFC => (MapperType::PocketCamera, NONE_HW),
-        0xFD => (MapperType::Tama5, NONE_HW),
-        0xFE => (MapperType::Huc3, NONE_HW),
-        0xFF => (MapperType::Huc1, RAM | BATTERY),
+        0xFC => (MapperType::PocketCamera, CartExtraHardware::NONE_HW),
+        0xFD => (MapperType::Tama5, CartExtraHardware::NONE_HW),
+        0xFE => (MapperType::Huc3, CartExtraHardware::NONE_HW),
+        0xFF => (MapperType::Huc1, CartExtraHardware::RAM | CartExtraHardware::BATTERY),
 
-        _ => (MapperType::Unknown, NONE_HW),
+        _ => (MapperType::Unknown, CartExtraHardware::NONE_HW),
     }
 }
 
@@ -143,7 +143,7 @@ pub fn game_title_str(memory: &Memory) -> String {
 
 pub fn parse_rom_size(id: u8) -> usize {
     match id {
-        0x00...0x08 => (32 * 1024) << id,
+        0x00..=0x08 => (32 * 1024) << id,
         _ => panic!("Unknown ROM size: {:#02X}", id),
     }
 }
@@ -160,7 +160,7 @@ pub fn parse_ram_size(id: u8) -> usize {
     }
 }
 
-pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
+pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<dyn Mapper> {
     if rom.len() == 0 {
         println!("Warning: No cartridge inserted.");
         return Box::new(NullMapper);
@@ -185,7 +185,7 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
     &rom_data[..copy_len].copy_from_slice(&rom[..copy_len]);
 
     // Initialize RAM backing memory
-    let expected_battery_size = ram_size + if extra_hw.contains(BATTERY) { 48 } else { 0 };
+    let expected_battery_size = ram_size + if extra_hw.contains(CartExtraHardware::BATTERY) { 48 } else { 0 };
     if !battery.is_empty() && battery.len() != expected_battery_size {
         println!(
             "WARNING: Battery file has unexpected size: {:#X}, expected {:#X}",
@@ -202,28 +202,28 @@ pub fn load_cartridge(rom: &[u8], battery: &[u8]) -> Box<Mapper> {
         MapperType::Rom => Box::new(RomMapper::new(
             rom_data,
             ram_data,
-            extra_hw.contains(BATTERY),
+            extra_hw.contains(CartExtraHardware::BATTERY),
         )),
         MapperType::Mbc1 => Box::new(Mbc1Mapper::new(
             rom_data,
             ram_data,
-            extra_hw.contains(BATTERY),
+            extra_hw.contains(CartExtraHardware::BATTERY),
         )),
         MapperType::Mbc2 => Box::new(Mbc2Mapper::new(
             rom_data,
             ram_data,
-            extra_hw.contains(BATTERY),
+            extra_hw.contains(CartExtraHardware::BATTERY),
         )),
         MapperType::Mbc3 => Box::new(Mbc3Mapper::new(
             rom_data,
             ram_data,
-            extra_hw.contains(BATTERY),
-            extra_hw.contains(RTC),
+            extra_hw.contains(CartExtraHardware::BATTERY),
+            extra_hw.contains(CartExtraHardware::RTC),
         )),
         MapperType::Mbc5 => Box::new(Mbc5Mapper::new(
             rom_data,
             ram_data,
-            extra_hw.contains(BATTERY),
+            extra_hw.contains(CartExtraHardware::BATTERY),
         )),
         _ => panic!(
             "Cartridges of type {:#X} are not yet supported.",

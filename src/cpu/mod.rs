@@ -554,7 +554,7 @@ impl Cpu {
                 instruction.cycles = cycles;
                 instruction.imm8 = Some(immediate);
             }
-            0x40...0x75 | 0x77...0x7F => {
+            0x40..=0x75 | 0x77..=0x7F => {
                 //LD r,r; LD r,(HL); LD (HL),r
                 let reg_rhs = Reg::pair_from_ddd(byte);
                 let reg_lhs = Reg::pair_from_ddd(byte >> 3);
@@ -694,7 +694,7 @@ impl Cpu {
             /*****************************************/
             /* 8 bit arithmetic/logical instructions */
             /*****************************************/
-            0x80...0xBF | 0xC6 | 0xD6 | 0xE6 | 0xF6 | 0xCE | 0xDE | 0xEE | 0xFE => {
+            0x80..=0xBF | 0xC6 | 0xD6 | 0xE6 | 0xF6 | 0xCE | 0xDE | 0xEE | 0xFE => {
                 //ADD A,r; ADD A,(HL)
                 //ADC A,r; ADC A,(HL)
                 //SUB r; SUB (HL); SBC A,r; SBC A,(HL)
@@ -1017,28 +1017,28 @@ impl Cpu {
 
         let mut is_bit_op = false;
         match opcode {
-            0x00...0x07 => {
+            0x00..=0x07 => {
                 // RLC b
                 let bit_7 = (value >> 7) & 0b1;
 
                 value = (value << 1) | bit_7;
                 self.flag_set(bit_7 == 1, Flag::C);
             }
-            0x08...0x0F => {
+            0x08..=0x0F => {
                 // RRC m
                 let bit_0 = value & 0b1;
 
                 value = (value >> 1) | (bit_0 << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
             }
-            0x10...0x17 => {
+            0x10..=0x17 => {
                 // RL m
                 let bit_7 = (value >> 7) & 0b1;
 
                 value = (value << 1) | self.flag_bit(Flag::C);
                 self.flag_set(bit_7 == 1, Flag::C);
             }
-            0x18...0x1F => {
+            0x18..=0x1F => {
                 // RR m
                 let bit_c = self.flag_bit(Flag::C);
                 let bit_0 = value & 0b1;
@@ -1046,14 +1046,14 @@ impl Cpu {
                 value = (value >> 1) | (bit_c << 7);
                 self.flag_set(bit_0 == 1, Flag::C);
             }
-            0x20...0x27 => {
+            0x20..=0x27 => {
                 // SLA n
                 let bit_7 = (value >> 7) & 0b1;
                 value = value << 1;
 
                 self.flag_set(bit_7 == 1, Flag::C);
             }
-            0x28...0x2F => {
+            0x28..=0x2F => {
                 // SRA n
                 let bit_7 = value & 0b1000_0000;
                 let bit_0 = value & 0b1;
@@ -1061,19 +1061,19 @@ impl Cpu {
 
                 self.flag_set(bit_0 == 1, Flag::C);
             }
-            0x30...0x37 => {
+            0x30..=0x37 => {
                 // SWAP n
                 value = (value << 4) | (value >> 4);
                 self.flag_set(false, Flag::C);
             }
-            0x38...0x3F => {
+            0x38..=0x3F => {
                 // SRL n
                 let bit_0 = value & 0b1;
                 value = value >> 1;
 
                 self.flag_set(bit_0 == 1, Flag::C);
             }
-            0x40...0x7F => {
+            0x40..=0x7F => {
                 // BIT b,r; BIT b,(HL)
                 cycles = if reg == Reg::HL { 12 } else { 8 };
                 self.flag_set(((value >> bit) & 0b1) == 0b0, Flag::Z);
@@ -1082,11 +1082,11 @@ impl Cpu {
 
                 is_bit_op = true;
             }
-            0x80...0xBF => {
+            0x80..=0xBF => {
                 // RES b,r; RES b,(HL)
                 value = value & !(1 << bit);
             }
-            0xC0...0xFF => {
+            0xC0..=0xFF => {
                 // SET b,r; SET b,(HL)
                 value = value | (1 << bit);
             }
@@ -1291,14 +1291,14 @@ impl Cpu {
         let mut unchange_a = false;
 
         match opcode {
-            0x80...0x87 | 0xC6 => {
+            0x80..=0x87 | 0xC6 => {
                 // ADD
                 result = reg_a_val.wrapping_add(value);
                 self.flag_set(false, Flag::N);
                 self.flag_set(util::has_half_carry(reg_a_val, value), Flag::H);
                 self.flag_set(util::has_carry(reg_a_val, value), Flag::C);
             }
-            0x88...0x8F | 0xCE => {
+            0x88..=0x8F | 0xCE => {
                 // ADC
                 let c = self.flag_bit(Flag::C);
                 let val2 = value.wrapping_add(c);
@@ -1313,14 +1313,14 @@ impl Cpu {
                     Flag::C,
                 );
             }
-            0x90...0x97 | 0xD6 => {
+            0x90..=0x97 | 0xD6 => {
                 // SUB
                 result = reg_a_val.wrapping_sub(value);
                 self.flag_set(true, Flag::N);
                 self.flag_set(util::has_borrow(reg_a_val, value), Flag::H);
                 self.flag_set(value > reg_a_val, Flag::C);
             }
-            0x98...0x9F | 0xDE => {
+            0x98..=0x9F | 0xDE => {
                 // SBC
                 let c = self.flag_bit(Flag::C);
                 let val2 = value.wrapping_add(c);
@@ -1332,28 +1332,28 @@ impl Cpu {
                 );
                 self.flag_set(val2 > reg_a_val || util::has_carry(value, c), Flag::C);
             }
-            0xA0...0xA7 | 0xE6 => {
+            0xA0..=0xA7 | 0xE6 => {
                 // AND
                 result = reg_a_val & value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(true, Flag::H);
                 self.flag_set(false, Flag::C);
             }
-            0xA8...0xAF | 0xEE => {
+            0xA8..=0xAF | 0xEE => {
                 // XOR
                 result = reg_a_val ^ value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             }
-            0xB0...0xB7 | 0xF6 => {
+            0xB0..=0xB7 | 0xF6 => {
                 // OR
                 result = reg_a_val | value;
                 self.flag_set(false, Flag::N);
                 self.flag_set(false, Flag::H);
                 self.flag_set(false, Flag::C);
             }
-            0xB8...0xBF | 0xFE => {
+            0xB8..=0xBF | 0xFE => {
                 // CP
                 result = if reg_a_val == value { 0x0 } else { 0x1 };
                 self.flag_set(true, Flag::N);

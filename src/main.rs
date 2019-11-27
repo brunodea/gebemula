@@ -20,7 +20,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use gebemula::Gebemula;
+use crate::gebemula::Gebemula;
 
 fn main() {
     let args = App::new("Gebemula")

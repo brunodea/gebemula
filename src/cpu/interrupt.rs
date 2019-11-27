@@ -1,5 +1,5 @@
 use super::super::mem;
-use cpu::ioregister;
+use crate::cpu::ioregister;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Interrupt {

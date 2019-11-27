@@ -3,7 +3,7 @@ pub mod cartridge;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use mem::mapper::Mapper;
+use crate::mem::mapper::Mapper;
 use super::cpu::ioregister::{BGPD_REGISTER_ADDR, BGPI_REGISTER_ADDR, OBPD_REGISTER_ADDR,
                              OBPI_REGISTER_ADDR, SVBK_REGISTER_ADDR, VBK_REGISTER_ADDR};
 use super::peripherals::sound::AudioController;
@@ -28,7 +28,7 @@ pub struct Memory {
     io_registers: [u8; IO_SIZE],
     hram: [u8; HRAM_SIZE],
     interrupts_enable: u8,
-    cartridge: Box<Mapper>,
+    cartridge: Box<dyn Mapper>,
     bootstrap_enabled: bool,
     can_access_vram: bool,
     can_access_oam: bool,
@@ -105,39 +105,39 @@ impl Memory {
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
         match address {
-            0x0000...0x7FFF => self.cartridge.write_rom(address, value),
-            0x8000...0x9FFF => {
+            0x0000..=0x7FFF => self.cartridge.write_rom(address, value),
+            0x8000..=0x9FFF => {
                 if self.can_access_vram {
                     let addr = (address - 0x8000) as usize + (VRAM_BANK_SIZE * self.vbk() as usize);
                     self.vram[addr] = value;
                 }
             }
-            0xA000...0xBFFF => self.cartridge.write_ram(address, value),
-            0xC000...0xCFFF => {
+            0xA000..=0xBFFF => self.cartridge.write_ram(address, value),
+            0xC000..=0xCFFF => {
                 // always wram bank 0.
                 self.wram[address as usize - 0xC000] = value;
             }
-            0xD000...0xDFFF => {
+            0xD000..=0xDFFF => {
                 let addr = (address - 0xC000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr] = value;
             }
-            0xE000...0xEFFF => {
+            0xE000..=0xEFFF => {
                 // always wram bank 0.
                 self.wram[address as usize - 0xE000] = value;
             }
-            0xF000...0xFDFF => {
+            0xF000..=0xFDFF => {
                 let addr = (address - 0xE000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr] = value;
             }
-            0xFE00...0xFE9F => {
+            0xFE00..=0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize] = value;
                 }
             }
-            0xFEA0...0xFEFF => (), // panic!("writing to unusable ram."),
-            0xFF10...0xFF3F => self.apu.borrow_mut().write_reg(address, value),
-            0xFF00...0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
-            0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
+            0xFEA0..=0xFEFF => (), // panic!("writing to unusable ram."),
+            0xFF10..=0xFF3F => self.apu.borrow_mut().write_reg(address, value),
+            0xFF00..=0xFF7F => self.io_registers[(address - 0xFF00) as usize] = value,
+            0xFF80..=0xFFFE => self.hram[(address - 0xFF80) as usize] = value,
             0xFFFF => self.interrupts_enable = value,
             _ => panic!("Out of bound! Tried to write to {:#x}.", address),
         }
@@ -145,14 +145,14 @@ impl Memory {
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            0x0000...0x00FF if self.bootstrap_enabled && !self.is_color() => {
+            0x0000..=0x00FF if self.bootstrap_enabled && !self.is_color() => {
                 self.bootstrap_rom[address as usize]
             }
-            0x0000...0x0900 if self.bootstrap_enabled && self.is_color() => {
+            0x0000..=0x0900 if self.bootstrap_enabled && self.is_color() => {
                 self.bootstrap_rom[address as usize]
             }
-            0x0000...0x7FFF => self.cartridge.read_rom(address),
-            0x8000...0x9FFF => {
+            0x0000..=0x7FFF => self.cartridge.read_rom(address),
+            0x8000..=0x9FFF => {
                 if self.can_access_vram {
                     let addr = (address - 0x8000) as usize + (VRAM_BANK_SIZE * self.vbk() as usize);
                     self.vram[addr]
@@ -160,27 +160,27 @@ impl Memory {
                     0xFF
                 }
             }
-            0xA000...0xBFFF => self.cartridge.read_ram(address),
-            0xC000...0xCFFF => self.wram[address as usize - 0xC000],
-            0xD000...0xDFFF => {
+            0xA000..=0xBFFF => self.cartridge.read_ram(address),
+            0xC000..=0xCFFF => self.wram[address as usize - 0xC000],
+            0xD000..=0xDFFF => {
                 let addr = (address - 0xC000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr]
             }
-            0xE000...0xEFFF => self.wram[address as usize - 0xE000],
-            0xF000...0xFDFF => {
+            0xE000..=0xEFFF => self.wram[address as usize - 0xE000],
+            0xF000..=0xFDFF => {
                 let addr = (address - 0xE000) as usize + (WRAM_BANK_SIZE * self.svbk() as usize);
                 self.wram[addr]
             }
-            0xFE00...0xFE9F => {
+            0xFE00..=0xFE9F => {
                 if self.can_access_oam {
                     self.oam[(address - 0xFE00) as usize]
                 } else {
                     0xFF
                 }
             }
-            0xFEA0...0xFEFF => 0x0,
-            0xFF10...0xFF3F => self.apu.borrow().read_reg(address),
-            0xFF00...0xFF7F => {
+            0xFEA0..=0xFEFF => 0x0,
+            0xFF10..=0xFF3F => self.apu.borrow().read_reg(address),
+            0xFF00..=0xFF7F => {
                 match address {
                     BGPD_REGISTER_ADDR => {
                         if self.is_color() {
@@ -205,7 +205,7 @@ impl Memory {
                     _ => self.io_registers[(address - 0xFF00) as usize],
                 }
             }
-            0xFF80...0xFFFE => self.hram[(address - 0xFF80) as usize],
+            0xFF80..=0xFFFE => self.hram[(address - 0xFF80) as usize],
             0xFFFF => self.interrupts_enable,
             _ => panic!("Out of bound! Tried to read from {:#x}.", address),
         }

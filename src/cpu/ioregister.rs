@@ -1,4 +1,4 @@
-use cpu::interrupt;
+use crate::cpu::interrupt;
 use super::super::mem;
 
 pub const CPU_FREQUENCY_HZ: u32 = 4194304; //that is, number of cycles per second.

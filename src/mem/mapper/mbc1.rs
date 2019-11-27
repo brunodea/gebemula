@@ -1,4 +1,4 @@
-use mem::mapper::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use crate::mem::mapper::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 pub struct Mbc1Mapper {
     /// Mapped to the ROM area. Up to 2 MiB in size.

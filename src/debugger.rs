@@ -1,8 +1,8 @@
-use cpu::{ioregister, Cpu, Instruction, Reg};
-use mem::{self, Memory};
-use peripherals::sound;
+use crate::cpu::{ioregister, Cpu, Instruction, Reg};
+use crate::mem::{self, Memory};
+use crate::peripherals::sound;
 use std::io::{self, Write};
-use gebemula::GBMode;
+use crate::gebemula::GBMode;
 
 struct BreakCommand {
     break_addr: Option<u16>,
@@ -541,38 +541,38 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
         }
         let bit = instruction.opcode >> 3 & 0b111;
         match instruction.opcode {
-            0x00...0x07 => format!("rlc {}", r),
-            0x08...0x0F => format!("rrc {}", r),
-            0x10...0x17 => {
+            0x00..=0x07 => format!("rlc {}", r),
+            0x08..=0x0F => format!("rrc {}", r),
+            0x10..=0x17 => {
                 // RL m
                 format!("rl {}", r)
             }
-            0x18...0x1F => {
+            0x18..=0x1F => {
                 // RR m
                 format!("rr {}", r)
             }
-            0x20...0x27 => format!("sla {}", r),
-            0x28...0x2F => {
+            0x20..=0x27 => format!("sla {}", r),
+            0x28..=0x2F => {
                 // SRA n
                 format!("sra {}", r)
             }
-            0x30...0x37 => {
+            0x30..=0x37 => {
                 // SWAP n
                 format!("swap {}", r)
             }
-            0x38...0x3F => {
+            0x38..=0x3F => {
                 // SRL n
                 format!("srl {}", r)
             }
-            0x40...0x7F => {
+            0x40..=0x7F => {
                 // BIT b,r; BIT b,(HL)
                 format!("bit {},{}", bit, r)
             }
-            0x80...0xBF => {
+            0x80..=0xBF => {
                 // RES b,r; RES b,(HL)
                 format!("res {},{}", bit, r)
             }
-            0xC0...0xFF => {
+            0xC0..=0xFF => {
                 // SET b,r; SET b,(HL)
                 format!("set {},{}", bit, r)
             }
@@ -648,7 +648,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("ld {},{:#x}", r, instruction.imm8.unwrap())
             }
-            0x40...0x6F | 0x70...0x75 | 0x77...0x7F => {
+            0x40..=0x6F | 0x70..=0x75 | 0x77..=0x7F => {
                 //LD r,r; LD r,(HL); LD (HL),r
                 let reg_rhs = Reg::pair_from_ddd(instruction.opcode);
                 let reg_lhs = Reg::pair_from_ddd(instruction.opcode >> 3);
@@ -731,7 +731,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
             /*****************************************/
             /* 8 bit arithmetic/logical instructions */
             /*****************************************/
-            0x80...0x87 => {
+            0x80..=0x87 => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -739,7 +739,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("add A,{}", v)
             }
-            0x88...0x8F => {
+            0x88..=0x8F => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -747,7 +747,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("adc A,{}", v)
             }
-            0x90...0x97 => {
+            0x90..=0x97 => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -755,7 +755,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("sub {}", v)
             }
-            0x98...0x9F => {
+            0x98..=0x9F => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -763,7 +763,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("sbc A,{}", v)
             }
-            0xA0...0xA7 => {
+            0xA0..=0xA7 => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -771,7 +771,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("and {}", v)
             }
-            0xA8...0xAF => {
+            0xA8..=0xAF => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -779,7 +779,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("xor {}", v)
             }
-            0xB0...0xB7 => {
+            0xB0..=0xB7 => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {
@@ -787,7 +787,7 @@ pub fn instr_to_human(instruction: &Instruction) -> String {
                 }
                 format!("or {}", v)
             }
-            0xB8...0xBF => {
+            0xB8..=0xBF => {
                 let reg = Reg::pair_from_ddd(instruction.opcode);
                 let mut v = format!("{:?}", reg);
                 if reg == Reg::HL {

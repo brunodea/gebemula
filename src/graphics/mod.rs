@@ -174,7 +174,7 @@ pub struct Graphics {
     bg_on: bool,
     wn_on: bool,
     sprites_on: bool,
-    rgb: Box<RGB>,
+    rgb: Box<dyn RGB>,
 }
 
 impl Default for Graphics {
@@ -293,7 +293,7 @@ impl Graphics {
             // tile map is on vram bank 0
             memory.write_byte(ioregister::VBK_REGISTER_ADDR, 0);
             let tile_number = memory.read_byte(tile_addr);
-            let mut tile_location = if is_tile_number_signed {
+            let tile_location = if is_tile_number_signed {
                 (tile_map_addr as i32
                     + ((tile_number as i8 as i32 + 128) * consts::TILE_SIZE_BYTES as i32))
                     as u16

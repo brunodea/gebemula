@@ -1,14 +1,14 @@
-use peripherals::joypad::{self, Joypad, JoypadKey};
-use peripherals::lcd::LCD;
-use peripherals::sound::{AudioController, AUDIO_DESIRED_SPEC};
+use crate::peripherals::joypad::{Joypad, JoypadKey};
+use crate::peripherals::lcd::LCD;
+use crate::peripherals::sound::{AudioController, AUDIO_DESIRED_SPEC};
 
-use cpu::{ioregister, Cpu, EventRequest};
-use cpu::timer::Timer;
+use crate::cpu::{ioregister, Cpu, EventRequest};
+use crate::cpu::timer::Timer;
 
-use graphics;
+use crate::graphics;
 
-use mem::Memory;
-use debugger::Debugger;
+use crate::mem::Memory;
+use crate::debugger::Debugger;
 
 use sdl2;
 use sdl2::pixels::{Color, PixelFormatEnum};
@@ -52,7 +52,7 @@ pub struct Gebemula<'a> {
     joypad: Joypad,
     apu: Rc<RefCell<AudioController>>,
     /// Used to periodically save the battery-backed cartridge SRAM to file.
-    battery_save_callback: Option<&'a Fn(&[u8])>,
+    battery_save_callback: Option<&'a dyn Fn(&[u8])>,
     speed_mode: SpeedMode,
 }
 
@@ -96,7 +96,7 @@ impl<'a> Gebemula<'a> {
         }
     }
 
-    pub fn set_save_battery_callback(&mut self, callback: &'a Fn(&[u8])) {
+    pub fn set_save_battery_callback(&mut self, callback: &'a dyn Fn(&[u8])) {
         self.battery_save_callback = Some(callback);
     }
 
@@ -188,15 +188,15 @@ impl<'a> Gebemula<'a> {
     }
 
     fn adjust_joypad_keys(&mut self, event_pump: &sdl2::EventPump) {
-        self.set_joypad_key(joypad::A, Scancode::Z, event_pump);
-        self.set_joypad_key(joypad::B, Scancode::X, event_pump);
-        self.set_joypad_key(joypad::SELECT, Scancode::LShift, event_pump);
-        self.set_joypad_key(joypad::START, Scancode::LCtrl, event_pump);
+        self.set_joypad_key(JoypadKey::A, Scancode::Z, event_pump);
+        self.set_joypad_key(JoypadKey::B, Scancode::X, event_pump);
+        self.set_joypad_key(JoypadKey::SELECT, Scancode::LShift, event_pump);
+        self.set_joypad_key(JoypadKey::START, Scancode::LCtrl, event_pump);
 
-        self.set_joypad_key(joypad::RIGHT, Scancode::Right, event_pump);
-        self.set_joypad_key(joypad::LEFT, Scancode::Left, event_pump);
-        self.set_joypad_key(joypad::UP, Scancode::Up, event_pump);
-        self.set_joypad_key(joypad::DOWN, Scancode::Down, event_pump);
+        self.set_joypad_key(JoypadKey::RIGHT, Scancode::Right, event_pump);
+        self.set_joypad_key(JoypadKey::LEFT, Scancode::Left, event_pump);
+        self.set_joypad_key(JoypadKey::UP, Scancode::Up, event_pump);
+        self.set_joypad_key(JoypadKey::DOWN, Scancode::Down, event_pump);
     }
 
     fn print_buttons() {

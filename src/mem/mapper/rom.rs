@@ -1,4 +1,4 @@
-use mem::mapper::Mapper;
+use crate::mem::mapper::Mapper;
 
 pub struct RomMapper {
     /// Mapped to the ROM area. Up to 32 KiB in size.

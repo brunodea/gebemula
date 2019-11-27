@@ -322,7 +322,7 @@ impl SquareVoice {
             self.sweep_counter = regs.sweep_period();
             self.sweep_active = regs.sweep_shift() != 0 || regs.sweep_period() != 0;
             if regs.sweep_shift() != 0 {
-                let (new_frequency, overflow) = compute_sweep(self.sweep_frequency, regs);
+                let (_new_frequency, overflow) = compute_sweep(self.sweep_frequency, regs);
                 if overflow {
                     // TODO: Disable channel
                 }
@@ -330,7 +330,7 @@ impl SquareVoice {
         }
     }
 
-    fn step(&mut self, regs: SquareVoiceSettings) {
+    fn step(&mut self, _regs: SquareVoiceSettings) {
         if self.frequency_counter > 0 {
             self.frequency_counter -= 1;
         } else {
@@ -387,7 +387,7 @@ impl WaveVoice {
         (2048 - self.frequency) * 2
     }
 
-    fn trigger(&mut self, regs: WaveVoiceSettings) {
+    fn trigger(&mut self, _regs: WaveVoiceSettings) {
         self.pos_counter = 0;
         self.frequency_counter = self.get_frequency_period();
         
@@ -396,7 +396,7 @@ impl WaveVoice {
         }
     }
 
-    fn step(&mut self, regs: WaveVoiceSettings) {
+    fn step(&mut self, _regs: WaveVoiceSettings) {
         if self.frequency_counter > 0 {
             self.frequency_counter -= 1;
         } else {
@@ -498,7 +498,7 @@ impl AudioController {
             }
             // Check if register write is allowed by current power-on status
             _ if self.apu_enabled => {}
-            CUSTOM_WAVE_START_ADDR...CUSTOM_WAVE_END_ADDR => {
+            CUSTOM_WAVE_START_ADDR..=CUSTOM_WAVE_END_ADDR => {
                 self.ch3.custom_wave[(addr - CUSTOM_WAVE_START_ADDR) as usize] = val;
             }
             _ => return,

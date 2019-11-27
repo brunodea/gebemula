@@ -2,18 +2,18 @@ use super::super::mem::Memory;
 use super::super::cpu::{interrupt, ioregister};
 
 bitflags! {
-    pub flags JoypadKey: u8 {
-        const NONE   = 0,
+    pub struct JoypadKey: u8 {
+        const NONE   = 0;
 
-        const A      = 1 << 0,
-        const B      = 1 << 1,
-        const SELECT = 1 << 2,
-        const START  = 1 << 3,
+        const A      = 1 << 0;
+        const B      = 1 << 1;
+        const SELECT = 1 << 2;
+        const START  = 1 << 3;
 
-        const RIGHT  = 1 << 4,
-        const LEFT   = 1 << 5,
-        const UP     = 1 << 6,
-        const DOWN   = 1 << 7,
+        const RIGHT  = 1 << 4;
+        const LEFT   = 1 << 5;
+        const UP     = 1 << 6;
+        const DOWN   = 1 << 7;
     }
 }
 
@@ -23,7 +23,7 @@ pub struct Joypad {
 
 impl Default for Joypad {
     fn default() -> Self {
-        Joypad { keys: NONE }
+        Joypad { keys: JoypadKey::NONE }
     }
 }
 

@@ -1,5 +1,5 @@
 use super::super::mem;
-use cpu::{interrupt, ioregister};
+use crate::cpu::{interrupt, ioregister};
 
 pub struct Timer {
     /// The timer overflow behavior is delayed.
